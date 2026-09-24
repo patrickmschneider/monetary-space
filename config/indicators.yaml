@@ -90,6 +90,18 @@ series:
     title: "Spot exchange rate, US$ into sterling, daily (context)"
     code: XUDLUSS
     freq: D
+  KAJ2:
+    fetcher: ons_timeseries
+    source: ons
+    title: "AWE private sector regular pay, £ per week, SA (u* estimate)"
+    uri: /employmentandlabourmarket/peopleinwork/earningsandworkinghours/timeseries/kaj2/lms
+    freq: M
+  LZVB:
+    fetcher: ons_timeseries
+    source: ons
+    title: "Output per hour worked, whole economy, index (u* estimate)"
+    uri: /employmentandlabourmarket/peopleinwork/labourproductivity/timeseries/lzvb/prdy
+    freq: Q
   AGENTS_CAPACITY:
     fetcher: agents_capacity
     source: boe_agents
@@ -119,8 +131,8 @@ indicators:
     unit: "%"
     freq: M
     lag_days: 45
-    benchmark: {method: manual, field: u_star, label: "u*, latest MPR estimate"}
-    sigma: {method: pre2020_sd}
+    benchmark: {method: nairu, label: "u*, estimated NAIRU (config/nairu.yaml)", compare_manual: u_star}
+    sigma: {method: pre2020_sd}   # SD of the gap u − u*
     sign: -1
     smoothing: "3-month average (LFS rolling quarter), dated by its last month"
     note: "LFS response rates are poor; payrolls are the cross-check."

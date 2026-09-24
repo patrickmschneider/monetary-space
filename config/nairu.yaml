@@ -1,0 +1,25 @@
+# u* (NAIRU) from a wage Phillips curve with a random-walk u*, estimated by Kalman filter
+# (src/monetary_space/nairu.py). It is the benchmark for the unemployment indicator and
+# the reference line on the unemployment chart.
+#
+#   y_t  = a·y_{t−1} − β·(u_t − u*_t) + ε_t
+#   u*_t = u*_{t−1} + η_t
+#   y    = private regular pay growth (q/q annualised) − expected inflation − trend productivity growth
+#
+# Results are sensitive to the expectations measure; see the sensitivity table in the README.
+
+series:
+  pay_level: KAJ2               # AWE private sector regular pay, £, SA
+  unemployment: MGSX
+  household_expectations: IAS_MEDIAN_1Y
+  cpi: D7G7
+  productivity: LZVB            # output per hour, whole economy
+
+household_weight: 0.5           # expected inflation = 0.5·households + 0.5·last quarter's CPI inflation
+cpi_lag_quarters: 1
+recentre_expectations_to: 2.0   # households' pre-2020 mean (about 2.7%) shifted to 2%
+productivity_trend_quarters: 20 # 5-year backward average of y/y productivity growth
+sigma_eta: 0.10                 # pp per quarter: how fast u* may move (fixed, not estimated)
+start: "2001Q2"                 # pay data begin in 2000
+exclude: [["2020Q1", "2021Q4"]] # furlough and composition effects distort pay growth
+band_z: 1.645                   # 90% band shown on the chart

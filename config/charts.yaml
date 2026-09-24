@@ -1,5 +1,5 @@
 # Context charts (not scored): the economy at a glance. Series come from indicators.yaml.
-# reference: a horizontal line, from a value or a manual/mpr.csv field.
+# reference: a horizontal line from a value or a manual/mpr.csv field, or the estimated u* path (nairu: true).
 # ylim: fixed axis range; values outside it are clipped and listed in a note.
 
 since: "2016-01"
@@ -28,7 +28,7 @@ charts:
     series: MGSX
     transform: level
     unit: "%"
-    reference: {manual: u_star, label: "u*"}
+    reference: {nairu: true, label: "u*"}
 
   - id: bank_rate
     title: Bank Rate

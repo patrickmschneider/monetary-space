@@ -26,6 +26,7 @@ class Config:
     weights: dict
     manual: dict[str, pd.DataFrame]
     charts: dict
+    nairu: dict
 
 
 def load(root: Path) -> Config:
@@ -34,7 +35,9 @@ def load(root: Path) -> Config:
     manual = {p.stem: pd.read_csv(p, comment="#") for p in sorted((root / "manual").glob("*.csv"))}
     charts_path = root / "config" / "charts.yaml"
     charts = yaml.safe_load(charts_path.read_text()) if charts_path.exists() else {}
-    cfg = Config(ind["sources"], ind["series"], ind["indicators"], weights, manual, charts)
+    nairu_path = root / "config" / "nairu.yaml"
+    nairu = yaml.safe_load(nairu_path.read_text()) if nairu_path.exists() else {}
+    cfg = Config(ind["sources"], ind["series"], ind["indicators"], weights, manual, charts, nairu)
     validate(cfg)
     return cfg
 
@@ -62,6 +65,9 @@ def validate(cfg: Config) -> None:
     for c in cfg.charts.get("charts", []):
         if c["series"] not in cfg.series:
             raise ValueError(f"chart {c['id']}: unknown series {c['series']}")
+    for role, sid in cfg.nairu.get("series", {}).items():
+        if sid not in cfg.series:
+            raise ValueError(f"nairu.yaml {role}: unknown series {sid}")
     w = cfg.weights["pressure"]["weights"]
     if abs(sum(w.values()) - 1) > 1e-9:
         raise ValueError(f"pressure weights sum to {sum(w.values())}, not 1")

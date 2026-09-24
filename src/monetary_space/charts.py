@@ -26,12 +26,19 @@ class ChartData:
     step: bool
     x: pd.Series                       # monthly, from `since`
     reference: tuple[float, str] | None
+    ref_path: tuple[pd.Series, pd.Series, pd.Series, str] | None   # (centre, low, high, label), monthly
     ylim: tuple[float, float] | None
     source: str
     attribution: str
 
 
-def prepare(cfg: Config, data: dict[str, pd.Series], as_of: pd.Timestamp) -> list[ChartData]:
+def _monthly_path(q: pd.Series, since: pd.Period, until: pd.Period) -> pd.Series:
+    m = transform.carry_forward(q, until)
+    return m[m.index >= since]
+
+
+def prepare(cfg: Config, data: dict[str, pd.Series], as_of: pd.Timestamp,
+            estimates: dict | None = None) -> list[ChartData]:
     since = pd.Period(cfg.charts.get("since", "2016-01"), "M")
     out = []
     for c in cfg.charts.get("charts", []):
@@ -41,8 +48,15 @@ def prepare(cfg: Config, data: dict[str, pd.Series], as_of: pd.Timestamp) -> lis
         x = transform.apply(c.get("transform", "level"), [data[sid]])
         x = transform.to_monthly(x) if not x.index.freqstr.startswith("D") else x
         x = x[x.index >= since]
-        ref = None
-        if r := c.get("reference"):
+        ref, ref_path = None, None
+        if (r := c.get("reference")) and r.get("nairu"):
+            est = (estimates or {}).get("nairu")
+            if est is not None:
+                z = cfg.nairu.get("band_z", 1.645)
+                end = x.index[-1]
+                path = [_monthly_path(s, since, end) for s in (est.u_star, est.u_star - z * est.se, est.u_star + z * est.se)]
+                ref_path = (*path, f"{r.get('label', 'u*')} {num(path[0].iloc[-1], 1)}")
+        elif r:
             if "manual" in r:
                 v, cite = manual_value(cfg, r["manual"], as_of)
                 ref = (v, f"{r.get('label', r['manual'])} {num(v, 2)}")
@@ -51,7 +65,7 @@ def prepare(cfg: Config, data: dict[str, pd.Series], as_of: pd.Timestamp) -> lis
         src = cfg.series[sid]["source"]
         out.append(ChartData(
             id=c["id"], title=c["title"], subtitle=c["subtitle"], unit=c.get("unit", ""),
-            decimals=c.get("decimals", 1), step=c.get("step", False), x=x, reference=ref,
+            decimals=c.get("decimals", 1), step=c.get("step", False), x=x, reference=ref, ref_path=ref_path,
             ylim=tuple(c["ylim"]) if c.get("ylim") else None,
             source=cfg.sources[src]["name"], attribution=cfg.sources[src]["attribution"],
         ))
@@ -107,6 +121,8 @@ def svg(c: ChartData) -> tuple[str, str]:
     lo, hi = (min(vals), max(vals))
     if c.reference:
         lo, hi = min(lo, c.reference[0]), max(hi, c.reference[0])
+    if c.ref_path:
+        lo, hi = min(lo, c.ref_path[1].min()), max(hi, c.ref_path[2].max())
     if c.ylim:
         lo, hi = c.ylim
     if hi - lo < 1e-9:  # flat series: give the axis some height
@@ -150,6 +166,14 @@ def svg(c: ChartData) -> tuple[str, str]:
         ref = f'<line x1="{ML}" x2="{W - MR}" y1="{py(v):.1f}" y2="{py(v):.1f}" class="{cls}"/>'
         if label:
             ref += f'<text x="{W - MR + 4}" y="{py(v) + 3:.1f}" class="ref-label">{escape(label)}</text>'
+    if c.ref_path:
+        centre, low, high, label = c.ref_path
+        upper = [(px(p), py(v)) for p, v in high.items()]
+        lower = [(px(p), py(v)) for p, v in low.items()][::-1]
+        band = " ".join(f"{a:.1f},{b:.1f}" for a, b in upper + lower)
+        mid = "M" + "L".join(f"{px(p):.1f},{py(v):.1f}" for p, v in centre.items())
+        ref += (f'<polygon points="{band}" class="ref-band"/><path d="{mid}" class="ref-path"/>'
+                f'<text x="{W - MR + 4}" y="{py(centre.iloc[-1]) + 3:.1f}" class="ref-label">{escape(label)}</text>')
     lx, ly = pts[-1]
     data = json.dumps({
         "x": [round(a, 1) for a, _ in pts], "y": [round(b, 1) if MT <= b <= H - MB else None for _, b in pts],
@@ -243,6 +267,8 @@ CSS = """
 .line-chart .last{fill:var(--ink)}
 .line-chart .ref{stroke:var(--muted);stroke-width:1;stroke-dasharray:4 3}
 .line-chart .zero{stroke:var(--muted);stroke-width:1}
+.line-chart .ref-path{fill:none;stroke:var(--muted);stroke-width:1.2;stroke-dasharray:4 3}
+.line-chart .ref-band{fill:var(--band);opacity:.7}
 .line-chart .ref-label{font-size:9.5px;fill:var(--muted);text-anchor:start}
 .line-chart .hover-rule{stroke:var(--muted);stroke-width:1}
 .line-chart .hover-dot{fill:var(--bg);stroke:var(--ink);stroke-width:1.6}

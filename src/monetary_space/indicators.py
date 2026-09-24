@@ -36,8 +36,24 @@ class Indicator:
     failed_series: list[str] = field(default_factory=list)
 
 
-def _benchmark(spec: dict, x: pd.Series, cfg: Config, as_of: pd.Timestamp) -> tuple[float, str]:
+def _benchmark(spec: dict, x: pd.Series, cfg: Config, as_of: pd.Timestamp,
+               estimates: dict) -> tuple[float | pd.Series, str]:
+    """A constant, or a time-varying series (the estimated u*), with a label for the tooltip."""
     m = spec["method"]
+    if m == "nairu":
+        est = estimates.get("nairu")
+        if est is None:
+            raise ValueError("u* estimate unavailable")
+        z = cfg.nairu.get("band_z", 1.645)
+        last, se = est.u_star.iloc[-1], est.se.iloc[-1]
+        label = f"{spec.get('label', 'u*')}; {est.u_star.index[-1]} {last:.2f}, 90% band {last - z * se:.1f}–{last + z * se:.1f}"
+        if spec.get("compare_manual"):
+            try:
+                v, cite = manual_value(cfg, spec["compare_manual"], as_of)
+                label += f"; {cite}: {v:.2f}"
+            except (KeyError, ValueError):
+                pass
+        return est.u_star, label
     if m == "value":
         return float(spec["value"]), spec.get("label", "config value")
     if m == "pre2020_mean":
@@ -67,18 +83,28 @@ def is_stale(period: pd.Period, lag_days: int, as_of: pd.Timestamp, grace_days: 
     return as_of > next_due(period, lag_days) + pd.Timedelta(days=grace_days)
 
 
+def _align(b: pd.Series, x: pd.Series) -> pd.Series:
+    """Benchmark path on x's periods, carried forward (never interpolated)."""
+    if x.index.freqstr == "M":
+        return transform.carry_forward(b, x.index[-1]).reindex(x.index)
+    return b.reindex(b.index.union(x.index)).ffill().reindex(x.index)
+
+
 def compute(spec: dict, data: dict[str, pd.Series], cfg: Config, as_of: pd.Timestamp,
-            failed: set[str] = frozenset()) -> Indicator:
+            failed: set[str] = frozenset(), estimates: dict | None = None) -> Indicator:
     w = cfg.weights
     clip = w["z_clip"]
     inputs = [data[s] for s in spec["series"]]
     x = transform.apply(spec["transform"], inputs, drop_last=spec.get("drop_last", 0))
     x = x[x.index.to_timestamp(how="start") <= as_of]
-    b, b_label = _benchmark(spec["benchmark"], x, cfg, as_of)
-    sigma, sigma_label = _sigma(spec["sigma"], x)
+    b, b_label = _benchmark(spec["benchmark"], x, cfg, as_of, estimates or {})
+    b_path = _align(b, x) if isinstance(b, pd.Series) else None
+    gap = (x - b_path).dropna() if b_path is not None else x - b
+    b = float(b_path.iloc[-1]) if b_path is not None else b
+    sigma, sigma_label = _sigma(spec["sigma"], gap)   # SD of x − b: the same as SD of x when b is constant
     sign = spec["sign"]
 
-    raw = sign * (x - b) / sigma
+    raw = sign * gap / sigma
     clipped = raw.clip(-clip, clip)
     recent = raw[raw.index.to_timestamp() >= pd.Timestamp(w["history"]["saturation_since"])]
 

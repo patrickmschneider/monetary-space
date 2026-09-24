@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: monetary-space
+Version: 0.1.0
+Summary: Single-screen UK monetary policy dashboard
+Requires-Python: >=3.11
+Requires-Dist: pandas>=2.1
+Requires-Dist: pyarrow>=14
+Requires-Dist: pyyaml>=6
+Requires-Dist: requests>=2.31
+Requires-Dist: openpyxl>=3.1
+Requires-Dist: numpy>=1.26
+Requires-Dist: scipy>=1.11
+Provides-Extra: test
+Requires-Dist: pytest>=8; extra == "test"

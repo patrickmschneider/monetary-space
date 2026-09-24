@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import charts, config, indicators, render, store
+from . import charts, config, indicators, nairu, render, store
 from .fetch import fetch
 
 log = logging.getLogger("monetary_space")
@@ -43,7 +43,22 @@ def fetch_all(cfg: config.Config, previous: dict[str, pd.Series], run_at: str) -
     return FetchResult(data, failed, rows)
 
 
-def score_all(cfg: config.Config, data: dict[str, pd.Series], as_of: pd.Timestamp, failed: set[str]):
+def estimate_all(cfg: config.Config, data: dict[str, pd.Series]) -> tuple[dict, list[str]]:
+    """Model-based benchmarks. A failure disables only the indicators that use them."""
+    estimates, problems = {}, []
+    if cfg.nairu:
+        try:
+            est = nairu.from_config(data, cfg.nairu)
+            estimates["nairu"] = est
+            log.info("u* %s = %.2f (β=%.2f, a=%.2f, n=%d)", est.u_star.index[-1], est.u_star.iloc[-1], est.beta, est.a, est.nobs)
+        except Exception as e:  # noqa: BLE001
+            problems.append(f"u* estimate: {type(e).__name__}: {e}")
+            log.warning("u* estimate failed: %s", e)
+    return estimates, problems
+
+
+def score_all(cfg: config.Config, data: dict[str, pd.Series], as_of: pd.Timestamp, failed: set[str],
+              estimates: dict | None = None):
     inds, problems = [], []
     for spec in cfg.indicators:
         missing = [s for s in spec["series"] if s not in data]
@@ -51,7 +66,7 @@ def score_all(cfg: config.Config, data: dict[str, pd.Series], as_of: pd.Timestam
             problems.append(f"{spec['id']}: no data for {', '.join(missing)}")
             continue
         try:
-            inds.append(indicators.compute(spec, data, cfg, as_of, failed))
+            inds.append(indicators.compute(spec, data, cfg, as_of, failed, estimates))
         except Exception as e:  # noqa: BLE001
             problems.append(f"{spec['id']}: {type(e).__name__}: {e}")
             log.warning("could not score %s: %s", spec["id"], e)
@@ -75,9 +90,11 @@ def run(root: Path, store_dir: Path, out_dir: Path, fetch_data: bool = True) -> 
             raise SystemExit("no stored vintage to build from; run with fetching enabled")
         res = FetchResult(previous, set(), [])
 
-    inds, blocks, problems = score_all(cfg, res.data, as_of, res.failed)
+    estimates, est_problems = estimate_all(cfg, res.data)
+    inds, blocks, problems = score_all(cfg, res.data, as_of, res.failed, estimates)
+    problems = est_problems + problems
     try:
-        context = charts.prepare(cfg, res.data, as_of)
+        context = charts.prepare(cfg, res.data, as_of, estimates)
     except Exception as e:  # noqa: BLE001 — context charts must never stop the build
         context = []
         problems.append(f"context charts: {type(e).__name__}: {e}")
