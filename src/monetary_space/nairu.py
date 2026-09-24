@@ -58,7 +58,7 @@ def smooth(k: KalmanOutput, T: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Rauch–Tung–Striebel smoother."""
     s, Ps = k.filtered.copy(), k.filtered_var.copy()
     for t in range(len(s) - 2, -1, -1):
-        J = k.filtered_var[t] @ T.T @ np.linalg.inv(k.predicted_var[t + 1])
+        J = k.filtered_var[t] @ T.T @ np.linalg.pinv(k.predicted_var[t + 1])
         s[t] = k.filtered[t] + J @ (s[t + 1] - k.predicted[t + 1])
         Ps[t] = k.filtered_var[t] + J @ (Ps[t + 1] - k.predicted_var[t + 1]) @ J.T
     return s, Ps

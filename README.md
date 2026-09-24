@@ -4,7 +4,7 @@ A single-screen UK monetary policy dashboard: is policy tight enough for the inf
 
 A Python script fetches the data, scores it and renders one static HTML page. GitHub Actions rebuilds the page on a schedule and GitHub Pages hosts it. The full build spec is in [docs/SPEC.md](docs/SPEC.md).
 
-**Status:** Phase 1 of 4. Blocks A (demand) and B (domestic inflation) are scored on a plain page. The global block, policy stance, verdict and final layout come in later phases.
+**Status:** Phase 2 of 4. All four blocks, the verdict and the policy path chart are live. The layout pass, Compare-to, release log and embed view come in Phase 3.
 
 ## Run it locally
 
@@ -55,6 +55,34 @@ A first version used the wage Phillips curve alone, without the gap equation. It
 | Phillips curve only (first version) | 4.9 | 5.1 | 5.2 | 5.1 | 5.1 | 5.2 | ±0.9 | 95% |
 
 For comparison, the February 2026 MPR put u\* at about 4¾%.
+
+## Estimated r\* (neutral real rate)
+
+Policy stance compares the real 2-year rate (2-year OIS minus the MPR's year-ahead CPI projection) with our own estimate of r\*. It comes from a Holston–Laubach–Williams-style model (`src/monetary_space/rstar.py`, settings in `config/rstar.yaml`), estimated by Kalman filter on quarterly data from 1993:
+
+- IS curve: the output gap depends on its own lags and on the real policy rate relative to r\*.
+- Phillips curve: seasonally adjusted core CPI inflation depends on its lags and the output gap.
+- Potential output, trend growth g and other factors z follow random walks; r\* = 4g + z (g at an annual rate).
+- As in HLW, two shock variances are tied to others by ratios (λg, λz). HLW estimate them in earlier stages; here they are fixed. The IS-curve slope is not identified in UK data (real rates were negative for a decade without overheating), so it is fixed too. 2020–21 is excluded.
+- The neutral zone is r\* ± one standard error, never narrower than ±0.5pp.
+
+The estimate is fragile and depends on the fixed settings. The model reads the 2009–21 years of negative real rates, without overheating, as a low r\*; the zero lower bound and QE make the real policy rate an imperfect measure of stance, which biases r\* down. Latest quarter (2025 Q4), with λg = 0.05:
+
+| IS slope ar | λz | 1998 | 2007 | 2014 | 2019 | 2023 | 2025 Q4 | ± 1 s.e. |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **−0.10 (default)** | **0.03** | 3.6 | 1.5 | −0.2 | −0.7 | −0.8 | **−0.8** | 1.1 |
+| −0.15 | 0.03 | 3.6 | 1.5 | 0.1 | −0.3 | −0.4 | −0.3 | 0.9 |
+| −0.05 | 0.03 | 3.9 | 1.6 | −0.3 | −1.1 | −1.5 | −1.5 | 2.3 |
+| −0.10 | 0.05 | 4.4 | 1.1 | −1.5 | −2.4 | −2.7 | −2.6 | 1.3 |
+| −0.05 | 0.05 | 5.1 | 0.5 | −2.9 | −4.7 | −5.6 | −5.5 | 3.1 |
+
+Published estimates cluster around 1% real (Bank staff's 3% nominal; Alan Taylor's 0.75–1%); the page lists them for comparison (`manual/rstar.csv`).
+
+## Global block
+
+- Brent crude (FRED, US$) and the sterling effective exchange rate (Bank of England) enter as 12-month % changes of monthly averages.
+- Gas is the ONS System Average Price, from 2018. Its σ is a config value: the 2010–19 SD of 12-month changes in the NBP day-ahead price (36pp).
+- The OECD no longer publishes a euro-area leading indicator. Germany, France, Italy and Spain stand in, weighted with the US 65/35 by UK export shares (EU 41%, US 22% of UK exports in 2025); the country weights within Europe are approximate GDP shares (confirm).
 
 ## Scheduled builds
 

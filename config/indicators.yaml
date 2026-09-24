@@ -19,6 +19,12 @@ sources:
   boe:
     name: Bank of England
     attribution: "Source: Bank of England."
+  fred:
+    name: FRED, Federal Reserve Bank of St. Louis
+    attribution: "Source: U.S. Energy Information Administration via FRED, Federal Reserve Bank of St. Louis."
+  oecd:
+    name: OECD
+    attribution: "Source: OECD Composite Leading Indicators, licensed under CC BY 4.0."
   boe_agents:
     name: Bank of England Agents
     attribution: "Source: Bank of England Agents' scores."
@@ -102,6 +108,61 @@ series:
     title: "Output per hour worked, whole economy, index (u* estimate)"
     uri: /employmentandlabourmarket/peopleinwork/labourproductivity/timeseries/lzvb/prdy
     freq: Q
+  ABMI:
+    fetcher: ons_timeseries
+    source: ons
+    title: "Real GDP, chained volume, £m, SA, quarterly (r* estimate)"
+    uri: /economy/grossdomesticproductgdp/timeseries/abmi/qna
+    freq: Q
+  DKC6:
+    fetcher: ons_timeseries
+    source: ons
+    title: "CPI excluding energy, food, alcohol & tobacco, index (r* estimate)"
+    uri: /economy/inflationandpriceindices/timeseries/dkc6/mm23
+    freq: M
+  DKO8:
+    fetcher: ons_timeseries
+    source: ons
+    title: "CPI excluding energy, food, alcohol & tobacco, annual rate, % (policy rule)"
+    uri: /economy/inflationandpriceindices/timeseries/dko8/mm23
+    freq: M
+  OIS_2Y:
+    fetcher: boe_ois_spot
+    source: boe
+    title: "Sterling OIS (SONIA) 2-year spot rate, %, daily"
+    maturity: 2.0
+    freq: D
+  OIS_FWD:
+    fetcher: boe_ois_forwards
+    source: boe
+    title: "Sterling OIS instantaneous forward curve, %, daily, by maturity in years"
+    maturities: [0.0833, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0]
+    since: "2024-01-01"
+    freq: D
+  DCOILBRENTEU:
+    fetcher: fred
+    source: fred
+    title: "Brent crude oil, US$ per barrel, daily"
+    code: DCOILBRENTEU
+    freq: D
+  XUDLBK67:
+    fetcher: boe_iadb
+    source: boe
+    title: "Sterling effective exchange rate index (broad, Jan 2005 = 100), daily"
+    code: XUDLBK67
+    freq: D
+  SAP_GAS:
+    fetcher: ons_sap_gas
+    source: ons
+    title: "System Average Price of gas, pence per kWh, monthly"
+    uri: /economy/economicoutputandproductivity/output/datasets/systemaveragepricesapofgas
+    freq: M
+  OECD_CLI:
+    fetcher: oecd_cli
+    source: oecd
+    title: "OECD Composite Leading Indicators, amplitude adjusted (long-term average = 100)"
+    areas: [DEU, FRA, ITA, ESP, USA]
+    freq: M
   AGENTS_CAPACITY:
     fetcher: agents_capacity
     source: boe_agents
@@ -153,6 +214,7 @@ indicators:
 
   - id: payrolls
     name: PAYE payrolled employees
+    phrase: payroll employment
     block: A
     series: [RTI_PAYROLLS]
     transform: annualised_3m3m
@@ -188,6 +250,7 @@ indicators:
 
   - id: capacity
     name: Capacity utilisation (Agents)
+    phrase: the Agents' capacity utilisation score
     block: A
     series: [AGENTS_CAPACITY]
     transform: level
@@ -236,6 +299,7 @@ indicators:
 
   - id: dmp_prices
     name: Firms' expected own-price growth
+    phrase: firms' price expectations
     block: B
     series: [DMP_PRICE_1Y]
     transform: level
@@ -256,6 +320,7 @@ indicators:
 
   - id: household_expectations
     name: Household inflation expectations
+    phrase: households' inflation expectations
     block: B
     series: [IAS_MEDIAN_1Y]
     transform: level
@@ -267,3 +332,70 @@ indicators:
     sign: 1
     smoothing: none
     note: "Median expected change in shop prices over the next 12 months. The survey provider appears to have changed from Ipsos to Savanta in 2026 (confirm for a break)."
+
+  # ------------------------------------------------------------------- C. Global
+  - id: brent
+    name: Brent crude oil price
+    phrase: oil prices
+    block: C
+    series: [DCOILBRENTEU]
+    transform: [monthly_mean, pct_change_12m]
+    unit: "% y/y"
+    freq: M
+    lag_days: 5
+    benchmark: {method: value, value: 0, label: "0: no change on a year earlier"}
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: "Monthly average of daily prices, 12-month % change"
+    note: "In US dollars, so the exchange rate is not counted twice."
+
+  - id: gas
+    name: UK wholesale gas price
+    phrase: gas prices
+    block: C
+    series: [SAP_GAS]
+    transform: pct_change_12m
+    unit: "% y/y"
+    freq: M
+    lag_days: 25
+    benchmark: {method: value, value: 0, label: "0: no change on a year earlier"}
+    sigma:
+      method: value
+      value: 36
+      rationale: >-
+        The System Average Price starts in 2018, too short for a pre-2020 SD. 36pp = SD of
+        12-month changes in the UK NBP day-ahead gas price, 2010–2019 (Ofgem monthly averages).
+    sign: 1
+    smoothing: "Monthly average, 12-month % change"
+    note: "Priced in sterling, a small overlap with the exchange rate that the team accepts."
+
+  - id: sterling
+    name: Sterling effective exchange rate
+    block: C
+    series: [XUDLBK67]
+    transform: [monthly_mean, pct_change_12m]
+    unit: "% y/y"
+    freq: M
+    lag_days: 3
+    benchmark: {method: value, value: 0, label: "0: no change on a year earlier"}
+    sigma: {method: pre2020_sd}
+    sign: -1
+    smoothing: "Monthly average of daily index, 12-month % change"
+    note: "A rise is an appreciation, which lowers import prices: the sign is negative."
+
+  - id: leading_indicator
+    name: Trading partners' leading indicator
+    block: C
+    series: [OECD_CLI:DEU, OECD_CLI:FRA, OECD_CLI:ITA, OECD_CLI:ESP, OECD_CLI:USA]
+    transform: weighted_mean
+    # Europe 65%, US 35%: UK exports to the EU (41%) and US (22%) in 2025 (ONS L84Y, XEUL).
+    # Within Europe, approximate GDP shares; the OECD no longer publishes a euro-area CLI (confirm).
+    weights: [0.25, 0.18, 0.13, 0.09, 0.35]
+    unit: index
+    freq: M
+    lag_days: 40
+    benchmark: {method: value, value: 100, label: "100 = long-term trend"}
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: "OECD amplitude-adjusted CLI"
+    note: "Germany, France, Italy and Spain stand in for the euro area, with the United States."

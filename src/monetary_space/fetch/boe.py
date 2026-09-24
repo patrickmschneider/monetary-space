@@ -7,9 +7,12 @@ are overwritten in place.
 from __future__ import annotations
 
 import datetime as dt
+import functools
 import io
 import re
+import zipfile
 
+import numpy as np
 import pandas as pd
 import requests
 
@@ -126,3 +129,61 @@ def iadb(code: str, start: str = "01/Jan/1990") -> pd.Series:
     params = {"csv.x": "yes", "Datefrom": start, "Dateto": "now", "SeriesCodes": code,
               "CSVF": "TN", "UsingCodes": "Y", "VPD": "Y", "VFD": "N"}
     return parse_iadb_csv(get(IADB, params=params).text, code)
+
+
+# ------------------------------------------------------------------ OIS (SONIA) curves
+# Bank of England yield curves: archive (2009 to last month) + current-month file,
+# both overwritten in place. Rates are continuously compounded zero-coupon, in %.
+# The monthly-maturity "short end" sheets (1/12y to 5y) exist in every file.
+YC = f"{BOE}/-/media/boe/files/statistics/yield-curves/"
+OIS_ARCHIVE, OIS_LATEST = YC + "oisddata.zip", YC + "latest-yield-curve-data.zip"
+FWD_SHEETS = ("1. fwds, short end", "1. fwd curve")      # 2016+ / 2009–2015 file
+SPOT_SHEETS = ("3. spot, short end", "2. spot curve")
+
+
+def _parse_curve_sheet(raw: pd.DataFrame) -> pd.DataFrame:
+    col_a = raw.iloc[:, 0]
+    yrs_row = raw.index[col_a.astype(str).str.strip().str.lower() == "years:"][0]
+    mats = pd.to_numeric(raw.loc[yrs_row].iloc[1:], errors="coerce")
+    is_date = col_a.map(lambda v: hasattr(v, "year"))
+    data = raw.loc[is_date & (raw.index > yrs_row)]
+    df = data.iloc[:, 1:].apply(pd.to_numeric, errors="coerce")
+    df.index = pd.to_datetime(data.iloc[:, 0])
+    keep = mats.notna().to_numpy()
+    df = df.loc[:, keep]
+    df.columns = np.round(mats[keep].astype(float).to_numpy(), 4)
+    return df.dropna(how="all")
+
+
+@functools.lru_cache(maxsize=2)
+def _ois_zip(url: str) -> bytes:
+    content = get(url).content
+    if not content.startswith(b"PK"):
+        raise RuntimeError(f"{url} did not return a zip file")
+    return content
+
+
+def _ois_curves(sheets: tuple[str, ...]) -> pd.DataFrame:
+    frames = []
+    for url in (OIS_ARCHIVE, OIS_LATEST):                  # latest last, so it wins on overlap
+        with zipfile.ZipFile(io.BytesIO(_ois_zip(url))) as z:
+            for name in sorted(z.namelist()):
+                if name.startswith("OIS daily data") and name.endswith(".xlsx"):
+                    xl = pd.ExcelFile(io.BytesIO(z.read(name)), engine="openpyxl")
+                    sheet = next(s for s in sheets if s in xl.sheet_names)
+                    frames.append(_parse_curve_sheet(xl.parse(sheet, header=None)))
+    df = pd.concat(frames)
+    return df[~df.index.duplicated(keep="last")].sort_index()
+
+
+def ois_spot(maturity: float) -> pd.Series:
+    s = _ois_curves(SPOT_SHEETS)[round(float(maturity), 4)].dropna()
+    return pd.Series(s.to_numpy(), index=pd.PeriodIndex(s.index, freq="D"), name=f"OIS_{maturity:g}Y")
+
+
+def ois_forwards(maturities: list[float], since: str) -> dict[str, pd.Series]:
+    """Instantaneous forward rates at the given maturities (years), daily from `since`."""
+    df = _ois_curves(FWD_SHEETS)
+    df = df[df.index >= pd.Timestamp(since)]
+    return {f"{m:g}": pd.Series(df[round(float(m), 4)].to_numpy(), index=pd.PeriodIndex(df.index, freq="D")).dropna()
+            for m in maturities}

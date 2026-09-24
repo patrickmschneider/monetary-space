@@ -34,6 +34,7 @@ class Indicator:
     clip_share: float
     clip_share_recent: float
     failed_series: list[str] = field(default_factory=list)
+    phrase: str = ""             # how the lead sentence names it, if not the lower-cased name
 
 
 def _benchmark(spec: dict, x: pd.Series, cfg: Config, as_of: pd.Timestamp,
@@ -95,7 +96,7 @@ def compute(spec: dict, data: dict[str, pd.Series], cfg: Config, as_of: pd.Times
     w = cfg.weights
     clip = w["z_clip"]
     inputs = [data[s] for s in spec["series"]]
-    x = transform.apply(spec["transform"], inputs, drop_last=spec.get("drop_last", 0))
+    x = transform.apply(spec["transform"], inputs, drop_last=spec.get("drop_last", 0), weights=spec.get("weights"))
     x = x[x.index.to_timestamp(how="start") <= as_of]
     b, b_label = _benchmark(spec["benchmark"], x, cfg, as_of, estimates or {})
     b_path = _align(b, x) if isinstance(b, pd.Series) else None
@@ -110,7 +111,7 @@ def compute(spec: dict, data: dict[str, pd.Series], cfg: Config, as_of: pd.Times
 
     period = x.index[-1]
     latest = score.zscore(float(x.iloc[-1]), b, sigma, sign, clip)
-    src = cfg.series[spec["series"][0]]["source"]
+    src = cfg.series[spec["series"][0].split(":")[0]]["source"]
     return Indicator(
         id=spec["id"], name=spec["name"], block=spec["block"], unit=spec["unit"],
         x=x, b=b, b_label=b_label, sigma=sigma, sigma_label=sigma_label, sign=sign,
@@ -123,7 +124,8 @@ def compute(spec: dict, data: dict[str, pd.Series], cfg: Config, as_of: pd.Times
         smoothing=spec.get("smoothing", "none"), note=spec.get("note", ""),
         clip_share=float((raw.abs() > clip).mean()),
         clip_share_recent=float((recent.abs() > clip).mean()) if len(recent) else 0.0,
-        failed_series=[s for s in spec["series"] if s in failed],
+        failed_series=[s for s in spec["series"] if s.split(":")[0] in failed],
+        phrase=spec.get("phrase", ""),
     )
 
 

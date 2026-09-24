@@ -114,7 +114,7 @@ def off_scale_note(x: pd.Series, lo: float, hi: float, unit: str, dp: int) -> st
             f"values reached {value_label(out.min(), unit, dp)} and {value_label(out.max(), unit, dp)}.")
 
 
-def svg(c: ChartData) -> tuple[str, str]:
+def svg(c: ChartData, width: int = W) -> tuple[str, str]:
     """Return (svg markup, off-scale note)."""
     x = c.x.dropna()
     vals = list(x)
@@ -135,7 +135,7 @@ def svg(c: ChartData) -> tuple[str, str]:
 
     def px(p: pd.Period) -> float:
         mid = p.start_time + (p.end_time - p.start_time) / 2
-        return ML + (mid - t0).total_seconds() / span * (W - ML - MR)
+        return ML + (mid - t0).total_seconds() / span * (width - ML - MR)
 
     def py(v: float) -> float:
         return MT + (yhi - v) / (yhi - ylo) * (H - MT - MB)
@@ -148,12 +148,12 @@ def svg(c: ChartData) -> tuple[str, str]:
         d = "M" + "L".join(f"{a:.1f},{b:.1f}" for a, b in pts)
 
     grid = "".join(
-        f'<line x1="{ML}" x2="{W - MR}" y1="{py(t):.1f}" y2="{py(t):.1f}" class="grid"/>'
+        f'<line x1="{ML}" x2="{width - MR}" y1="{py(t):.1f}" y2="{py(t):.1f}" class="grid"/>'
         f'<text x="{ML - 6}" y="{py(t) + 3:.1f}" class="ytick">{tick_label(t, ticks, c.decimals)}</text>'
         for t in ticks
     )
     years = range(x.index[0].year + (x.index[0].month > 1), x.index[-1].year + 1)
-    step_years = 2 if len(years) > 6 else 1
+    step_years = next(s for s in (1, 2, 5, 10) if len(years) / s <= 8)
     xt = "".join(
         f'<text x="{px(pd.Period(f"{y}-01", "M")):.1f}" y="{H - 6}" class="xtick">{y}</text>'
         f'<line x1="{px(pd.Period(f"{y}-01", "M")):.1f}" x2="{px(pd.Period(f"{y}-01", "M")):.1f}" y1="{H - MB}" y2="{H - MB + 3}" class="axis"/>'
@@ -163,9 +163,9 @@ def svg(c: ChartData) -> tuple[str, str]:
     if c.reference:
         v, label = c.reference
         cls = "zero" if v == 0 and not label else "ref"
-        ref = f'<line x1="{ML}" x2="{W - MR}" y1="{py(v):.1f}" y2="{py(v):.1f}" class="{cls}"/>'
+        ref = f'<line x1="{ML}" x2="{width - MR}" y1="{py(v):.1f}" y2="{py(v):.1f}" class="{cls}"/>'
         if label:
-            ref += f'<text x="{W - MR + 4}" y="{py(v) + 3:.1f}" class="ref-label">{escape(label)}</text>'
+            ref += f'<text x="{width - MR + 4}" y="{py(v) + 3:.1f}" class="ref-label">{escape(label)}</text>'
     if c.ref_path:
         centre, low, high, label = c.ref_path
         upper = [(px(p), py(v)) for p, v in high.items()]
@@ -173,7 +173,7 @@ def svg(c: ChartData) -> tuple[str, str]:
         band = " ".join(f"{a:.1f},{b:.1f}" for a, b in upper + lower)
         mid = "M" + "L".join(f"{px(p):.1f},{py(v):.1f}" for p, v in centre.items())
         ref += (f'<polygon points="{band}" class="ref-band"/><path d="{mid}" class="ref-path"/>'
-                f'<text x="{W - MR + 4}" y="{py(centre.iloc[-1]) + 3:.1f}" class="ref-label">{escape(label)}</text>')
+                f'<text x="{width - MR + 4}" y="{py(centre.iloc[-1]) + 3:.1f}" class="ref-label">{escape(label)}</text>')
     lx, ly = pts[-1]
     data = json.dumps({
         "x": [round(a, 1) for a, _ in pts], "y": [round(b, 1) if MT <= b <= H - MB else None for _, b in pts],
@@ -183,9 +183,9 @@ def svg(c: ChartData) -> tuple[str, str]:
     label = (f"{c.title}, {x.index[0].strftime('%B %Y')} to {x.index[-1].strftime('%B %Y')}. "
              f"Latest {latest}. Range {value_label(min(vals), c.unit, c.decimals)} to {value_label(max(vals), c.unit, c.decimals)}.")
     markup = (
-        f'<svg viewBox="0 0 {W} {H}" class="line-chart" role="img" aria-label="{escape(label)}" data-points=\'{escape(data)}\'>'
-        f'{grid}{ref}<line x1="{ML}" x2="{W - MR}" y1="{H - MB}" y2="{H - MB}" class="axis"/>{xt}'
-        f'<clipPath id="clip-{c.id}"><rect x="{ML}" y="{MT}" width="{W - ML - MR}" height="{H - MT - MB}"/></clipPath>'
+        f'<svg viewBox="0 0 {width} {H}" class="line-chart" role="img" aria-label="{escape(label)}" data-points=\'{escape(data)}\'>'
+        f'{grid}{ref}<line x1="{ML}" x2="{width - MR}" y1="{H - MB}" y2="{H - MB}" class="axis"/>{xt}'
+        f'<clipPath id="clip-{c.id}"><rect x="{ML}" y="{MT}" width="{width - ML - MR}" height="{H - MT - MB}"/></clipPath>'
         f'<g clip-path="url(#clip-{c.id})"><path d="{d}" class="series"/><circle cx="{lx:.1f}" cy="{ly:.1f}" r="2.6" class="last"/></g>'
         f'<g class="hover" visibility="hidden"><line y1="{MT}" y2="{H - MB}" class="hover-rule"/><circle r="3.2" class="hover-dot"/></g>'
         "</svg>"

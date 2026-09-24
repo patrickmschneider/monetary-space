@@ -27,6 +27,7 @@ class Config:
     manual: dict[str, pd.DataFrame]
     charts: dict
     nairu: dict
+    rstar: dict
 
 
 def load(root: Path) -> Config:
@@ -37,7 +38,9 @@ def load(root: Path) -> Config:
     charts = yaml.safe_load(charts_path.read_text()) if charts_path.exists() else {}
     nairu_path = root / "config" / "nairu.yaml"
     nairu = yaml.safe_load(nairu_path.read_text()) if nairu_path.exists() else {}
-    cfg = Config(ind["sources"], ind["series"], ind["indicators"], weights, manual, charts, nairu)
+    rstar_path = root / "config" / "rstar.yaml"
+    rstar = yaml.safe_load(rstar_path.read_text()) if rstar_path.exists() else {}
+    cfg = Config(ind["sources"], ind["series"], ind["indicators"], weights, manual, charts, nairu, rstar)
     validate(cfg)
     return cfg
 
@@ -54,7 +57,7 @@ def validate(cfg: Config) -> None:
         if i["sign"] not in (1, -1):
             raise ValueError(f"{i['id']}: sign must be +1 or -1")
         for s in i["series"]:
-            if s not in cfg.series:
+            if s.split(":")[0] not in cfg.series:
                 raise ValueError(f"{i['id']}: unknown series {s}")
         sig = i["sigma"]
         if sig["method"] == "value" and not sig.get("rationale"):
@@ -63,9 +66,9 @@ def validate(cfg: Config) -> None:
         if s["source"] not in cfg.sources:
             raise ValueError(f"series {sid}: unknown source {s['source']}")
     for c in cfg.charts.get("charts", []):
-        if c["series"] not in cfg.series:
+        if c["series"].split(":")[0] not in cfg.series:
             raise ValueError(f"chart {c['id']}: unknown series {c['series']}")
-    for role, sid in cfg.nairu.get("series", {}).items():
+    for role, sid in {**cfg.nairu.get("series", {}), **cfg.rstar.get("series", {})}.items():
         if sid not in cfg.series:
             raise ValueError(f"nairu.yaml {role}: unknown series {sid}")
     w = cfg.weights["pressure"]["weights"]

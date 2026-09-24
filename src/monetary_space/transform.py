@@ -61,6 +61,15 @@ def monthly_last(inputs: list[pd.Series]) -> pd.Series:
     return x.groupby(x.index.asfreq("M")).last()
 
 
+def weighted_mean(inputs: list[pd.Series], weights: list[float]) -> pd.Series:
+    """Weighted average of aligned series (e.g. trading partners' leading indicators)."""
+    if len(inputs) != len(weights):
+        raise ValueError("weighted_mean needs one weight per input")
+    df = pd.concat(inputs, axis=1).dropna()
+    w = pd.Series(weights, index=df.columns) / sum(weights)
+    return df.mul(w, axis=1).sum(axis=1)
+
+
 TRANSFORMS = {
     "level": level,
     "ratio": ratio,
@@ -72,13 +81,21 @@ TRANSFORMS = {
 }
 
 
-def apply(name: str, inputs: list[pd.Series], drop_last: int = 0) -> pd.Series:
-    """Apply a named transform. drop_last removes flash observations first."""
-    if name not in TRANSFORMS:
-        raise ValueError(f"unknown transform {name!r}; options: {sorted(TRANSFORMS)}")
+def apply(name: str | list, inputs: list[pd.Series], drop_last: int = 0, weights: list[float] | None = None) -> pd.Series:
+    """Apply a named transform, or a list applied in order (the first may combine inputs).
+    drop_last removes flash observations first; weights feed weighted_mean."""
+    steps = name if isinstance(name, list) else [name]
     if drop_last:
         inputs = [s.iloc[:-drop_last] for s in inputs]
-    return TRANSFORMS[name](inputs).astype(float)
+    for k, step in enumerate(steps):
+        if step == "weighted_mean":
+            x = weighted_mean(inputs, weights or [1.0] * len(inputs))
+        elif step in TRANSFORMS:
+            x = TRANSFORMS[step](inputs)
+        else:
+            raise ValueError(f"unknown transform {step!r}; options: {sorted(TRANSFORMS) + ['weighted_mean']}")
+        inputs = [x]
+    return x.astype(float)
 
 
 def pre2020(x: pd.Series) -> pd.Series:

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import charts, config, indicators, nairu, render, store
+from . import charts, config, indicators, nairu, render, rstar, stance, store
 from .fetch import fetch
 
 log = logging.getLogger("monetary_space")
@@ -27,16 +27,20 @@ def fetch_all(cfg: config.Config, previous: dict[str, pd.Series], run_at: str) -
     data, failed, rows = {}, set(), []
     for sid, spec in cfg.series.items():
         try:
-            s = fetch(spec)
-            data[sid] = s
-            rows.append(dict(run_at=run_at, series_id=sid, status="ok", last_period=str(s.index[-1]), detail=""))
-            log.info("fetched %-16s %s", sid, s.index[-1])
+            got = fetch(spec)
+            parts = {f"{sid}:{k}": v for k, v in got.items()} if isinstance(got, dict) else {sid: got}
+            data.update(parts)
+            last = max(str(v.index[-1]) for v in parts.values())
+            rows.append(dict(run_at=run_at, series_id=sid, status="ok", last_period=last, detail=""))
+            log.info("fetched %-16s %s", sid, last)
         except Exception as e:  # noqa: BLE001 — any source failure must not stop the build
             failed.add(sid)
             detail = f"{type(e).__name__}: {e}"[:300]
-            if sid in previous:
-                data[sid] = previous[sid]
-                rows.append(dict(run_at=run_at, series_id=sid, status="kept_last_good", last_period=str(previous[sid].index[-1]), detail=detail))
+            kept = {k: v for k, v in previous.items() if k == sid or k.startswith(f"{sid}:")}
+            if kept:
+                data.update(kept)
+                last = max(str(v.index[-1]) for v in kept.values())
+                rows.append(dict(run_at=run_at, series_id=sid, status="kept_last_good", last_period=last, detail=detail))
             else:
                 rows.append(dict(run_at=run_at, series_id=sid, status="missing", last_period="", detail=detail))
             log.warning("FAILED %-16s %s", sid, detail)
@@ -54,7 +58,32 @@ def estimate_all(cfg: config.Config, data: dict[str, pd.Series]) -> tuple[dict, 
         except Exception as e:  # noqa: BLE001
             problems.append(f"u* estimate: {type(e).__name__}: {e}")
             log.warning("u* estimate failed: %s", e)
+    if cfg.rstar:
+        try:
+            est = rstar.from_config(data, cfg.rstar)
+            estimates["rstar"] = est
+            log.info("r* %s = %.2f ± %.2f (trend growth %.2f)", est.r_star.index[-1], est.r_star.iloc[-1],
+                     est.se.iloc[-1], est.growth.iloc[-1])
+        except Exception as e:  # noqa: BLE001
+            problems.append(f"r* estimate: {type(e).__name__}: {e}")
+            log.warning("r* estimate failed: %s", e)
     return estimates, problems
+
+
+def assess(cfg: config.Config, data: dict[str, pd.Series], blocks: dict, estimates: dict, as_of: pd.Timestamp):
+    """Stance and verdict. Either may be unavailable; the page says why."""
+    problems, st, vd = [], None, None
+    if "rstar" in estimates:
+        try:
+            st = stance.compute(cfg, data, estimates["rstar"], as_of)
+        except Exception as e:  # noqa: BLE001
+            problems.append(f"stance: {type(e).__name__}: {e}")
+    needed = set(cfg.weights["pressure"]["weights"])
+    if st and needed <= set(blocks):
+        vd = stance.verdict(cfg, {k: blocks[k].score for k in needed}, st)
+    elif st:
+        problems.append(f"verdict: needs blocks {sorted(needed - set(blocks))}")
+    return st, vd, problems
 
 
 def score_all(cfg: config.Config, data: dict[str, pd.Series], as_of: pd.Timestamp, failed: set[str],
@@ -92,16 +121,17 @@ def run(root: Path, store_dir: Path, out_dir: Path, fetch_data: bool = True) -> 
 
     estimates, est_problems = estimate_all(cfg, res.data)
     inds, blocks, problems = score_all(cfg, res.data, as_of, res.failed, estimates)
-    problems = est_problems + problems
+    st, vd, v_problems = assess(cfg, res.data, blocks, estimates, as_of)
+    problems = est_problems + problems + v_problems
     try:
         context = charts.prepare(cfg, res.data, as_of, estimates)
     except Exception as e:  # noqa: BLE001 — context charts must never stop the build
         context = []
         problems.append(f"context charts: {type(e).__name__}: {e}")
     out_dir.mkdir(parents=True, exist_ok=True)
-    summary = render.summary(cfg, inds, blocks, problems, now)
+    summary = render.summary(cfg, inds, blocks, problems, now, st, vd)
     (out_dir / "scores.json").write_text(json.dumps(summary, indent=2, default=str))
-    (out_dir / "index.html").write_text(render.page(cfg, inds, blocks, problems, now, sorted(res.failed), context))
+    (out_dir / "index.html").write_text(render.page(cfg, inds, blocks, problems, now, sorted(res.failed), context, st, vd, estimates, res.data))
     log.info("built in %.1fs: %d indicators, %d blocks, %d problems",
              time.monotonic() - t0, len(inds), len(blocks), len(problems))
     return summary

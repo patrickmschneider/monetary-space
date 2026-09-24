@@ -7,11 +7,10 @@ pressure:                  # step 6
   weights: {B: 0.5, A: 0.3, C: 0.2}   # default, not an estimate (open question); equal weights are the alternative
   threshold: 0.5
 
-stance:                    # step 7 (Phase 2)
-  rstar_band_min_half_width: 0.5      # pp
-  rstar_range:                        # real neutral rate, %. Set by the team, not the agent.
-    low: null
-    high: null
+stance:                    # step 7
+  ois_series: OIS_2Y                  # nominal 2-year OIS, so a hawkish hold registers on the day
+  expected_inflation_field: cpi_1y    # manual/mpr.csv: MPR year-ahead CPI projection
+  rstar_band_min_half_width: 0.5      # pp; r* and its band come from the model in config/rstar.yaml
 
 rule:                      # illustrative Taylor-type rule, policy path chart only (Phase 2)
   inflation_target: 2.0

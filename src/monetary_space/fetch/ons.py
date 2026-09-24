@@ -40,10 +40,13 @@ def timeseries(uri: str, freq: str = "M") -> pd.Series:
 
 
 def dataset_file(uri: str) -> bytes:
-    """Download the current file attached to an ONS dataset page."""
-    meta = get(f"{BASE}{uri}/current/data").json()
+    """Download the latest file attached to an ONS dataset page. Most pages have a
+    'current' edition; some (e.g. SAP gas) list editions by year, newest first."""
+    editions = get(f"{BASE}{uri}/data").json().get("datasets") or []
+    edition = editions[0]["uri"] if editions else f"{uri}/current"
+    meta = get(f"{BASE}{edition}/data").json()
     name = meta["downloads"][0]["file"]
-    return get(f"{BASE}/file?uri={uri}/current/{name}").content
+    return get(f"{BASE}/file?uri={edition}/{name}").content
 
 
 def parse_rti_payrolls(xlsx: bytes) -> pd.Series:
@@ -57,3 +60,18 @@ def parse_rti_payrolls(xlsx: bytes) -> pd.Series:
 
 def rti_payrolls(uri: str) -> pd.Series:
     return parse_rti_payrolls(dataset_file(uri))
+
+
+def parse_sap_gas(xlsx: bytes) -> pd.Series:
+    """System Average Price of gas, monthly, pence per kWh (sheet '2.Monthly SAP Gas')."""
+    df = pd.read_excel(io.BytesIO(xlsx), sheet_name="2.Monthly SAP Gas", header=None)
+    dates = pd.to_datetime(df.iloc[:, 0].map(lambda v: v if hasattr(v, "year") else None))
+    vals = pd.to_numeric(df.iloc[:, 1], errors="coerce")
+    ok = dates.notna() & vals.notna()
+    idx = pd.PeriodIndex(dates[ok], freq="M")
+    s = pd.Series(vals[ok].to_numpy(dtype=float), index=idx, name="SAP_GAS")
+    return s[~s.index.duplicated(keep="last")].sort_index()
+
+
+def sap_gas(uri: str) -> pd.Series:
+    return parse_sap_gas(dataset_file(uri))

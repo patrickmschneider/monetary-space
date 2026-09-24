@@ -1,0 +1,21 @@
+# r* (real neutral rate) from a Holston–Laubach–Williams-style model (src/monetary_space/rstar.py).
+# It sets the Stance block's neutral zone: band = r* ± max(band_z·se, minimum half-width in weights.yaml).
+#
+#   IS: ỹ_t = a1·ỹ_{t−1} + a2·ỹ_{t−2} + (ar/2)·Σ(r − r*)_{t−1,t−2} + ε1
+#   PC: π_t = b1·π_{t−1} + (1 − b1)·mean(π_{t−2..t−4}) + by·ỹ_{t−1} + ε2
+#   r*_t = 4·g_t + z_t, with potential growth g and other factors z random walks
+#
+# The estimate is sensitive to the fixed settings below; see the sensitivity table in the README.
+
+series:
+  gdp: ABMI                 # real GDP, chained volume, quarterly
+  core_cpi_index: DKC6      # CPI excl. energy, food, alcohol & tobacco, index (seasonally adjusted in code)
+  policy_rate: IUDBEDR      # Bank Rate
+
+ar: -0.10          # IS slope, fixed: not identified in UK data (real rates negative for a decade)
+lambda_g: 0.05     # σ(trend growth shock) / σ(potential output shock)
+lambda_z: 0.03     # |ar|·σ(z shock) / σ(IS shock)
+c: 4.0             # r* moves one-for-one with annualised trend growth
+start: "1993Q1"    # inflation targeting
+exclude: [["2020Q1", "2021Q4"]]   # pandemic output and price swings
+band_z: 1.0        # neutral zone: ±1 standard error (68%), never narrower than the minimum half-width

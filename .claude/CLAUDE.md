@@ -30,4 +30,5 @@ Match the Fiscal Space dashboard (../fiscal-space, editorial layer at the end of
 - Latest MPR is July 2026 (BoE now publishes Feb/Apr/Jul/Nov). Apr 2026 MPR had scenarios only (Scenario B used). u* not stated since Feb 2026 (4.75).
 - u* is estimated with a multivariate filter (u = u* + AR(2) gap; wage Phillips curve on the gap; config/nairu.yaml), not taken from the MPR; u* ≈ 4.9% in 2026Q2, ±0.5pp. A Phillips-curve-only version put u* above u for all of 2016–26, which the user rejected as unbelievable. Sensitivity table in README.
 - Open for team: σ from full pre-2020 samples is large for services CPI (from 1989); config σ for payrolls, DMP, Agents marked confirm; IAS provider switched Ipsos→Savanta in 2026.
-- Phases 2–4 — see `docs/SPEC.md` §8
+- Phase 2 (blocks C and D, verdict, policy path chart) — built 2026-09-24. r* is modelled (HLW-style, config/rstar.yaml) at the user's request, not a team-set range; it is fragile (−0.8% ± 1.1 by default, range −5.5 to −0.3 across calibrations) and currently makes the verdict "Room to ease". Gas = ONS SAP from 2018 (config σ); OECD euro-area CLI discontinued, DEU/FRA/ITA/ESP + USA weighted.
+- Phases 3–4 — see `docs/SPEC.md` §8
