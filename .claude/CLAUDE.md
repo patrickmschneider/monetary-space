@@ -21,5 +21,9 @@ Python build script: fetch → store (dated Parquet vintages on `data` branch) �
 
 ## Status
 - Repo: github.com/patrickmschneider/monetary-space (public). Push over SSH (no gh CLI in use).
-- Phase 1 (repo, workflow, Pages; config, fetchers, store, scoring for blocks A & B; plain score page) — not started
+- Phase 1 (repo, workflow, Pages; config, fetchers, store, scoring for blocks A & B; plain score page) — built 2026-09-24
+- Run locally: `pip install -e ".[test]"`, `pytest -q`, `python -m monetary_space build [--no-fetch]`
+- ONS: old api.ons.gov.uk is retired; use www.ons.gov.uk{uri}/data. LFS/vacancy series are labelled by middle month; the parser re-stamps them on the end month.
+- Latest MPR is July 2026 (BoE now publishes Feb/Apr/Jul/Nov). Apr 2026 MPR had scenarios only (Scenario B used). u* not stated since Feb 2026 (4.75).
+- Open for team: σ from full pre-2020 samples is large for unemployment (from 1971) and services CPI (from 1989); config σ for payrolls, DMP, Agents marked confirm; IAS provider switched Ipsos→Savanta in 2026.
 - Phases 2–4 — see `docs/SPEC.md` §8
