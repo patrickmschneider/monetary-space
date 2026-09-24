@@ -122,7 +122,6 @@ def svg(c: ChartData) -> tuple[str, str]:
         return ML + (mid - t0).total_seconds() / span * (W - ML - MR)
 
     def py(v: float) -> float:
-        v = max(ylo, min(yhi, v))
         return MT + (yhi - v) / (yhi - ylo) * (H - MT - MB)
 
     pts = [(px(p), py(v)) for p, v in x.items()]
@@ -153,7 +152,7 @@ def svg(c: ChartData) -> tuple[str, str]:
             ref += f'<text x="{W - MR + 4}" y="{py(v) + 3:.1f}" class="ref-label">{escape(label)}</text>'
     lx, ly = pts[-1]
     data = json.dumps({
-        "x": [round(a, 1) for a, _ in pts], "y": [round(b, 1) for _, b in pts],
+        "x": [round(a, 1) for a, _ in pts], "y": [round(b, 1) if MT <= b <= H - MB else None for _, b in pts],
         "d": [p.strftime("%b %Y") for p in x.index], "v": [value_label(v, c.unit, c.decimals) for v in vals],
     }, separators=(",", ":"))
     latest = f"{value_label(vals[-1], c.unit, c.decimals)} in {x.index[-1].strftime('%B %Y')}"
@@ -162,7 +161,8 @@ def svg(c: ChartData) -> tuple[str, str]:
     markup = (
         f'<svg viewBox="0 0 {W} {H}" class="line-chart" role="img" aria-label="{escape(label)}" data-points=\'{escape(data)}\'>'
         f'{grid}{ref}<line x1="{ML}" x2="{W - MR}" y1="{H - MB}" y2="{H - MB}" class="axis"/>{xt}'
-        f'<path d="{d}" class="series"/><circle cx="{lx:.1f}" cy="{ly:.1f}" r="2.6" class="last"/>'
+        f'<clipPath id="clip-{c.id}"><rect x="{ML}" y="{MT}" width="{W - ML - MR}" height="{H - MT - MB}"/></clipPath>'
+        f'<g clip-path="url(#clip-{c.id})"><path d="{d}" class="series"/><circle cx="{lx:.1f}" cy="{ly:.1f}" r="2.6" class="last"/></g>'
         f'<g class="hover" visibility="hidden"><line y1="{MT}" y2="{H - MB}" class="hover-rule"/><circle r="3.2" class="hover-dot"/></g>'
         "</svg>"
     )
@@ -194,7 +194,7 @@ const svg=fig.querySelector('svg'),tip=fig.querySelector('.chart-tip'),g=svg.que
 const P=JSON.parse(svg.dataset.points),n=P.x.length;let i=n-1;
 const show=k=>{i=Math.max(0,Math.min(n-1,k));g.setAttribute('visibility','visible');
 g.querySelector('line').setAttribute('x1',P.x[i]);g.querySelector('line').setAttribute('x2',P.x[i]);
-const c=g.querySelector('circle');c.setAttribute('cx',P.x[i]);c.setAttribute('cy',P.y[i]);
+const c=g.querySelector('circle');c.setAttribute('cx',P.x[i]);c.setAttribute('cy',P.y[i]??0);c.setAttribute('visibility',P.y[i]===null?'hidden':'inherit');
 tip.textContent=P.d[i]+': '+P.v[i];tip.style.left=(P.x[i]/svg.viewBox.baseVal.width*100)+'%';tip.hidden=false;};
 const hide=()=>{g.setAttribute('visibility','hidden');tip.hidden=true;};
 svg.addEventListener('pointermove',e=>{const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;
