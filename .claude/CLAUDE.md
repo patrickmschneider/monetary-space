@@ -19,6 +19,9 @@ Python build script: fetch → store (dated Parquet vintages on `data` branch) �
 - Manual values pre-filled by Claude are marked `# confirm` with a cited source until the team reviews them.
 - Secrets: `FRED_API_KEY` as a repo secret and in local `.env` (gitignored). Never commit or echo it.
 
+## Look and feel
+Match the Fiscal Space dashboard (../fiscal-space, editorial layer at the end of src/styles.css): #faf9f5 background, teal ink #153f46, Georgia serif wordmark only, uppercase teal eyebrows, sans lead sentence, headline strip between a 2px ink rule and 1px rules (no card boxes), numbered story sections, collapsible source lines. Teal is chrome only; data colour is copper (inflationary) / blue (disinflationary) / grey. Light and dark themes (fiscal-space has light only).
+
 ## Status
 - Repo: github.com/patrickmschneider/monetary-space (public). Push over SSH (no gh CLI in use).
 - Phase 1 (repo, workflow, Pages; config, fetchers, store, scoring for blocks A & B; plain score page) — built 2026-09-24
