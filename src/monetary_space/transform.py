@@ -44,11 +44,31 @@ def pct_change_12m(inputs: list[pd.Series]) -> pd.Series:
     return x.pct_change(periods, fill_method=None).mul(100).dropna()
 
 
+def growth_3m_yoy(inputs: list[pd.Series]) -> pd.Series:
+    """Latest three months on the same three months a year earlier, in %."""
+    x = _one(inputs)
+    s3 = x.rolling(3).sum()
+    return (s3 / s3.shift(12) - 1).mul(100).dropna()
+
+
+def monthly_mean(inputs: list[pd.Series]) -> pd.Series:
+    x = _one(inputs)
+    return x.groupby(x.index.asfreq("M")).mean()
+
+
+def monthly_last(inputs: list[pd.Series]) -> pd.Series:
+    x = _one(inputs)
+    return x.groupby(x.index.asfreq("M")).last()
+
+
 TRANSFORMS = {
     "level": level,
     "ratio": ratio,
     "annualised_3m3m": annualised_3m3m,
     "pct_change_12m": pct_change_12m,
+    "growth_3m_yoy": growth_3m_yoy,
+    "monthly_mean": monthly_mean,
+    "monthly_last": monthly_last,
 }
 
 

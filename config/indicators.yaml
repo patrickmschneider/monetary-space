@@ -16,6 +16,9 @@ sources:
   ons_rti:
     name: HMRC PAYE Real Time Information (via ONS)
     attribution: "Source: HMRC PAYE Real Time Information, published by the Office for National Statistics, licensed under the Open Government Licence v3.0."
+  boe:
+    name: Bank of England
+    attribution: "Source: Bank of England."
   boe_agents:
     name: Bank of England Agents
     attribution: "Source: Bank of England Agents' scores."
@@ -69,6 +72,24 @@ series:
     title: "AWE private sector regular pay, 3-month average, y/y %, SA"
     uri: /employmentandlabourmarket/peopleinwork/earningsandworkinghours/timeseries/kaj4/lms
     freq: M
+  D7G7:
+    fetcher: ons_timeseries
+    source: ons
+    title: "CPI, all items, annual rate, % (context)"
+    uri: /economy/inflationandpriceindices/timeseries/d7g7/mm23
+    freq: M
+  IUDBEDR:
+    fetcher: boe_iadb
+    source: boe
+    title: "Bank Rate, %, daily (context)"
+    code: IUDBEDR
+    freq: D
+  XUDLUSS:
+    fetcher: boe_iadb
+    source: boe
+    title: "Spot exchange rate, US$ into sterling, daily (context)"
+    code: XUDLUSS
+    freq: D
   AGENTS_CAPACITY:
     fetcher: agents_capacity
     source: boe_agents

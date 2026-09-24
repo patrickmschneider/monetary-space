@@ -11,6 +11,7 @@ FETCHERS = {
     "dmp_price_growth": lambda s: boe.dmp_price_growth(),
     "ias_median_1y": lambda s: boe.ias_median_1y(),
     "agents_capacity": lambda s: boe.agents_capacity(),
+    "boe_iadb": lambda s: boe.iadb(s["code"], s.get("start", "01/Jan/1990")),
 }
 
 

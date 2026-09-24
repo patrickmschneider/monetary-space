@@ -1,0 +1,48 @@
+# Context charts (not scored): the economy at a glance. Series come from indicators.yaml.
+# reference: a horizontal line, from a value or a manual/mpr.csv field.
+# ylim: fixed axis range; values outside it are clipped and listed in a note.
+
+since: "2016-01"
+
+charts:
+  - id: cpi
+    title: CPI inflation
+    subtitle: "Consumer prices, % change on a year earlier"
+    series: D7G7
+    transform: level
+    unit: "%"
+    reference: {value: 2.0, label: "2% target"}
+
+  - id: gdp
+    title: GDP growth
+    subtitle: "Real GDP, latest 3 months on a year earlier, %"
+    series: ECY2
+    transform: growth_3m_yoy
+    unit: "%"
+    reference: {value: 0}
+    ylim: [-5, 10]
+
+  - id: unemployment
+    title: Unemployment rate
+    subtitle: "% of the economically active, aged 16+, 3-month average"
+    series: MGSX
+    transform: level
+    unit: "%"
+    reference: {manual: u_star, label: "u*"}
+
+  - id: bank_rate
+    title: Bank Rate
+    subtitle: "Bank of England policy rate, %, end of month"
+    series: IUDBEDR
+    transform: monthly_last
+    unit: "%"
+    decimals: 2
+    step: true
+
+  - id: cable
+    title: Sterling–dollar ("cable")
+    subtitle: "US dollars per pound, monthly average"
+    series: XUDLUSS
+    transform: monthly_mean
+    unit: "$"
+    decimals: 2

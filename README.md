@@ -50,5 +50,3 @@ Every series on the page shows its source. Series are republished for academic, 
 - HMRC PAYE Real Time Information, published by the ONS under the Open Government Licence v3.0.
 - Bank of England: Agents' scores; Inflation Attitudes Survey.
 - Decision Maker Panel (Bank of England, Stanford University and University of Nottingham).
-
-Not investment advice.

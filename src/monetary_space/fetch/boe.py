@@ -106,3 +106,23 @@ def parse_agents_capacity(xlsx: bytes) -> pd.Series:
 
 def agents_capacity() -> pd.Series:
     return parse_agents_capacity(get(AGENTS_URL).content)
+
+
+# ------------------------------------------------------------ Bank of England Database
+IADB = f"{BOE}/boeapps/database/_iadb-fromshowcolumns.asp"
+
+
+def parse_iadb_csv(text: str, code: str) -> pd.Series:
+    """Database CSV export (CSVF=TN): DATE,<code> with dates like '23 Sep 2026'."""
+    df = pd.read_csv(io.StringIO(text))
+    if code not in df.columns:
+        raise ValueError(f"{code} not in Bank of England database response")
+    idx = pd.PeriodIndex(pd.to_datetime(df["DATE"], format="%d %b %Y"), freq="D")
+    s = pd.Series(pd.to_numeric(df[code], errors="coerce").to_numpy(dtype=float), index=idx, name=code)
+    return s.dropna().sort_index()
+
+
+def iadb(code: str, start: str = "01/Jan/1990") -> pd.Series:
+    params = {"csv.x": "yes", "Datefrom": start, "Dateto": "now", "SeriesCodes": code,
+              "CSVF": "TN", "UsingCodes": "Y", "VPD": "Y", "VFD": "N"}
+    return parse_iadb_csv(get(IADB, params=params).text, code)

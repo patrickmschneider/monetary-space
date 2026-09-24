@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import config, indicators, render, store
+from . import charts, config, indicators, render, store
 from .fetch import fetch
 
 log = logging.getLogger("monetary_space")
@@ -76,10 +76,15 @@ def run(root: Path, store_dir: Path, out_dir: Path, fetch_data: bool = True) -> 
         res = FetchResult(previous, set(), [])
 
     inds, blocks, problems = score_all(cfg, res.data, as_of, res.failed)
+    try:
+        context = charts.prepare(cfg, res.data, as_of)
+    except Exception as e:  # noqa: BLE001 — context charts must never stop the build
+        context = []
+        problems.append(f"context charts: {type(e).__name__}: {e}")
     out_dir.mkdir(parents=True, exist_ok=True)
     summary = render.summary(cfg, inds, blocks, problems, now)
     (out_dir / "scores.json").write_text(json.dumps(summary, indent=2, default=str))
-    (out_dir / "index.html").write_text(render.page(cfg, inds, blocks, problems, now, sorted(res.failed)))
+    (out_dir / "index.html").write_text(render.page(cfg, inds, blocks, problems, now, sorted(res.failed), context))
     log.info("built in %.1fs: %d indicators, %d blocks, %d problems",
              time.monotonic() - t0, len(inds), len(blocks), len(problems))
     return summary

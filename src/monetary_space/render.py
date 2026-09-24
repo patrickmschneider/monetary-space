@@ -9,6 +9,7 @@ from html import escape
 
 import pandas as pd
 
+from . import charts
 from .config import BLOCK_NAMES, BLOCK_TITLES, Config
 from .indicators import Block, Indicator
 from .score import DOWN, UP
@@ -218,16 +219,17 @@ def block_section(b: Block, cfg: Config, number: int) -> str:
 </section>"""
 
 
-def page(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems: list[str], now, failed: list[str]) -> str:
+def page(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems: list[str], now,
+         failed: list[str], context: list | None = None) -> str:
     thr = cfg.weights["direction_threshold"]
-    sections = "".join(block_section(b, cfg, n) for n, b in enumerate(blocks.values(), start=1))
-    attributions = sorted({i.attribution for i in inds})
+    context_html = charts.section(context or [], 1)
+    first = 2 if context_html else 1
+    sections = "".join(block_section(b, cfg, n) for n, b in enumerate(blocks.values(), start=first))
     notice = ""
     if problems or failed:
         items = [f"Source failed this run, last good value kept: {escape(s)}." for s in failed]
         items += [f"Not scored: {escape(p)}." for p in problems]
         notice = '<div class="notice" role="status">' + " ".join(items) + "</div>"
-    latest = max((i.period.end_time for i in inds), default=None)
     return f"""<!doctype html>
 <html lang="en-GB">
 <head>
@@ -236,7 +238,7 @@ def page(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems:
 <meta name="theme-color" content="#153f46">
 <meta name="description" content="Is UK monetary policy tight enough for the inflation pressure? Official data, transparent scores.">
 <title>Monetary Space</title>
-<style>{CSS}</style>
+<style>{CSS}{charts.CSS}</style>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -255,12 +257,14 @@ def page(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems:
   {notice}
   {headline_strip(blocks, cfg)}
   <p class="legend"><span><i class="swatch up"></i>Inflationary (z above +{thr:g})</span><span><i class="swatch neutral"></i>Neutral</span><span><i class="swatch down"></i>Disinflationary (z below −{thr:g})</span><span><i class="swatch band"></i>Neutral band ±{thr:g}</span></p>
+  {context_html}
   {sections}
   <footer>
-    <div><strong>Monetary Space</strong><p>Phase 1 preview: blocks A and B. The global and stance blocks, the verdict and the policy path follow.<br>Latest observation {latest:%B %Y}. Built {now:%-d %B %Y, %H:%M} UK time.</p></div>
-    <div><p>{'<br>'.join(escape(a) for a in attributions)}</p><p>Not investment advice.</p></div>
+    <div><strong>Monetary Space</strong><p>AI augmented by Patrick Schneider</p></div>
+    <div><p>Built {now:%-d %B %Y, %H:%M} UK time</p></div>
   </footer>
 </main>
+<script>{charts.SCRIPT}</script>
 </body>
 </html>
 """
@@ -358,7 +362,7 @@ tr:last-child th,tr:last-child td{border-bottom:0}
 footer{display:flex;justify-content:space-between;gap:30px;margin-top:44px;padding:28px 0 35px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.7}
 footer strong{font-family:Georgia,'Times New Roman',serif;color:var(--ink);font-size:16px;font-weight:600}
 footer p{margin:8px 0 0}
-footer>div:last-child{text-align:right;max-width:520px}
+footer>div:last-child{text-align:right;align-self:flex-end}
 @media(max-width:1000px){.header-inner{padding:0 26px}.page-shell{padding:30px 26px 0}
 .headline-strip{grid-template-columns:1fr 1fr}.metric{border-bottom:1px solid var(--border)}.metric:nth-child(2n){border-right:0}.metric:nth-child(odd){padding-left:0}}
 @media(max-width:700px){.header-inner{height:auto;padding:20px 18px;flex-wrap:wrap;gap:12px}.brand{font-size:25px}

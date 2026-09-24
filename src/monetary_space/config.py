@@ -25,13 +25,16 @@ class Config:
     indicators: list[dict]
     weights: dict
     manual: dict[str, pd.DataFrame]
+    charts: dict
 
 
 def load(root: Path) -> Config:
     ind = yaml.safe_load((root / "config" / "indicators.yaml").read_text())
     weights = yaml.safe_load((root / "config" / "weights.yaml").read_text())
     manual = {p.stem: pd.read_csv(p, comment="#") for p in sorted((root / "manual").glob("*.csv"))}
-    cfg = Config(ind["sources"], ind["series"], ind["indicators"], weights, manual)
+    charts_path = root / "config" / "charts.yaml"
+    charts = yaml.safe_load(charts_path.read_text()) if charts_path.exists() else {}
+    cfg = Config(ind["sources"], ind["series"], ind["indicators"], weights, manual, charts)
     validate(cfg)
     return cfg
 
@@ -56,6 +59,9 @@ def validate(cfg: Config) -> None:
     for sid, s in cfg.series.items():
         if s["source"] not in cfg.sources:
             raise ValueError(f"series {sid}: unknown source {s['source']}")
+    for c in cfg.charts.get("charts", []):
+        if c["series"] not in cfg.series:
+            raise ValueError(f"chart {c['id']}: unknown series {c['series']}")
     w = cfg.weights["pressure"]["weights"]
     if abs(sum(w.values()) - 1) > 1e-9:
         raise ValueError(f"pressure weights sum to {sum(w.values())}, not 1")
