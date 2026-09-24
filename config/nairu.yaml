@@ -1,9 +1,10 @@
-# u* (NAIRU) from a wage Phillips curve with a random-walk u*, estimated by Kalman filter
-# (src/monetary_space/nairu.py). It is the benchmark for the unemployment indicator and
-# the reference line on the unemployment chart.
+# u* (NAIRU) from a multivariate filter (src/monetary_space/nairu.py): unemployment is a
+# random-walk trend u* plus a mean-reverting AR(2) gap, and a wage Phillips curve says where
+# the trend is. It is the benchmark for the unemployment indicator and the reference path on
+# the unemployment chart.
 #
-#   y_t  = a·y_{t−1} − β·(u_t − u*_t) + ε_t
-#   u*_t = u*_{t−1} + η_t
+#   u_t  = u*_t + g_t (+ small noise)        g_t = ρ1·g_{t−1} + ρ2·g_{t−2} + ν_t
+#   y_t  = c + a·y_{t−1} − β·g_t + ε_t       u*_t = u*_{t−1} + η_t
 #   y    = private regular pay growth (q/q annualised) − expected inflation − trend productivity growth
 #
 # Results are sensitive to the expectations measure; see the sensitivity table in the README.
@@ -19,7 +20,9 @@ household_weight: 0.5           # expected inflation = 0.5·households + 0.5·la
 cpi_lag_quarters: 1
 recentre_expectations_to: 2.0   # households' pre-2020 mean (about 2.7%) shifted to 2%
 productivity_trend_quarters: 20 # 5-year backward average of y/y productivity growth
-sigma_eta: 0.10                 # pp per quarter: how fast u* may move (fixed, not estimated)
+sigma_eta: 0.15                 # pp per quarter: how fast u* may move (fixed, not estimated)
+sigma_u: 0.10                   # LFS sampling noise in the unemployment rate, pp
+max_gap_persistence: 0.9        # cap on ρ1 + ρ2; uncapped, the gap goes to a unit root and u* stops tracking u
 start: "2001Q2"                 # pay data begin in 2000
 exclude: [["2020Q1", "2021Q4"]] # furlough and composition effects distort pay growth
 band_z: 1.645                   # 90% band shown on the chart

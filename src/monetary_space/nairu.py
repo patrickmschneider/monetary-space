@@ -1,14 +1,18 @@
-"""NAIRU (u*) from a wage Phillips curve with a time-varying u*, estimated by Kalman filter.
+"""u* (NAIRU) from a multivariate filter: unemployment trend plus a wage Phillips curve.
 
-    y_t   = a·y_{t−1} − β·(u_t − u*_t) + ε_t,     ε ~ N(0, σ_ε²)
-    u*_t  = u*_{t−1} + η_t,                       η ~ N(0, σ_η²)
+State: u*_t (random walk) and the unemployment gap g_t = u_t − u*_t (stationary AR(2)).
 
-y_t is real pay growth in excess of trend productivity: private-sector regular pay
-growth − (re-centred) household inflation expectations − trend productivity growth.
-With no constant, u* is the unemployment rate at which real pay grows in line with
-productivity. σ_η (how fast u* may move) is fixed in config: the likelihood cannot
-pin it down well (the "pile-up" problem). a, β and σ_ε are estimated by maximum
-likelihood; u* is the Kalman-smoothed state, with its standard error.
+    u_t   = u*_t + g_t + e_t                     e ~ N(0, σ_u²)   small LFS sampling noise
+    y_t   = c + a·y_{t−1} − β·g_t + ε_t          ε ~ N(0, σ_ε²)
+    u*_t  = u*_{t−1} + η_t                       η ~ N(0, σ_η²)
+    g_t   = ρ1·g_{t−1} + ρ2·g_{t−2} + ν_t        ν ~ N(0, σ_ν²)
+
+y_t is real pay growth in excess of trend productivity (see build_inputs). Because the gap
+must mean-revert, u* is the slow-moving trend of unemployment, placed by what pay growth
+says about slack; the constant c absorbs any average excess of real pay over productivity.
+σ_η, σ_u and a cap on gap persistence (ρ1 + ρ2) are fixed in config/nairu.yaml; without
+the cap the likelihood drives the gap to a unit root and u* stops tracking u.
+c, a, β, ρ1, ρ2, σ_ε and σ_ν are estimated by maximum likelihood.
 """
 from __future__ import annotations
 
@@ -22,86 +26,122 @@ from scipy.optimize import minimize
 @dataclass
 class KalmanOutput:
     loglik: float
-    filtered: np.ndarray
-    filtered_var: np.ndarray
+    filtered: np.ndarray        # (n, m)
+    filtered_var: np.ndarray    # (n, m, m)
     predicted: np.ndarray
     predicted_var: np.ndarray
 
 
-def kalman(y: np.ndarray, u: np.ndarray, ylag: np.ndarray, a: float, beta: float,
-           sig_eps: float, sig_eta: float, s0: float, p0: float) -> KalmanOutput:
-    """Scalar random-walk state; observations with NaN in y or ylag are skipped."""
-    n = len(y)
-    q, h = sig_eta ** 2, sig_eps ** 2
-    s, p, ll = s0, p0, 0.0
-    fs, fp, ps, pp = (np.empty(n) for _ in range(4))
+def kalman(Y: np.ndarray, Z: np.ndarray, d: np.ndarray, T: np.ndarray, RQR: np.ndarray, H: np.ndarray,
+           a0: np.ndarray, P0: np.ndarray) -> KalmanOutput:
+    """Linear Gaussian filter; NaN observations are skipped element by element."""
+    n, m = len(Y), len(a0)
+    a, P, ll = a0.copy(), P0.copy(), 0.0
+    at, Pt, ap, Pp = np.zeros((n, m)), np.zeros((n, m, m)), np.zeros((n, m)), np.zeros((n, m, m))
     for t in range(n):
-        s_pred, p_pred = s, p + q
-        ps[t], pp[t] = s_pred, p_pred
-        if np.isfinite(y[t]) and np.isfinite(ylag[t]):
-            # y_t − a·y_{t−1} + β·u_t = β·u*_t + ε_t
-            v = y[t] - a * ylag[t] + beta * u[t] - beta * s_pred
-            f = beta ** 2 * p_pred + h
-            k = p_pred * beta / f
-            s, p = s_pred + k * v, p_pred - k * beta * p_pred
-            ll += -0.5 * (np.log(2 * np.pi * f) + v ** 2 / f)
-        else:
-            s, p = s_pred, p_pred
-        fs[t], fp[t] = s, p
-    return KalmanOutput(ll, fs, fp, ps, pp)
+        a, P = T @ a, T @ P @ T.T + RQR
+        ap[t], Pp[t] = a, P
+        obs = np.isfinite(Y[t])
+        if obs.any():
+            Zt, Ht = Z[t][obs], H[np.ix_(obs, obs)]
+            v = Y[t][obs] - d[t][obs] - Zt @ a
+            F = Zt @ P @ Zt.T + Ht
+            Fi = np.linalg.inv(F)
+            K = P @ Zt.T @ Fi
+            a, P = a + K @ v, P - K @ Zt @ P
+            ll += -0.5 * (obs.sum() * np.log(2 * np.pi) + np.log(np.linalg.det(F)) + v @ Fi @ v)
+        at[t], Pt[t] = a, P
+    return KalmanOutput(ll, at, Pt, ap, Pp)
 
 
-def smooth(k: KalmanOutput) -> tuple[np.ndarray, np.ndarray]:
-    """Rauch–Tung–Striebel smoother for a random-walk state."""
-    n = len(k.filtered)
-    ss, sp = k.filtered.copy(), k.filtered_var.copy()
-    for t in range(n - 2, -1, -1):
-        j = k.filtered_var[t] / k.predicted_var[t + 1]
-        ss[t] = k.filtered[t] + j * (ss[t + 1] - k.predicted[t + 1])
-        sp[t] = k.filtered_var[t] + j ** 2 * (sp[t + 1] - k.predicted_var[t + 1])
-    return ss, sp
+def smooth(k: KalmanOutput, T: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Rauch–Tung–Striebel smoother."""
+    s, Ps = k.filtered.copy(), k.filtered_var.copy()
+    for t in range(len(s) - 2, -1, -1):
+        J = k.filtered_var[t] @ T.T @ np.linalg.inv(k.predicted_var[t + 1])
+        s[t] = k.filtered[t] + J @ (s[t + 1] - k.predicted[t + 1])
+        Ps[t] = k.filtered_var[t] + J @ (Ps[t + 1] - k.predicted_var[t + 1]) @ J.T
+    return s, Ps
+
+
+@dataclass
+class Params:
+    c: float
+    a: float
+    beta: float
+    rho1: float
+    rho2: float
+    sig_eps: float
+    sig_nu: float
+
+
+def system(y: np.ndarray, u: np.ndarray, p: Params, sig_eta: float, sig_u: float):
+    """State [u*, g, g_{−1}]; observations [u, y]."""
+    n = len(y)
+    ylag = np.r_[np.nan, y[:-1]]
+    Y = np.column_stack([u, np.where(np.isfinite(ylag), y, np.nan)])
+    T = np.array([[1.0, 0, 0], [0, p.rho1, p.rho2], [0, 1, 0]])
+    RQR = np.diag([sig_eta ** 2, p.sig_nu ** 2, 0.0])
+    Z = np.tile(np.array([[1.0, 1, 0], [0, -p.beta, 0]]), (n, 1, 1))
+    d = np.column_stack([np.zeros(n), p.c + p.a * np.nan_to_num(ylag)])
+    H = np.diag([sig_u ** 2, p.sig_eps ** 2])
+    a0 = np.array([np.nanmean(u[:8]), 0.0, 0.0])
+    P0 = np.diag([4.0, 1.0, 1.0])
+    return Y, Z, d, T, RQR, H, a0, P0
+
+
+def _unpack(th: np.ndarray) -> Params:
+    return Params(c=th[0], a=np.tanh(th[1]), beta=np.exp(th[2]), rho1=th[3], rho2=th[4],
+                  sig_eps=np.exp(th[5]), sig_nu=np.exp(th[6]))
 
 
 @dataclass
 class Estimate:
     u_star: pd.Series        # smoothed, quarterly
     se: pd.Series            # standard error of u*, pp
-    a: float
-    beta: float
-    sig_eps: float
+    u_star_realtime: pd.Series   # filtered: what the model said at each date with data to then
+    params: Params
     sig_eta: float
     loglik: float
     nobs: int
     sample: str
 
+    @property
+    def beta(self) -> float:
+        return self.params.beta
 
-def estimate(y: pd.Series, u: pd.Series, sig_eta: float, prior_sd: float = 2.0) -> Estimate:
-    """Maximum likelihood over (a, log β, log σ_ε) given σ_η; then smooth u*."""
-    df = pd.DataFrame({"y": y, "u": u}).dropna(subset=["u"])
-    df["ylag"] = df["y"].shift(1)
-    yv, uv, lv = df["y"].to_numpy(float), df["u"].to_numpy(float), df["ylag"].to_numpy(float)
-    s0, p0 = float(np.nanmean(uv[:8])), prior_sd ** 2
+    @property
+    def a(self) -> float:
+        return self.params.a
 
-    def nll(theta):
-        a, lb, ls = theta
-        if not -0.99 < a < 0.99:
+
+def estimate(y: pd.Series, u: pd.Series, sig_eta: float, sig_u: float = 0.1,
+             max_persistence: float = 0.9) -> Estimate:
+    yv, uv = y.reindex(u.index).to_numpy(float), u.to_numpy(float)
+
+    def nll(th):
+        p = _unpack(th)
+        # AR(2) stationarity triangle, with total persistence capped
+        if not (abs(p.rho2) < 1 and p.rho1 + p.rho2 < max_persistence and p.rho2 - p.rho1 < 1):
             return 1e10
-        return -kalman(yv, uv, lv, a, np.exp(lb), np.exp(ls), sig_eta, s0, p0).loglik
+        return -kalman(*system(yv, uv, p, sig_eta, sig_u)).loglik
 
-    best = min(
-        (minimize(nll, x0, method="Nelder-Mead", options={"xatol": 1e-6, "fatol": 1e-8, "maxiter": 4000})
-         for x0 in ([0.7, np.log(0.5), np.log(0.8)], [0.3, np.log(1.5), np.log(1.2)], [0.9, np.log(0.2), np.log(0.6)])),
-        key=lambda r: r.fun,
-    )
-    a, lb, ls = best.x
-    k = kalman(yv, uv, lv, a, np.exp(lb), np.exp(ls), sig_eta, s0, p0)
-    ss, sp = smooth(k)
-    used = np.isfinite(yv) & np.isfinite(lv)
+    starts = ([0.0, 0.2, np.log(0.5), 1.5, -0.6, np.log(1.4), np.log(0.2)],
+              [0.5, 0.1, np.log(1.0), 1.2, -0.3, np.log(1.3), np.log(0.3)],
+              [1.0, 0.1, np.log(0.8), 1.3, -0.5, np.log(1.3), np.log(0.25)])
+    best = min((minimize(nll, np.array(x0), method="Nelder-Mead",
+                         options={"maxiter": 20000, "xatol": 1e-7, "fatol": 1e-9}) for x0 in starts),
+               key=lambda r: r.fun)
+    p = _unpack(best.x)
+    Y, Z, d, T, RQR, H, a0, P0 = system(yv, uv, p, sig_eta, sig_u)
+    k = kalman(Y, Z, d, T, RQR, H, a0, P0)
+    s, Ps = smooth(k, T)
     return Estimate(
-        u_star=pd.Series(ss, index=df.index, name="u_star"),
-        se=pd.Series(np.sqrt(sp), index=df.index, name="u_star_se"),
-        a=float(a), beta=float(np.exp(lb)), sig_eps=float(np.exp(ls)), sig_eta=sig_eta,
-        loglik=float(k.loglik), nobs=int(used.sum()), sample=f"{df.index[0]}–{df.index[-1]}",
+        u_star=pd.Series(s[:, 0], index=u.index, name="u_star"),
+        se=pd.Series(np.sqrt(Ps[:, 0, 0]), index=u.index, name="u_star_se"),
+        u_star_realtime=pd.Series(k.filtered[:, 0], index=u.index, name="u_star_realtime"),
+        params=p, sig_eta=sig_eta, loglik=float(k.loglik),
+        nobs=int(np.isfinite(Y[:, 1]).sum()), sample=f"{u.index[0]}–{u.index[-1]}",
     )
 
 
@@ -148,4 +188,4 @@ def from_config(data: dict[str, pd.Series], spec: dict) -> Estimate:
     s = spec["series"]
     y, u = build_inputs(data[s["pay_level"]], data[s["unemployment"]], data[s["household_expectations"]],
                         data[s["cpi"]], data[s["productivity"]], spec)
-    return estimate(y, u, spec["sigma_eta"])
+    return estimate(y, u, spec["sigma_eta"], spec.get("sigma_u", 0.1), spec.get("max_gap_persistence", 0.9))

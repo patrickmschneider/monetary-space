@@ -28,6 +28,6 @@ Match the Fiscal Space dashboard (../fiscal-space, editorial layer at the end of
 - Run locally: `pip install -e ".[test]"`, `pytest -q`, `python -m monetary_space build [--no-fetch]`
 - ONS: old api.ons.gov.uk is retired; use www.ons.gov.uk{uri}/data. LFS/vacancy series are labelled by middle month; the parser re-stamps them on the end month.
 - Latest MPR is July 2026 (BoE now publishes Feb/Apr/Jul/Nov). Apr 2026 MPR had scenarios only (Scenario B used). u* not stated since Feb 2026 (4.75).
-- u* is estimated (wage Phillips curve, Kalman; config/nairu.yaml), not taken from the MPR; u* ≈ 5.15% in 2026Q2, ±0.9pp. Sensitivity table in README.
+- u* is estimated with a multivariate filter (u = u* + AR(2) gap; wage Phillips curve on the gap; config/nairu.yaml), not taken from the MPR; u* ≈ 4.9% in 2026Q2, ±0.5pp. A Phillips-curve-only version put u* above u for all of 2016–26, which the user rejected as unbelievable. Sensitivity table in README.
 - Open for team: σ from full pre-2020 samples is large for services CPI (from 1989); config σ for payrolls, DMP, Agents marked confirm; IAS provider switched Ipsos→Savanta in 2026.
 - Phases 2–4 — see `docs/SPEC.md` §8
