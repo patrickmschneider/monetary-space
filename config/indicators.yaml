@@ -1,0 +1,236 @@
+# Scored indicators (spec Section 4). Cap: 14. Adding one means removing one.
+#
+# Series are raw downloads, stored as dated vintages. Indicators transform one or
+# more series, then score them: z = sign·(x − benchmark)/sigma, clipped (weights.yaml).
+#
+# lag_days: usual days from the end of a period to its publication. An indicator is
+# stale when its next release is more than freshness.stale_grace_days overdue.
+#
+# benchmark.method: value (cited constant) | pre2020_mean | manual (column of manual/mpr.csv)
+# sigma.method:     pre2020_sd (needs ≥10 years before 2020) | value (with a rationale)
+
+sources:
+  ons:
+    name: Office for National Statistics
+    attribution: "Source: Office for National Statistics, licensed under the Open Government Licence v3.0."
+  ons_rti:
+    name: HMRC PAYE Real Time Information (via ONS)
+    attribution: "Source: HMRC PAYE Real Time Information, published by the Office for National Statistics, licensed under the Open Government Licence v3.0."
+  boe_agents:
+    name: Bank of England Agents
+    attribution: "Source: Bank of England Agents' scores."
+  dmp:
+    name: Decision Maker Panel
+    attribution: "Source: Decision Maker Panel (Bank of England, Stanford University and University of Nottingham)."
+  boe_ias:
+    name: Bank of England Inflation Attitudes Survey
+    attribution: "Source: Bank of England Inflation Attitudes Survey."
+
+series:
+  MGSX:
+    fetcher: ons_timeseries
+    source: ons
+    title: "Unemployment rate, 16+, SA, % (LFS, rolling 3 months)"
+    uri: /employmentandlabourmarket/peoplenotinwork/unemployment/timeseries/mgsx/lms
+    freq: M
+  MGSC:
+    fetcher: ons_timeseries
+    source: ons
+    title: "Unemployed, 16+, SA, thousands (LFS, rolling 3 months)"
+    uri: /employmentandlabourmarket/peoplenotinwork/unemployment/timeseries/mgsc/lms
+    freq: M
+  AP2Y:
+    fetcher: ons_timeseries
+    source: ons
+    title: "Vacancies, UK, total, thousands (rolling 3 months)"
+    uri: /employmentandlabourmarket/peopleinwork/employmentandemployeetypes/timeseries/ap2y/lms
+    freq: M
+  RTI_PAYROLLS:
+    fetcher: ons_rti_payrolls
+    source: ons_rti
+    title: "Payrolled employees, UK, SA (PAYE RTI)"
+    uri: /employmentandlabourmarket/peopleinwork/earningsandworkinghours/datasets/realtimeinformationstatisticsreferencetableseasonallyadjusted
+    freq: M
+  ECY2:
+    fetcher: ons_timeseries
+    source: ons
+    title: "Monthly GDP (gross value added), chained volume index, SA"
+    uri: /economy/grossdomesticproductgdp/timeseries/ecy2/mgdp
+    freq: M
+  D7NN:
+    fetcher: ons_timeseries
+    source: ons
+    title: "CPI services, annual rate, %"
+    uri: /economy/inflationandpriceindices/timeseries/d7nn/mm23
+    freq: M
+  KAJ4:
+    fetcher: ons_timeseries
+    source: ons
+    title: "AWE private sector regular pay, 3-month average, y/y %, SA"
+    uri: /employmentandlabourmarket/peopleinwork/earningsandworkinghours/timeseries/kaj4/lms
+    freq: M
+  AGENTS_CAPACITY:
+    fetcher: agents_capacity
+    source: boe_agents
+    title: "Agents' score: current capacity utilisation, quarterly (0 = normal)"
+    url: https://www.bankofengland.co.uk/-/media/boe/files/agents-summary/agentsscores.xlsx
+    freq: Q
+  DMP_PRICE_1Y:
+    fetcher: dmp_price_growth
+    source: dmp
+    title: "DMP: mean expected own-price growth, year ahead, %, 3-month average"
+    url: https://decisionmakerpanel.co.uk/data/
+    freq: M
+  IAS_MEDIAN_1Y:
+    fetcher: ias_median_1y
+    source: boe_ias
+    title: "Inflation Attitudes Survey: median expected inflation, next 12 months, %"
+    url: https://www.bankofengland.co.uk/-/media/boe/files/inflation-attitudes-survey/long-run.xlsx
+    freq: Q
+
+indicators:
+  # ---------------------------------------------------------------- A. Demand
+  - id: unemployment
+    name: Unemployment rate
+    block: A
+    series: [MGSX]
+    transform: level
+    unit: "%"
+    freq: M
+    lag_days: 45
+    benchmark: {method: manual, field: u_star, label: "u*, latest MPR estimate"}
+    sigma: {method: pre2020_sd}
+    sign: -1
+    smoothing: "3-month average (LFS rolling quarter), dated by its last month"
+    note: "LFS response rates are poor; payrolls are the cross-check."
+
+  - id: vacancies_per_unemployed
+    name: Vacancies per unemployed
+    block: A
+    series: [AP2Y, MGSC]
+    transform: ratio
+    unit: ratio
+    freq: M
+    lag_days: 45
+    benchmark: {method: pre2020_mean}
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: "Both series are rolling 3-month averages over the same window"
+    note: "Vacancy survey starts 2001; pre-2020 sample is 2001–2019."
+
+  - id: payrolls
+    name: PAYE payrolled employees
+    block: A
+    series: [RTI_PAYROLLS]
+    transform: annualised_3m3m
+    drop_last: 1
+    unit: "% ann."
+    freq: M
+    lag_days: 45
+    benchmark: {method: pre2020_mean}
+    sigma:
+      method: value
+      value: 1.0
+      rationale: >-
+        Payrolls start in July 2014, too short for a pre-2020 SD. 1.0pp = SD of LFS
+        employees' annualised quarterly growth 1992–2019 (1.48pp) scaled by the ratio
+        of payroll to LFS growth SDs over 2015–2019 (0.73/1.10).
+    sign: 1
+    smoothing: "3 months on previous 3 months, annualised; flash month dropped"
+    note: "The latest (flash) month is heavily revised and excluded."
+
+  - id: gdp
+    name: Real GDP growth
+    block: A
+    series: [ECY2]
+    transform: annualised_3m3m
+    unit: "% ann."
+    freq: M
+    lag_days: 42
+    benchmark: {method: value, value: 1.0, label: "Potential growth 1.0% (config; confirm vs MPR)"}
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: "3 months on previous 3 months, annualised"
+    note: "GDP growth measures the change in the output gap, not its level."
+
+  - id: capacity
+    name: Capacity utilisation (Agents)
+    block: A
+    series: [AGENTS_CAPACITY]
+    transform: level
+    unit: score
+    freq: Q
+    lag_days: -20      # the quarter's score is published before the quarter ends
+    benchmark: {method: value, value: 0, label: "0 = normal utilisation"}
+    sigma:
+      method: value
+      value: 0.75
+      rationale: >-
+        Scores start in 2017 Q4, too short for a pre-2020 SD. 0.75 = SD of the quarterly
+        series excluding the 2020–2023 shock years (confirm).
+    sign: 1
+    smoothing: "Quarterly average of Agents' rounds"
+    note: "Scores are whole numbers from about 2022, fractional before."
+
+  # ------------------------------------------------------ B. Domestic inflation
+  - id: services_cpi
+    name: Services CPI inflation
+    block: B
+    series: [D7NN]
+    transform: level
+    unit: "% y/y"
+    freq: M
+    lag_days: 18
+    benchmark: {method: value, value: 3.25, label: "3.25% target-consistent (config; assumes ~1.25% productivity growth, confirm)"}
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: none
+    note: "Includes indexed and regulated items (rents, phone and broadband contracts, some fees) that reprice each April; watch April effects."
+
+  - id: private_pay
+    name: Private-sector regular pay growth
+    block: B
+    series: [KAJ4]
+    transform: level
+    unit: "% y/y"
+    freq: M
+    lag_days: 45
+    benchmark: {method: value, value: 3.25, label: "2% + trend productivity ~1.25% (config; confirm)"}
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: "3-month average, year on year (published transform)"
+    note: "Average weekly earnings, regular pay excluding bonuses and arrears."
+
+  - id: dmp_prices
+    name: Firms' expected own-price growth
+    block: B
+    series: [DMP_PRICE_1Y]
+    transform: level
+    unit: "%"
+    freq: M
+    lag_days: 10
+    benchmark: {method: pre2020_mean}
+    sigma:
+      method: value
+      value: 0.7
+      rationale: >-
+        The panel starts in 2017; its 2017–2019 SD (0.2pp) would pin the score at the clip.
+        0.7pp = SD excluding the 2020–2023 shock years (0.71pp), close to the pre-2020 SD
+        of household expectations (0.65pp) (confirm).
+    sign: 1
+    smoothing: "3-month average (DMP headline)"
+    note: "Year-ahead expected change in the firm's own prices; pre-2020 sample is 2017–2019."
+
+  - id: household_expectations
+    name: Household inflation expectations
+    block: B
+    series: [IAS_MEDIAN_1Y]
+    transform: level
+    unit: "%"
+    freq: Q
+    lag_days: -19      # the quarter's survey (Feb/May/Aug/Nov) is published inside the quarter
+    benchmark: {method: pre2020_mean}
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: none
+    note: "Median expected change in shop prices over the next 12 months. The survey provider appears to have changed from Ipsos to Savanta in 2026 (confirm for a break)."

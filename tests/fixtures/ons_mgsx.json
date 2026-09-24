@@ -1,0 +1,102 @@
+{
+ "description": {
+  "cdid": "MGSX",
+  "title": "Unemployment rate (aged 16 and over, seasonally adjusted): %"
+ },
+ "years": [
+  {
+   "date": "2024",
+   "value": "4.3",
+   "label": "2024",
+   "year": "2024",
+   "month": "",
+   "quarter": "",
+   "sourceDataset": "LMS",
+   "updateDate": "2025-02-18T00:00:00.000Z"
+  },
+  {
+   "date": "2025",
+   "value": "4.9",
+   "label": "2025",
+   "year": "2025",
+   "month": "",
+   "quarter": "",
+   "sourceDataset": "LMS",
+   "updateDate": "2026-07-20T23:00:00.000Z"
+  }
+ ],
+ "quarters": [
+  {
+   "date": "2025 Q4",
+   "value": "5.2",
+   "label": "2025 Q4",
+   "year": "2025",
+   "month": "",
+   "quarter": "Q4",
+   "sourceDataset": "LMS",
+   "updateDate": "2026-02-17T00:00:00.000Z"
+  },
+  {
+   "date": "2026 Q1",
+   "value": "5.0",
+   "label": "2026 Q1",
+   "year": "2026",
+   "month": "",
+   "quarter": "Q1",
+   "sourceDataset": "LMS",
+   "updateDate": "2026-05-18T23:00:00.000Z"
+  },
+  {
+   "date": "2026 Q2",
+   "value": "4.9",
+   "label": "2026 Q2",
+   "year": "2026",
+   "month": "",
+   "quarter": "Q2",
+   "sourceDataset": "LMS",
+   "updateDate": "2026-08-17T23:00:00.000Z"
+  }
+ ],
+ "months": [
+  {
+   "date": "2026 MAR",
+   "value": "4.9",
+   "label": "2026 FEB-APR",
+   "year": "2026",
+   "month": "March",
+   "quarter": "",
+   "sourceDataset": "LMS",
+   "updateDate": "2026-06-17T23:00:00.000Z"
+  },
+  {
+   "date": "2026 APR",
+   "value": "4.9",
+   "label": "2026 MAR-MAY",
+   "year": "2026",
+   "month": "April",
+   "quarter": "",
+   "sourceDataset": "LMS",
+   "updateDate": "2026-07-20T23:00:00.000Z"
+  },
+  {
+   "date": "2026 MAY",
+   "value": "4.9",
+   "label": "2026 APR-JUN",
+   "year": "2026",
+   "month": "May",
+   "quarter": "",
+   "sourceDataset": "LMS",
+   "updateDate": "2026-08-17T23:00:00.000Z"
+  },
+  {
+   "date": "2026 JUN",
+   "value": "4.9",
+   "label": "2026 MAY-JUL",
+   "year": "2026",
+   "month": "June",
+   "quarter": "",
+   "sourceDataset": "LMS",
+   "updateDate": "2026-09-14T23:00:00.000Z"
+  }
+ ]
+}

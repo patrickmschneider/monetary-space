@@ -1,0 +1,28 @@
+# Scoring parameters (spec Section 3). Change these, not code.
+
+z_clip: 3.0                # step 3: z clipped at ±z_clip
+direction_threshold: 0.5   # step 4: |z| above this points up/down
+
+pressure:                  # step 6
+  weights: {B: 0.5, A: 0.3, C: 0.2}   # default, not an estimate (open question); equal weights are the alternative
+  threshold: 0.5
+
+stance:                    # step 7 (Phase 2)
+  rstar_band_min_half_width: 0.5      # pp
+  rstar_range:                        # real neutral rate, %. Set by the team, not the agent.
+    low: null
+    high: null
+
+rule:                      # illustrative Taylor-type rule, policy path chart only (Phase 2)
+  inflation_target: 2.0
+  phi_pi: 1.5
+  phi_y: 0.5
+  okun: 2.0                # output gap ≈ −okun·(u − u*)
+
+freshness:
+  stale_grace_days: 14     # stale if the next release is more than this overdue
+
+history:
+  sparkline_months: 24
+  saturation_since: "2021-01"   # clip share reported from this date; >25% carries a note
+  saturation_note_share: 0.25

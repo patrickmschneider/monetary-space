@@ -1,0 +1,108 @@
+"""Bank of England survey spreadsheets: Decision Maker Panel, Inflation Attitudes Survey, Agents' scores.
+
+The DMP file name changes each release, so its link is discovered from the DMP
+data page, with the BoE monthly release pages as a fallback. The other two files
+are overwritten in place.
+"""
+from __future__ import annotations
+
+import datetime as dt
+import io
+import re
+
+import pandas as pd
+import requests
+
+from .http import get
+
+BOE = "https://www.bankofengland.co.uk"
+DMP_DATA_PAGE = "https://decisionmakerpanel.co.uk/data/"
+MONTHS = ["january", "february", "march", "april", "may", "june", "july",
+          "august", "september", "october", "november", "december"]
+
+
+# ------------------------------------------------------------ Decision Maker Panel
+def discover_dmp_url() -> str:
+    try:
+        html = get(DMP_DATA_PAGE).text
+        links = set(re.findall(
+            r'href="(https?://[^"]*monthly-dmp-data-([a-z]+)-(\d{4})(?:-\d+)?\.xlsx)"', html, re.I))
+        if links:
+            return max(links, key=lambda t: (int(t[2]), MONTHS.index(t[1].lower()), t[0]))[0]
+    except (requests.RequestException, ValueError):
+        pass
+    d = dt.date.today().replace(day=1)
+    for _ in range(6):
+        page = f"{BOE}/decision-maker-panel/{d.year}/{MONTHS[d.month - 1]}-{d.year}"
+        try:
+            r = get(page)
+        except requests.RequestException:
+            r = None
+        if r is not None and "/error/404" not in r.url:
+            m = re.search(r'href="([^"]*monthly-dmp-data-[^"]*\.xlsx)"', r.text)
+            if m:
+                return requests.compat.urljoin(BOE, m.group(1))
+        d = (d - dt.timedelta(days=1)).replace(day=1)
+    raise RuntimeError("DMP spreadsheet link not found")
+
+
+def parse_dmp_price_growth(xlsx: bytes, measure: str = "3 month average") -> pd.Series:
+    """Sheet 'Price growth': mean expected own-price growth over the next year, %."""
+    raw = pd.read_excel(io.BytesIO(xlsx), sheet_name="Price growth", header=None)
+    r0, c0 = next((i, j) for (i, j), v in raw.stack().items()
+                  if isinstance(v, str) and v.strip().lower().startswith("mean expected price growth"))
+    hdr = r0 + 1
+    col = next(j for j in range(c0, c0 + 3) if str(raw.iat[hdr, j]).strip().lower() == measure.lower())
+    datecol = next(j for j in range(raw.shape[1]) if str(raw.iat[hdr, j]).lower().startswith("survey date"))
+    body = raw.iloc[hdr + 1:, [datecol, col]].dropna()
+    idx = pd.PeriodIndex(pd.to_datetime(body.iloc[:, 0].astype(str).str.strip(), format="%b-%y"), freq="M")
+    s = pd.Series(pd.to_numeric(body.iloc[:, 1], errors="coerce").to_numpy(dtype=float), index=idx)
+    return s.dropna().sort_index().rename("DMP_PRICE_1Y")
+
+
+def dmp_price_growth() -> pd.Series:
+    return parse_dmp_price_growth(get(discover_dmp_url()).content)
+
+
+# ------------------------------------------------------ Inflation Attitudes Survey
+IAS_URL = f"{BOE}/-/media/boe/files/inflation-attitudes-survey/long-run.xlsx"
+
+
+def parse_ias_median_1y(xlsx: bytes) -> pd.Series:
+    """LONG-RUN sheet: median expected change in shop prices over the next 12 months, by quarter."""
+    raw = pd.read_excel(io.BytesIO(xlsx), sheet_name=0, header=None)
+    lab = raw.iloc[:, 0].astype(str).str.strip()
+    drow = next(i for i in range(15)
+                if raw.iloc[i, 1:].map(lambda x: isinstance(x, (dt.datetime, pd.Timestamp))).sum() > 10)
+    q = lab[lab.str.match(r"^Q\.?\s*2a\b", case=False)].index[0]
+    med = lab[(lab.str.lower() == "median") & (lab.index > q)].index[0]
+    dates = pd.to_datetime(raw.iloc[drow, 1:], errors="coerce")
+    vals = pd.to_numeric(raw.iloc[med, 1:], errors="coerce")
+    ok = dates.notna() & vals.notna()
+    idx = pd.PeriodIndex(pd.DatetimeIndex(dates[ok]), freq="Q")
+    s = pd.Series(vals[ok].to_numpy(dtype=float), index=idx)
+    return s[~s.index.duplicated(keep="last")].sort_index().rename("IAS_MEDIAN_1Y")
+
+
+def ias_median_1y() -> pd.Series:
+    return parse_ias_median_1y(get(IAS_URL).content)
+
+
+# ------------------------------------------------------------------ Agents' scores
+AGENTS_URL = f"{BOE}/-/media/boe/files/agents-summary/agentsscores.xlsx"
+
+
+def parse_agents_capacity(xlsx: bytes) -> pd.Series:
+    """'Quarterly scores' sheet: current capacity utilisation (0 = normal, about −5..+5)."""
+    raw = pd.read_excel(io.BytesIO(xlsx), sheet_name="Quarterly scores", header=None)
+    col = next(j for j in range(raw.shape[1])
+               if re.search(r"capacity utilisation", " ".join(str(x) for x in raw.iloc[:5, j] if pd.notna(x)), re.I))
+    body = raw.iloc[5:, [0, col]]
+    body = body[body.iloc[:, 0].astype(str).str.match(r"^\d{4} Q[1-4]$")]
+    idx = pd.PeriodIndex(body.iloc[:, 0].str.replace(" ", ""), freq="Q")
+    s = pd.Series(pd.to_numeric(body.iloc[:, 1], errors="coerce").to_numpy(dtype=float), index=idx)
+    return s.dropna().sort_index().rename("AGENTS_CAPACITY")
+
+
+def agents_capacity() -> pd.Series:
+    return parse_agents_capacity(get(AGENTS_URL).content)
