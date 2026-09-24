@@ -46,6 +46,7 @@ jobs:
         with:
           ref: data
           path: store
+          fetch-depth: 0
 
       - name: Install
         if: steps.gate.outputs.run == 'true'
@@ -61,19 +62,27 @@ jobs:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: python -m monetary_space build --store store --out site
 
+      # A failure here must not stop the page deploying; it shows as a warning.
       - name: Commit vintage to data branch
         if: steps.gate.outputs.run == 'true'
+        continue-on-error: true
         working-directory: store
         run: |
+          set -x
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if git diff --cached --quiet; then
             echo "No data changes"
-          else
-            git commit -m "Vintage $(TZ=Europe/London date +%F)"
-            git push
+            exit 0
           fi
+          git commit -m "Vintage $(TZ=Europe/London date +%F)"
+          for attempt in 1 2 3; do
+            git pull --rebase origin data && git push origin HEAD:data && exit 0
+            sleep 5
+          done
+          echo "::warning::Could not push the data vintage to the data branch"
+          exit 1
 
       - uses: actions/configure-pages@v5
         if: steps.gate.outputs.run == 'true'
