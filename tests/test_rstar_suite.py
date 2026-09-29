@@ -20,7 +20,7 @@ def test_suite_loads_and_sets_the_neutral_zone():
     weights = [v["weight"] for v in suite.estimators.values() if v]
     assert sum(weights) == pytest.approx(1.0, abs=1e-3)
     d = pd.period_range("2025-01-01", "2026-09-23", freq="D")
-    st = stance.compute(cfg, {"OIS_2Y": pd.Series(4.6, index=d)}, suite, pd.Timestamp("2026-09-24"))
+    st = stance.compute(cfg, {"IUDBEDR": pd.Series(4.6, index=d)}, suite, pd.Timestamp("2026-09-24"))
     assert st.r_star == suite.headline
     assert st.band[0] <= lo and st.band[1] >= hi          # never narrower than the suite's range
 

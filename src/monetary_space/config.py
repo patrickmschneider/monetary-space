@@ -16,7 +16,7 @@ BLOCK_TITLES = {
     "D": "Is demand running ahead of the economy's capacity?",
     "S": "Is the economy's capacity growing more slowly than normal?",
     "C": "Are external costs pushing up prices?",
-    "P": "Is policy tight or loose, looking two years ahead?",
+    "P": "Is policy stimulating or restraining the economy?",
 }
 BLOCK_NAMES = {"E": "Expectations", "D": "Demand", "S": "Supply", "C": "Cost-push", "P": "Policy stance"}
 

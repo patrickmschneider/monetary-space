@@ -58,17 +58,17 @@ For comparison, the February 2026 MPR put u\* at about 4¾%.
 
 ## Estimated r\* (neutral real rate)
 
-Stance compares the real 2-year rate (2-year OIS minus the MPR's year-ahead CPI projection) with r\*. No single r\* estimate is reliable for the UK, so, following central-bank practice (Bank of England, ECB, Bank of Canada), r\* is a suite of estimators (`analysis/rstar_suite.py`, method and evidence in [reports/UK neutral rate estimation methods.md](reports/UK%20neutral%20rate%20estimation%20methods.md)):
+Stance compares the current policy setting with the neutral rate, the rate at which policy neither stimulates nor restrains the economy: Bank Rate minus year-ahead expected inflation (the MPR projection) against r\*. Nominal estimates of neutral (the survey) are converted with the same expected inflation, so the real gap equals the nominal gap. This departs from the spec's 2-year OIS (owner's decision, 29 Sep 2026); the market's expected path is shown in the policy path chart. No single r\* estimate is reliable for the UK, so, following central-bank practice (Bank of England, ECB, Bank of Canada), r\* is a suite of estimators (`analysis/rstar_suite.py`, method and evidence in [reports/UK neutral rate estimation methods.md](reports/UK%20neutral%20rate%20estimation%20methods.md)):
 
 | Estimator | Horizon | Weight | Latest (real) |
 | --- | --- | --- | --- |
 | Trend-cycle model (after Del Negro, Giannone, Giannoni & Tambalotti): common random-walk trends in Bank Rate (missing at the lower bound 2009–21), CPI inflation and 10-year nominal and real gilt yields; trend-shock variances at DGGT's priors; cycle persistence capped at 0.9 | long run | 0.40 | 1.25% ± 0.3 |
 | Repaired HLW-style model: λz = 0 (Buncic 2022), IS slope estimated, COVID and lower-bound variance scaling, households' expectations as the deflator | policy horizon | 0.25 if identified | excluded: the IS slope goes to its bound, so r\* is not identified (as the NY Fed found for the UK) |
-| Bank of England Market Participants Survey: median neutral Bank Rate minus 2% (scraped from each round since 2022) | policy horizon | 0.35 | 1.25% |
+| Bank of England Market Participants Survey: median neutral Bank Rate minus year-ahead expected inflation (scraped from each round since 2022) | policy horizon | 0.35 | 0.65% (3.25% − 2.6%) |
 | Index-linked gilt 5y5y real forward | long run | shown only: includes term and liquidity premia | 2.6% |
 | 10-year average real Bank Rate | benchmark | shown only | −0.5% |
 
-Headline: the weighted mean of the estimators that pass diagnostics, rounded to 0.25pp: **1.25% real (3.25% nominal)**. The neutral zone is their range, rounded outward and at least ±0.5pp: 0.75–1.75%. It is consistent with published estimates (Alan Taylor 0.75%, Bank staff models up 25–75bp since 2018, MaPS 1.25%). An earlier single-model estimate (−0.8%) was an artefact of the HLW model failing on UK data; the report explains why.
+Headline: the weighted mean of the estimators that pass diagnostics, rounded to 0.25pp: **1.0% real** (3.6% nominal at 2.6% expected inflation). The neutral zone is their range, rounded outward and at least ±0.5pp: 0.4–1.4%. It is consistent with published estimates (Alan Taylor 0.75%, Bank staff models up 25–75bp since 2018). An earlier single-model estimate (−0.8%) was an artefact of the HLW model failing on UK data; the report explains why.
 
 ## Phillips-curve structure
 

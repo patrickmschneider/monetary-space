@@ -22,8 +22,15 @@ pressure:                  # step 6, restructured around the Phillips curve
     cap: 2.5
 
 stance:                    # step 7
-  ois_series: OIS_2Y                  # nominal 2-year OIS, so a hawkish hold registers on the day
-  expected_inflation_field: cpi_1y    # manual/mpr.csv: MPR year-ahead CPI projection
+  # Stance = the current policy setting against the neutral rate: the rate at which policy is
+  # neither stimulatory nor contractionary (owner's definition, 2026-09-29). The market's expected
+  # path is shown in the policy path chart but does not drive the stance.
+  policy_rate_series: IUDBEDR         # Bank Rate
+  policy_rate_name: Bank Rate
+  # Expected inflation over the next year (MPR year-ahead CPI projection, manual/mpr.csv). The same
+  # measure converts nominal neutral-rate estimates (the Market Participants Survey) to real, so
+  # the real gap equals the nominal gap.
+  expected_inflation_fields: [cpi_1y]
   rstar_band_min_half_width: 0.5      # pp; r* and its band come from the model in config/rstar.yaml
 
 rule:                      # illustrative Taylor-type rule, policy path chart only (Phase 2)

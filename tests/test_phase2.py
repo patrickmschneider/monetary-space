@@ -25,8 +25,9 @@ def ois(level):
 @pytest.mark.parametrize("ois_level,expected", [(3.6, "neutral"), (5.2, "tight"), (3.0, "loose")])
 def test_stance_classes_against_band(ois_level, expected):
     cfg = config.load(ROOT)          # July 2026 MPR year-ahead CPI projection: 2.6%
-    st = stance.compute(cfg, {"OIS_2Y": ois(ois_level)}, fake_rstar(1.0, 0.3), pd.Timestamp("2026-09-24"))
-    assert st.expected_inflation == 2.6
+    st = stance.compute(cfg, {"IUDBEDR": ois(ois_level)}, fake_rstar(1.0, 0.3), pd.Timestamp("2026-09-24"))
+    assert st.expected_inflation == 2.6            # July 2026 MPR year-ahead projection
+    assert st.nominal_neutral == pytest.approx(1.0 + 2.6)
     assert st.real_rate == pytest.approx(ois_level - 2.6)
     assert st.band == pytest.approx((0.5, 1.5))            # widened to the 0.5pp minimum half-width
     assert st.cls == expected and st.gap == pytest.approx(st.real_rate - 1.0)
@@ -34,17 +35,17 @@ def test_stance_classes_against_band(ois_level, expected):
 
 def test_band_uses_standard_error_when_wider():
     cfg = config.load(ROOT)
-    st = stance.compute(cfg, {"OIS_2Y": ois(4.6)}, fake_rstar(1.0, 1.2), pd.Timestamp("2026-09-24"))
+    st = stance.compute(cfg, {"IUDBEDR": ois(4.6)}, fake_rstar(1.0, 1.2), pd.Timestamp("2026-09-24"))
     assert st.band == pytest.approx((-0.2, 2.2))
 
 
 def test_verdict_combines_pressure_and_stance():
     cfg = config.load(ROOT)
     zero = {"E": 0, "D": 0, "S": 0, "C": 0}
-    tight = stance.compute(cfg, {"OIS_2Y": ois(5.2)}, fake_rstar(), pd.Timestamp("2026-09-24"))
+    tight = stance.compute(cfg, {"IUDBEDR": ois(5.2)}, fake_rstar(), pd.Timestamp("2026-09-24"))
     assert stance.verdict(cfg, zero, tight, cpi_yy=2.0).verdict == EASE
     assert stance.verdict(cfg, dict.fromkeys(zero, 2.0), tight, cpi_yy=2.0).verdict == ON_TRACK
-    loose = stance.compute(cfg, {"OIS_2Y": ois(3.0)}, fake_rstar(), pd.Timestamp("2026-09-24"))
+    loose = stance.compute(cfg, {"IUDBEDR": ois(3.0)}, fake_rstar(), pd.Timestamp("2026-09-24"))
     v = stance.verdict(cfg, {"E": 0.5, "D": 1.5, "S": 0.2, "C": 1.0}, loose, cpi_yy=1.0)
     assert v.method == "config" and v.verdict == HAWKISH and v.driver == "D"
     w = cfg.weights["pressure"]["weights"]

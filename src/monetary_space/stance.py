@@ -15,8 +15,9 @@ from .config import Config
 
 @dataclass
 class Stance:
-    ois_2y: float
-    ois_date: pd.Timestamp
+    rate: float                 # the policy rate (Bank Rate by default)
+    rate_date: pd.Timestamp
+    rate_name: str
     expected_inflation: float
     expectation_source: str
     real_rate: float
@@ -27,6 +28,7 @@ class Stance:
     gap: float
     cls: str
     history: pd.Series            # monthly gap, pp
+    nominal_neutral: float = float("nan")     # r* + expected inflation: the same gap in nominal terms
 
 
 def mpr_path(cfg: Config, field: str) -> pd.Series:
@@ -34,6 +36,13 @@ def mpr_path(cfg: Config, field: str) -> pd.Series:
     m = cfg.manual["mpr"].dropna(subset=[field]).copy()
     m["mpr_date"] = pd.to_datetime(m["mpr_date"])
     return m.set_index("mpr_date")[field].astype(float).sort_index()
+
+
+def expected_inflation_path(cfg: Config, fields: list[str]) -> pd.Series:
+    """Mean of the listed MPR projection fields, by publication date (rows with all fields)."""
+    m = cfg.manual["mpr"].dropna(subset=fields).copy()
+    m["mpr_date"] = pd.to_datetime(m["mpr_date"])
+    return m.set_index("mpr_date")[fields].astype(float).mean(axis=1).sort_index()
 
 
 def as_of(path: pd.Series, when: pd.Timestamp) -> tuple[float, pd.Timestamp]:
@@ -45,9 +54,10 @@ def as_of(path: pd.Series, when: pd.Timestamp) -> tuple[float, pd.Timestamp]:
 
 def compute(cfg: Config, data: dict[str, pd.Series], rstar_est, as_of_day: pd.Timestamp) -> Stance:
     st = cfg.weights["stance"]
-    ois = data[st["ois_series"]].dropna()
+    ois = data[st.get("policy_rate_series") or st["ois_series"]].dropna()
     ois = ois[ois.index.to_timestamp() <= as_of_day]
-    proj = mpr_path(cfg, st["expected_inflation_field"])
+    fields = st.get("expected_inflation_fields") or [st["expected_inflation_field"]]
+    proj = expected_inflation_path(cfg, fields)
     e, mpr_date = as_of(proj, as_of_day)
     if hasattr(rstar_est, "range"):                       # the r* suite: headline and range
         rs, se = float(rstar_est.headline), float(rstar_est.se.iloc[-1])
@@ -66,10 +76,12 @@ def compute(cfg: Config, data: dict[str, pd.Series], rstar_est, as_of_day: pd.Ti
     hist = (m - exp_m - rstar_m).dropna()
 
     return Stance(
-        ois_2y=float(ois.iloc[-1]), ois_date=ois.index[-1].to_timestamp(), expected_inflation=e,
-        expectation_source=f"MPR {mpr_date:%B %Y} year-ahead CPI projection",
+        rate=float(ois.iloc[-1]), rate_date=ois.index[-1].to_timestamp(), rate_name=st.get("policy_rate_name", "Policy rate"),
+        expected_inflation=e,
+        expectation_source=(f"MPR {mpr_date:%B %Y} CPI projection, mean of one and two years ahead"
+                            if len(fields) == 2 else f"MPR {mpr_date:%B %Y} year-ahead CPI projection"),
         real_rate=real, r_star=rs, r_star_se=se, r_star_quarter=rstar_est.r_star.index[-1],
-        band=band, gap=real - rs, cls=score.stance(real, band), history=hist,
+        band=band, gap=real - rs, cls=score.stance(real, band), history=hist, nominal_neutral=rs + e,
     )
 
 

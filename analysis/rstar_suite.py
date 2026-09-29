@@ -144,6 +144,22 @@ def potential_growth(d: dict, maps: pd.DataFrame | None) -> pd.Series:
     return trailing.dropna()
 
 
+def expected_inflation_at(dates: pd.PeriodIndex) -> pd.Series:
+    """Expected inflation at each date, as the Stance block measures it (config/weights.yaml
+    stance.expected_inflation_fields: MPR projections in force, else the 2% target). The same
+    measure deflates the policy rate, so real and nominal gaps agree."""
+    import yaml
+    fields = yaml.safe_load((ROOT / "config" / "weights.yaml").read_text())["stance"]["expected_inflation_fields"]
+    m = pd.read_csv(ROOT / "manual" / "mpr.csv", comment="#").dropna(subset=fields)
+    m["mpr_date"] = pd.to_datetime(m["mpr_date"])
+    path = m.set_index("mpr_date")[fields].mean(axis=1).sort_index()
+    out = []
+    for p in dates:
+        prior = path[path.index <= p.end_time]
+        out.append(float(prior.iloc[-1]) if len(prior) else 2.0)
+    return pd.Series(out, index=dates)
+
+
 # ------------------------------------------------------------------ combine
 def main() -> None:
     d = load()
@@ -177,10 +193,16 @@ def main() -> None:
                          "status": "shown, not weighted (benchmark)"},
     }
     if maps is not None and "neutral" in maps:
-        last = maps["neutral"].dropna()
-        est["maps"] = {"name": "Market Participants Survey", "role": "policy horizon", "value": float(last.iloc[-1] - 2.0),
-                       "p25": float(maps["neutral_p25"].dropna().iloc[-1] - 2), "p75": float(maps["neutral_p75"].dropna().iloc[-1] - 2),
-                       "date": str(last.index[-1]), "basis": "median perceived neutral Bank Rate minus the 2% target",
+        maps["expected_inflation"] = expected_inflation_at(maps.index)
+        maps["neutral_real"] = maps["neutral"] - maps["expected_inflation"]
+        last = maps["neutral_real"].dropna()
+        e_last = float(maps["expected_inflation"].iloc[-1])
+        est["maps"] = {"name": "Market Participants Survey", "role": "policy horizon", "value": float(last.iloc[-1]),
+                       "nominal": float(maps["neutral"].dropna().iloc[-1]),
+                       "p25": float(maps["neutral_p25"].dropna().iloc[-1] - e_last), "p75": float(maps["neutral_p75"].dropna().iloc[-1] - e_last),
+                       "date": str(last.index[-1]),
+                       "basis": f"median perceived neutral Bank Rate ({maps['neutral'].dropna().iloc[-1]:.2f}%) minus expected inflation "
+                                f"({e_last:.2f}%, MPR year-ahead projection): the same deflator as the policy rate",
                        "status": "ok"}
     core = {k: v for k, v in est.items() if k in WEIGHTS and v and v["status"] == "ok"}
     med = float(np.median([v["value"] for v in core.values()]))
@@ -203,7 +225,7 @@ def main() -> None:
     # Headline history: trend-cycle r̄, blended with MaPS (real) where available, same weights.
     hist = tc.r_bar.copy()
     if est.get("maps") and est["maps"]["status"] == "ok":
-        mq = (maps["neutral"].dropna() - 2.0)
+        mq = maps["neutral_real"].dropna()
         mq = mq.groupby(mq.index.asfreq("Q")).last().reindex(hist.index).ffill()
         wm = w.get("maps", 0) / (w.get("maps", 0) + w.get("trend_cycle", 0)) if "trend_cycle" in w else 1.0
         hist = hist.where(mq.isna(), (1 - wm) * hist + wm * mq)
@@ -213,7 +235,7 @@ def main() -> None:
         "method": "Suite of r* estimators, weighted (trend-cycle 0.40, HLW 0.25, MaPS 0.35) over those that pass "
                   "diagnostics; range spans the core estimates. See reports/UK neutral rate estimation methods.md.",
         "headline": round(headline, 3), "headline_rounded": head_r, "range": [lo, hi],
-        "nominal_headline": head_r + 2.0, "nominal_range": [lo + 2.0, hi + 2.0],
+        "expected_inflation": float(expected_inflation_at(pd.PeriodIndex([pd.Period(dt.date.today(), "M")]))[0]),
         "estimators": est,
         "history": {
             "headline": {str(k): round(float(v), 3) for k, v in hist.items()},
@@ -222,7 +244,7 @@ def main() -> None:
             "hlw": {str(k): round(float(v), 3) for k, v in hlw.r_star.items()},
             "market_5y5y": {str(k): round(float(v), 3) for k, v in fwd[fwd.index >= pd.Period("2000Q1", "Q")].items()},
             "real_rate_ma": {str(k): round(float(v), 3) for k, v in ma.items()},
-            "maps": ({str(k): round(float(v) - 2, 3) for k, v in maps["neutral"].dropna().items()} if maps is not None else {}),
+            "maps": ({str(k): round(float(v), 3) for k, v in maps["neutral_real"].dropna().items()} if maps is not None and "neutral_real" in maps else {}),
         },
         "potential_growth": {str(k): round(float(v), 3) for k, v in pg.items()},
         "trend_cycle_params": {k: (v if not isinstance(v, (np.floating, float)) else round(float(v), 3)) for k, v in tc.params.items()},
@@ -230,7 +252,8 @@ def main() -> None:
     }
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "rstar_suite.json").write_text(json.dumps(out, indent=1, default=str))
-    print(f"Headline r* {headline:.2f}% → {head_r:.2f}% (range {lo:.2f}–{hi:.2f}; nominal {head_r + 2:.2f}%, {lo + 2:.2f}–{hi + 2:.2f})")
+    e2 = out["expected_inflation"]
+    print(f"Headline r* {headline:.2f}% → {head_r:.2f}% (range {lo:.2f}–{hi:.2f}); nominal at {e2:.2f}% expected inflation: {head_r + e2:.2f}%")
     for k, v in est.items():
         if v:
             print(f"  {v['name']:40} {v['value']:6.2f}%  {v['date']:8} weight {v['weight']:.2f}  {v['status']}")

@@ -69,7 +69,8 @@ def summary(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], proble
             "alternative": {k: (round(v, 3) if isinstance(v, float) else v) for k, v in verdict.alternative.items()
                             if k in ("method", "pressure", "class", "verdict", "driver")}},
         "stance": None if stance is None else {
-            "ois_2y": stance.ois_2y, "ois_date": str(stance.ois_date.date()),
+            "policy_rate": stance.rate, "policy_rate_name": stance.rate_name, "policy_rate_date": str(stance.rate_date.date()),
+            "nominal_neutral": round(stance.nominal_neutral, 3),
             "expected_inflation": stance.expected_inflation, "expectation_source": stance.expectation_source,
             "real_rate": round(stance.real_rate, 3), "r_star": round(stance.r_star, 3),
             "r_star_se": round(stance.r_star_se, 3), "r_star_quarter": str(stance.r_star_quarter),
@@ -179,7 +180,7 @@ def lead_sentence(blocks: dict[str, Block], threshold: float, stance=None, verdi
     text = text[0].upper() + text[1:] + "."
     if stance is not None:
         s = {"tight": "tight", "loose": "loose", "neutral": "close to neutral"}[stance.cls]
-        text += (f" Policy is {s}: a real 2-year rate of {num(stance.real_rate)}% against an estimated "
+        text += (f" Policy is {s}: a real {stance.rate_name} of {num(stance.real_rate)}% against an estimated "
                  f"neutral rate of {num(stance.r_star, 2)}%.")
     return text
 
@@ -246,7 +247,7 @@ def headline_strip(blocks: dict[str, Block], cfg: Config, stance=None) -> str:
                 f'<div class="metric"><h2><a href="#block-P">{title}</a></h2><p class="question">{escape(BLOCK_TITLES[k])}</p>'
                 f'<p class="metric-value">{fmt(stance.gap)}<span class="metric-unit">pp</span> <span class="metric-word">{STANCE_WORD[stance.cls]}</span></p>'
                 f'{stance_bar(stance.gap, half, f"Real-rate gap {fmt(stance.gap)}pp")}'
-                f'<p class="metric-detail">2y OIS {num(stance.ois_2y, 2)}% ({stance.ois_date:%-d %b}) − expected inflation {num(stance.expected_inflation)}% − r* {num(stance.r_star)}%</p>'
+                f'<p class="metric-detail">{escape(stance.rate_name)} {num(stance.rate, 2)}% − expected inflation {num(stance.expected_inflation)}% − r* {num(stance.r_star, 2)}%</p>'
                 f'{sparkline(stance.history, months, f"Real-rate gap, last {months} months", STANCE_SCALE)}</div>'
             )
             continue
@@ -328,7 +329,7 @@ def stance_section(stance, estimates: dict, cfg: Config, number: int) -> str:
         return ""
     suite = estimates["rstar"]
     rows = [
-        ("2-year OIS rate", f"{num(stance.ois_2y, 2)}%", f"{stance.ois_date:%-d %b %Y}", "Bank of England yield curves"),
+        (stance.rate_name, f"{num(stance.rate, 2)}%", f"{stance.rate_date:%-d %b %Y}", "Bank of England"),
         ("− Expected inflation", f"{num(stance.expected_inflation)}%", "", stance.expectation_source),
         ("= Real rate", f"{num(stance.real_rate, 2)}%", "", ""),
         ("r*, suite headline", f"{num(stance.r_star, 2)}%", "", "Weighted estimators below, rounded to 0.25pp"),
@@ -373,7 +374,7 @@ def stance_section(stance, estimates: dict, cfg: Config, number: int) -> str:
     <div>
       <p class="eyebrow">POLICY STANCE</p>
       <h2 id="h-P">{escape(BLOCK_TITLES['P'])}</h2>
-      <p class="takeaway">The real 2-year rate against the neutral real rate r*. No single estimate of r* is reliable, so r* is a weighted suite of estimators, following central-bank practice, and the neutral zone is their range. Stance is in percentage points and never coloured, because "up" means tight, not inflationary.</p>
+      <p class="takeaway">The current policy setting against the neutral rate: the rate at which policy neither stimulates nor restrains the economy. Both are put in real terms with the same expected inflation, so the gap is the same as in nominal terms ({escape(stance.rate_name)} {num(stance.rate, 2)}% against a nominal neutral rate of {num(stance.nominal_neutral, 2)}%). Where markets expect policy to go is in the policy path chart. No single estimate of r* is reliable, so r* is a weighted suite of estimators, following central-bank practice, and the neutral zone is their range. Stance is in percentage points and never coloured, because "up" means tight, not inflationary.</p>
     </div>
   </div>
   <div class="table-wrap"><table>
