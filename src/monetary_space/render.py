@@ -222,14 +222,14 @@ def verdict_strip(cfg: Config, blocks: dict[str, Block], stance, verdict, data: 
   </div>
   <div class="dial">
     <h2>Inflation pressure <span class="{pcls}">{fmt(verdict.pressure)} {ARROW[pcls]} {WORD[pcls]}</span></h2>
-    {zbar(verdict.pressure, pcls, f"Pressure {fmt(verdict.pressure)} on a −3 to +3 scale")}
-    <p class="dial-note">{verdict.method.capitalize()} weights: {contrib}</p>
-    <p class="dial-note">{alt_note}{mult_note}</p>
+    <div class="dial-bar">{zbar(verdict.pressure, pcls, f"Pressure {fmt(verdict.pressure)} on a −3 to +3 scale")}<span class="sbar-ends" aria-hidden="true"><span>← Disinflationary</span><span>Inflationary →</span></span></div>
+    <div class="dial-notes"><p class="dial-note">{verdict.method.capitalize()} weights: {contrib}</p>
+    <p class="dial-note">{alt_note}{mult_note}</p></div>
   </div>
   <div class="dial">
     <h2>Policy stance <span class="stance-word">{fmt(stance.gap)}pp · {STANCE_WORD[stance.cls]}</span></h2>
-    {stance_bar(stance.gap, half, f"Real-rate gap {fmt(stance.gap)} percentage points, {stance.cls}")}
-    <p class="dial-note">Real rate {num(stance.real_rate)}% vs r* {num(stance.r_star, 2)}% (neutral {num(stance.band[0], 2)} to {num(stance.band[1], 2)}%)</p>
+    <div class="dial-bar">{stance_bar(stance.gap, half, f"Real-rate gap {fmt(stance.gap)} percentage points, {stance.cls}")}</div>
+    <div class="dial-notes"><p class="dial-note">Real {escape(stance.rate_name)} {num(stance.real_rate)}% vs r* {num(stance.r_star, 2)}% (neutral {num(stance.band[0], 2)} to {num(stance.band[1], 2)}%)</p></div>
   </div>
   <p class="verdict-facts">{" · ".join(facts)}</p>
 </section>"""
@@ -254,7 +254,7 @@ def headline_strip(blocks: dict[str, Block], cfg: Config, stance=None) -> str:
         if k not in blocks:
             cols.append(
                 f'<div class="metric pending"><h2>{title}</h2><p class="question">{escape(BLOCK_TITLES[k])}</p>'
-                f'<p class="metric-value muted-value">—</p><p class="metric-detail">Not available this run.</p></div>'
+                f'<p class="metric-value muted-value">—</p><span class="zbar-slot"></span><p class="metric-detail">Not available this run.</p><div class="spark-slot"></div></div>'
             )
             continue
         b = blocks[k]
@@ -264,7 +264,7 @@ def headline_strip(blocks: dict[str, Block], cfg: Config, stance=None) -> str:
             f'<p class="metric-value {d}">{fmt(b.score)} <span class="metric-word">{ARROW[d]} {WORD[d]}</span></p>'
             f'{zbar(b.score, d, f"Block score {fmt(b.score)} on a −3 to +3 scale")}'
             f'<p class="metric-detail">{diffusion_dots(b.diffusion)}</p>'
-            f'{sparkline(b.history, months, f"{BLOCK_NAMES[k]} score, last {months} months")}</div>'
+            f'<div class="spark-slot">{sparkline(b.history, months, f"{BLOCK_NAMES[k]} score, last {months} months")}</div></div>'
         )
     return f'<section class="headline-strip" aria-label="Block scores">{"".join(cols)}</section>'
 
@@ -311,7 +311,8 @@ def block_section(b: Block, cfg: Config, number: int) -> str:
       <p class="takeaway">Block score <strong class="{d}">{fmt(b.score)} {ARROW[d]} {WORD[d]}</strong>, the equal-weighted mean of {len(b.indicators)} indicators. {diffusion_dots(b.diffusion)}.</p>
     </div>
   </div>
-  <div class="table-wrap"><table>
+  <div class="table-wrap"><table class="block-table">
+    <colgroup><col style="width:28%"><col style="width:11%"><col style="width:10%"><col style="width:11%"><col style="width:9%"><col style="width:7%"><col style="width:24%"></colgroup>
     <thead><tr><th scope="col">Indicator</th><th scope="col" class="num">Latest x</th><th scope="col">Date</th>
       <th scope="col" class="num">Benchmark b</th><th scope="col" class="num">Scale σ</th><th scope="col" class="num">Sign s</th>
       <th scope="col">z, −3 to +3</th></tr></thead>
@@ -574,8 +575,12 @@ h1,h2,h3,p{margin-top:0}
 .basis-note{font-size:12px;color:var(--muted);line-height:1.6;max-width:900px;margin:0 0 8px}
 .up{color:var(--up)}.down{color:var(--down)}.neutral{color:var(--neutral)}
 .notice{padding:12px 16px;background:var(--notice-bg);border:1px solid var(--notice-bd);color:var(--notice-fg);border-radius:8px;margin:14px 0;font-size:13px;line-height:1.6}
-.headline-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:2px solid var(--ink);border-bottom:1px solid var(--border);margin-top:24px}
-.metric{padding:20px 20px 18px;border-right:1px solid var(--border);min-width:0}
+.headline-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(6,auto);border-top:2px solid var(--ink);border-bottom:1px solid var(--border);margin-top:24px}
+.metric{padding:20px 20px 18px;border-right:1px solid var(--border);min-width:0;display:grid;grid-template-rows:subgrid;grid-row:span 6;row-gap:0}
+.metric>.question{align-self:start}
+.metric>.metric-value{align-self:end}
+.zbar-slot{display:block;height:8px}
+.spark-slot:empty{min-height:0}
 .metric:first-child{padding-left:0}
 .metric:last-child{border-right:0}
 .metric h2{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.2px;margin:0 0 4px}
@@ -601,7 +606,11 @@ h1,h2,h3,p{margin-top:0}
 .spark-line{fill:none;stroke:var(--ink);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .spark-dot{fill:var(--ink)}
 .spark figcaption{font-size:10px;color:var(--muted);margin-top:4px}
-.verdict{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr);gap:18px 36px;align-items:end;border-top:2px solid var(--ink);padding:20px 0 16px;margin:6px 0 18px}
+.verdict{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto auto auto;column-gap:36px;row-gap:0;border-top:2px solid var(--ink);padding:20px 0 16px;margin:6px 0 18px}
+.verdict-main{grid-row:1 / span 3;align-self:end}
+.dial{display:grid;grid-template-rows:subgrid;grid-row:1 / span 3}
+.dial-bar{align-self:start}
+.dial-notes{align-self:start}
 .verdict-label{font-size:10px;font-weight:700;letter-spacing:1.65px;color:var(--muted);text-transform:uppercase;margin:0 0 4px}
 .verdict-word{font-size:clamp(34px,4.2vw,50px);font-weight:650;letter-spacing:-1.5px;line-height:1.05;margin:0}
 .verdict-word.neutral{color:var(--fg)}
@@ -611,7 +620,7 @@ h1,h2,h3,p{margin-top:0}
 .dial h2 span{color:var(--fg);white-space:nowrap}
 .dial h2 span.up{color:var(--up)}.dial h2 span.down{color:var(--down)}
 .dial-note{font-size:11px;color:var(--muted);margin:8px 0 0;line-height:1.5}
-.verdict-facts{grid-column:1/-1;font-size:12px;color:var(--muted);margin:4px 0 0;border-top:1px solid var(--border);padding-top:12px}
+.verdict-facts{grid-column:1/-1;grid-row:4;margin-top:14px!important;font-size:12px;color:var(--muted);margin:4px 0 0;border-top:1px solid var(--border);padding-top:12px}
 .verdict-facts strong{color:var(--fg);font-weight:600}
 .sbar{position:relative;display:block;height:8px;background:var(--track);min-width:90px}
 .sbar-band{position:absolute;top:0;bottom:0;background:var(--band)}
@@ -650,6 +659,8 @@ thead th{background:var(--head);color:var(--muted);font-size:11px;font-weight:60
 tbody th{font-weight:500;color:var(--fg);min-width:190px}
 tr:last-child th,tr:last-child td{border-bottom:0}
 .num{text-align:right;white-space:nowrap}
+.block-table{table-layout:fixed;min-width:760px}
+.block-table tbody th{min-width:0}
 .unit{color:var(--muted)}
 .zcell{min-width:170px;cursor:help}
 .znum{display:block;font-weight:600;margin-bottom:5px;white-space:nowrap}
@@ -666,7 +677,7 @@ footer{display:flex;justify-content:space-between;gap:30px;margin-top:44px;paddi
 footer strong{font-family:Georgia,'Times New Roman',serif;color:var(--ink);font-size:16px;font-weight:600}
 footer p{margin:8px 0 0}
 footer>div:last-child{text-align:right;align-self:flex-end}
-@media(max-width:900px){.verdict{grid-template-columns:1fr}}
+@media(max-width:900px){.verdict{grid-template-columns:1fr;grid-template-rows:none;row-gap:18px}.verdict-main,.dial{grid-row:auto}.dial{display:block}.verdict-facts{grid-row:auto}}
 @media(max-width:1000px){.header-inner{padding:0 26px}.page-shell{padding:30px 26px 0}
 .headline-strip{grid-template-columns:1fr 1fr}.metric{border-bottom:1px solid var(--border)}.metric:nth-child(2n){border-right:0}.metric:nth-child(2n+1){padding-left:0}}
 @media(max-width:700px){.header-inner{height:auto;padding:20px 18px;flex-wrap:wrap;gap:12px}.brand{font-size:25px}
