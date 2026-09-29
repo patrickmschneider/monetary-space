@@ -1,7 +1,6 @@
-"""Policy path chart (spec Section 5, row 3): Bank Rate for the past two years, the market
-path implied by the OIS forward curve, the nominal neutral band (r* band + 2%), an
-illustrative Taylor-type rule (dotted) and MPC dates as ticks. Greyscale: stance is never
-coloured. The rule is a benchmark, labelled illustrative; the MPC does not follow it.
+"""Policy path chart: Bank Rate for the past two years, the market path implied by the OIS
+forward curve, the nominal neutral zone (the r* zone plus year-ahead expected inflation, as in
+the Stance block) and MPC dates as ticks. Greyscale: stance is never coloured.
 """
 from __future__ import annotations
 
@@ -11,6 +10,7 @@ from html import escape
 import pandas as pd
 
 from . import transform
+from .charts import fig_note
 from .config import Config
 
 W, H = 1080, 330
@@ -22,26 +22,10 @@ class PathData:
     bank_rate: pd.Series          # daily, past window
     ois_path: pd.Series           # indexed by date (today + maturity)
     ois_date: pd.Timestamp
-    rule: pd.Series               # monthly, past window
     band: tuple[float, float]     # nominal neutral band, %
     mpc_dates: list[pd.Timestamp]
     start: pd.Timestamp
     end: pd.Timestamp
-
-
-def rule_path(cfg: Config, data: dict, estimates: dict, since: pd.Period) -> pd.Series:
-    """r* mid + π* + φπ·(core CPI − π*) + φy·(−okun·(u − u*)), monthly."""
-    r = cfg.weights["rule"]
-    core = data["DKO8"]
-    u = data["MGSX"]
-    end = max(core.index[-1], u.index[-1])
-    rs = transform.carry_forward(estimates["rstar"].r_star, end)
-    us = transform.carry_forward(estimates["nairu"].u_star, end)
-    idx = pd.period_range(since, end, freq="M")
-    df = pd.DataFrame({"core": core.reindex(idx).ffill(), "u": u.reindex(idx).ffill(),
-                       "rs": rs.reindex(idx), "us": us.reindex(idx)}).dropna()
-    gap = -r["okun"] * (df.u - df.us)
-    return df.rs + r["inflation_target"] + r["phi_pi"] * (df.core - r["inflation_target"]) + r["phi_y"] * gap
 
 
 def prepare(cfg: Config, data: dict, estimates: dict, stance, as_of: pd.Timestamp) -> PathData | None:
@@ -57,16 +41,11 @@ def prepare(cfg: Config, data: dict, estimates: dict, stance, as_of: pd.Timestam
         priced = day.to_timestamp()
         path = pd.Series({priced: float(data["IUDBEDR"].dropna().iloc[-1])} | {
             priced + pd.Timedelta(days=round(m * 365.25)): float(v[day]) for m, v in sorted(fwd.items())})
-    try:
-        rule = rule_path(cfg, data, estimates, pd.Period(start, "M"))
-    except KeyError:
-        rule = pd.Series(dtype=float)
     mpc = pd.to_datetime(cfg.manual["mpc_dates"]["date"])
     end = as_of + pd.DateOffset(years=3)
-    target = cfg.weights["rule"]["inflation_target"]
     return PathData(
-        bank_rate=br, ois_path=path, ois_date=priced, rule=rule,
-        band=(stance.band[0] + target, stance.band[1] + target),
+        bank_rate=br, ois_path=path, ois_date=priced,
+        band=(stance.band[0] + stance.expected_inflation, stance.band[1] + stance.expected_inflation),
         mpc_dates=[d for d in mpc if start <= d <= end], start=start, end=end,
     )
 
@@ -77,7 +56,7 @@ def svg(p: PathData) -> str:
     def px(t: pd.Timestamp) -> float:
         return ML + (t - p.start).total_seconds() / span * (W - ML - MR)
 
-    vals = list(p.bank_rate) + list(p.ois_path) + list(p.rule) + list(p.band)
+    vals = list(p.bank_rate) + list(p.ois_path) + list(p.band)
     lo, hi = min(0.0, min(vals)), max(vals) + 0.5
     lo, hi = float(int(lo)), float(int(hi) + 1)
 
@@ -104,9 +83,6 @@ def svg(p: PathData) -> str:
         d = f"M{pts[0][0]:.1f},{pts[0][1]:.1f}" + "".join(f"H{b[0]:.1f}V{b[1]:.1f}" for a, b in zip(pts, pts[1:]))
         d += f"H{px(today):.1f}"
         out.append(f'<path d="{d}" class="bank-rate"/>')
-    if len(p.rule):
-        rp = "M" + "L".join(f"{px(t.to_timestamp(how='end')):.1f},{py(v):.1f}" for t, v in p.rule.items())
-        out.append(f'<path d="{rp}" class="rule"/>')
     if len(p.ois_path):
         op = "M" + "L".join(f"{px(t):.1f},{py(v):.1f}" for t, v in p.ois_path.items())
         out.append(f'<path d="{op}" class="ois"/>')
@@ -117,8 +93,6 @@ def svg(p: PathData) -> str:
     if pts:
         labels.append((pts[-1][1], f"Bank Rate {br.iloc[-1]:.2f}%"))
     labels.append(((py(b0) + py(b1)) / 2, f"Neutral {b0:.1f}–{b1:.1f}%"))
-    if len(p.rule):
-        labels.append((py(p.rule.iloc[-1]), f"Rule {p.rule.iloc[-1]:.1f}%"))
     labels.sort()
     last = -99.0
     for y, text in labels:                      # nudge apart so labels never overlap
@@ -142,12 +116,11 @@ def section(p: PathData | None, number: int, stance) -> str:
     <div>
       <p class="eyebrow">POLICY PATH</p>
       <h2 id="h-path">Where markets expect Bank Rate to go</h2>
-      <p class="takeaway">Bank Rate over the past two years and the path priced in sterling overnight index swaps (OIS) on {p.ois_date:%-d %B %Y}, against the nominal neutral band (the estimated r* band plus the 2% target). The dotted line is an illustrative Taylor-type rule; the MPC does not follow it. Ticks mark MPC decisions.</p>
+      <p class="takeaway">Bank Rate over the past two years and the path priced in sterling overnight index swaps (OIS) on {p.ois_date:%-d %B %Y}, against the nominal neutral zone: the r* zone plus year-ahead expected inflation ({stance.expected_inflation:.1f}%), as in the stance above. Ticks mark MPC decisions.</p>
     </div>
   </div>
   <figure class="path-frame">{svg(p)}</figure>
-  <p class="chart-note">OIS forwards are SONIA rates, which run a few basis points below Bank Rate, and include term premia. Rule: r* + 2 + 1.5·(core CPI − 2) + 0.5·output gap, with the output gap approximated by −2·(u − u*).</p>
-  <p class="chart-source">Source: Bank of England; Office for National Statistics; Monetary Space estimates of r* and u*</p>
+  {fig_note("OIS forwards are SONIA rates, which run a few basis points below Bank Rate, and include term premia. The neutral zone uses expected inflation over the next year; further ahead it is only indicative.", "Bank of England; Monetary Space estimates of r*")}
 </section>"""
 
 
@@ -163,6 +136,5 @@ CSS = """
 .path-chart .mpc{stroke:var(--muted)}
 .path-chart .bank-rate{fill:none;stroke:var(--ink);stroke-width:2}
 .path-chart .ois{fill:none;stroke:var(--ink);stroke-width:1.4}
-.path-chart .rule{fill:none;stroke:var(--muted);stroke-width:1.4;stroke-dasharray:1.5 3;stroke-linecap:round}
 .path-chart .label{font-size:10.5px;fill:var(--fg)}
 """

@@ -100,14 +100,18 @@ def svar(res: dict, since: str) -> Stacked | None:
              f"{res.get('accepted_draws', '')} accepted draws. Model-based illustration, not a forecast.")
 
 
-def svg(s: Stacked) -> str:
+def extent(s: Stacked) -> tuple[float, float]:
+    parts = s.parts.fillna(0.0)
+    top = max(parts.clip(lower=0).sum(axis=1).max(), (s.line.max() if s.line is not None else 0), 1)
+    bot = min(parts.clip(upper=0).sum(axis=1).min(), (s.line.min() if s.line is not None else 0), 0)
+    return float(int(top) + 1), float(int(bot) - (1 if bot < 0 else 0))
+
+
+def svg(s: Stacked, scale: tuple[float, float] | None = None) -> str:
+    """Stacked bars; pass a common `scale` (top, bottom) so several charts share a zero line."""
     parts = s.parts.fillna(0.0)
     n = len(parts)
-    pos = parts.clip(lower=0).sum(axis=1)
-    neg = parts.clip(upper=0).sum(axis=1)
-    top = max(pos.max(), (s.line.max() if s.line is not None else 0), 1)
-    bot = min(neg.min(), (s.line.min() if s.line is not None else 0), 0)
-    top, bot = float(int(top) + 1), float(int(bot) - (1 if bot < 0 else 0))
+    top, bot = scale or extent(s)
     bw = (W - ML - MR) / n
 
     def py(v):
@@ -143,7 +147,8 @@ def svg(s: Stacked) -> str:
             + "".join(out) + "</svg>")
 
 
-def panel(s: Stacked) -> str:
+def panel(s: Stacked, scale: tuple[float, float] | None = None) -> str:
+    from .charts import fig_note
     legend = "".join(f'<span><i style="background:{FILLS[j % len(FILLS)]}"></i>{escape(s.labels[k])}</span>'
                      for j, k in enumerate(s.parts.columns))
     legend += f'<span><i class="line-key"></i>{escape(s.line_label)}</span>' if s.line is not None else ""
@@ -152,8 +157,8 @@ def panel(s: Stacked) -> str:
 <figure class="chart-panel stack-panel">
   <figcaption class="panel-heading"><h3>{escape(s.title)}</h3><p>{escape(s.subtitle)}</p></figcaption>
   <p class="stack-legend">{legend}</p>
-  {svg(s)}
-  <p class="chart-note">Latest ({s.parts.index[-1]}): {", ".join(f"{escape(s.labels[k].lower())} {v:+.1f}pp" for k, v in last.items())}. {escape(s.note)}</p>
+  {svg(s, scale)}
+  {fig_note(f"Latest ({s.parts.index[-1]}): " + ", ".join(f"{s.labels[k].lower()} {v:+.1f}pp" for k, v in last.items()) + ". " + s.note)}
 </figure>"""
 
 
@@ -163,6 +168,8 @@ def section(analysis: dict, number: int, since: str = "2016Q1") -> str:
                           svar(analysis.get("svar_uk"), since)) if c is not None]
     if not charts:
         return ""
+    ext = [extent(c) for c in charts]
+    scale = (max(e[0] for e in ext), min(e[1] for e in ext))      # one y-scale: zero lines up
     return f"""
 <section class="story-section" id="drivers" aria-labelledby="h-drivers">
   <div class="story-heading">
@@ -173,7 +180,7 @@ def section(analysis: dict, number: int, since: str = "2016Q1") -> str:
       <p class="takeaway">Each method separates demand from supply and cost-push differently, and each is uncertain. Where they agree, the reading is more robust. They are re-estimated after data releases and are not scored.</p>
     </div>
   </div>
-  <div class="stack-grid">{''.join(panel(c) for c in charts)}</div>
+  <div class="stack-grid">{''.join(panel(c, scale) for c in charts)}</div>
 </section>"""
 
 
@@ -181,8 +188,8 @@ CSS = """
 :root{--c1:#153f46;--c2:#4f767b;--c3:#8fa9ab;--c4:#c3d0cf;--c5:#a39e93;--c6:#e3e1da}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){--c1:#dfe9e7;--c2:#9fbcbf;--c3:#6d8a8d;--c4:#40585b;--c5:#8a857b;--c6:#2e3a3b}}
 :root[data-theme=dark]{--c1:#dfe9e7;--c2:#9fbcbf;--c3:#6d8a8d;--c4:#40585b;--c5:#8a857b;--c6:#2e3a3b}
-.stack-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px 32px}
-.stack-panel{border-top:1px solid var(--border);padding-top:14px}
+.stack-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:32px}
+.stack-panel{border-top:1px solid var(--border);padding-top:14px;display:grid;grid-template-rows:subgrid;grid-row:span 4;row-gap:0;margin-bottom:24px}
 .stack-chart{width:100%;height:auto;display:block;font-family:inherit}
 .stack-chart .grid{stroke:var(--rule-soft)}.stack-chart .zero{stroke:var(--muted)}
 .stack-chart .ytick,.stack-chart .xtick{font-size:10px;fill:var(--muted)}.stack-chart .ytick{text-anchor:end}.stack-chart .xtick{text-anchor:middle}
@@ -191,5 +198,5 @@ CSS = """
 .stack-legend span{display:flex;align-items:center;gap:6px}
 .stack-legend i{width:11px;height:11px;display:inline-block}
 .stack-legend i.line-key{height:2px;background:var(--fg)}
-@media(max-width:1000px){.stack-grid{grid-template-columns:1fr}}
+@media(max-width:1000px){.stack-grid{grid-template-columns:1fr}.stack-panel{display:block}}
 """

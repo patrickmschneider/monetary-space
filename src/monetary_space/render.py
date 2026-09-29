@@ -239,7 +239,7 @@ def headline_strip(blocks: dict[str, Block], cfg: Config, stance=None) -> str:
     thr = cfg.weights["direction_threshold"]
     months = cfg.weights["history"]["sparkline_months"]
     cols = []
-    for k in ("E", "D", "S", "C", "P"):
+    for k in ("E", "D", "S", "C"):
         title = BLOCK_NAMES[k]
         if k == "P" and stance is not None:
             half = (stance.band[1] - stance.band[0]) / 2
@@ -384,8 +384,7 @@ def stance_section(stance, estimates: dict, cfg: Config, number: int) -> str:
   {est_table}
   {chart}
   {pub_html}
-  <p class="chart-note">Method and evidence: reports/UK neutral rate estimation methods.md. The suite is re-estimated weekly. The Market Participants Survey asks for the neutral Bank Rate in nominal terms; 2% is subtracted. The gilt forward includes term and liquidity premia and is shown only.</p>
-  <p class="chart-source">Source: Bank of England (yield curves, Market Participants Survey, Inflation Attitudes Survey); Office for National Statistics; Monetary Space estimates</p>
+  {charts.fig_note("The suite is re-estimated weekly; method and evidence are in reports/UK neutral rate estimation methods.md. The Market Participants Survey reports the neutral Bank Rate in nominal terms; it is converted to real with the same year-ahead expected inflation as Bank Rate. The gilt forward includes term and liquidity premia and is shown only.", "Bank of England (yield curves, Market Participants Survey, Inflation Attitudes Survey); Office for National Statistics; Monetary Space estimates")}
 </section>"""
 
 
@@ -453,10 +452,14 @@ def rstar_chart(suite, cfg: Config) -> str:
         ref_path=(path[0], path[1], path[2], f"r̄ {path[0].iloc[-1]:.1f}"), ylim=(-3.0, 5.0),
         source="Bank of England; Monetary Space estimates", attribution="")
     markup, note = charts.svg(c, width=760)
-    note_html = f'<p class="chart-note">{escape(note)}</p>' if note else ""
     return (f'<figure class="chart-panel wide" tabindex="0" aria-describedby="tip-rstar">'
             f'<figcaption class="panel-heading"><h3>{escape(c.title)}</h3><p>{escape(c.subtitle)}</p></figcaption>'
-            f'<div class="chart-frame">{markup}<div class="chart-tip" id="tip-rstar" aria-live="polite"></div></div>{note_html}</figure>')
+            f'<div class="chart-frame">{markup}<div class="chart-tip" id="tip-rstar" aria-live="polite"></div></div>{charts.fig_note(note)}</figure>')
+
+
+def part(number: int, title: str, intro: str) -> str:
+    return (f'<header class="part-heading" id="part-{number}"><p class="part-number">Part {number}</p>'
+            f'<h2>{escape(title)}</h2><p>{escape(intro)}</p></header>')
 
 
 def page(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems: list[str], now,
@@ -464,21 +467,23 @@ def page(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems:
          estimates: dict | None = None, data: dict | None = None) -> str:
     thr = cfg.weights["direction_threshold"]
     estimates, data = estimates or {}, data or {}
+    # Reading order: the answer; where the economy is; what has driven inflation;
+    # the pressure ahead (Phillips-curve terms); then policy: stance, and where markets expect it to go.
     n = 1
-    path_html = policy_path.section(
-        policy_path.prepare(cfg, data, estimates, stance, now.tz_localize(None).normalize()), n, stance)
-    n += bool(path_html)
-    drivers_html = decomposition.section(cfg.analysis, n)
-    n += bool(drivers_html)
     context_html = charts.section(context or [], n)
     n += bool(context_html)
-    sections = ""
-    for b in blocks.values():
-        sections += block_section(b, cfg, n)
-        n += 1
     mom = momentum_section(data, n)
     n += bool(mom)
-    sections += mom + stance_section(stance, estimates, cfg, n)
+    drivers_html = decomposition.section(cfg.analysis, n)
+    n += bool(drivers_html)
+    blocks_html = ""
+    for b in blocks.values():
+        blocks_html += block_section(b, cfg, n)
+        n += 1
+    stance_html = stance_section(stance, estimates, cfg, n)
+    n += bool(stance_html)
+    path_html = policy_path.section(
+        policy_path.prepare(cfg, data, estimates, stance, now.tz_localize(None).normalize()), n, stance)
     notice = ""
     if problems or failed:
         items = [f"Source failed this run, last good value kept: {escape(s)}." for s in failed]
@@ -507,15 +512,24 @@ def page(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems:
     <p class="eyebrow">UK MONETARY POLICY · {now:%B %Y}</p>
     {verdict_strip(cfg, blocks, stance, verdict, data, now)}
     <h1 class="lead-sentence">{lead_sentence(blocks, thr, stance, verdict)}</h1>
-    <p class="basis-note">Scores are z-scores on a fixed −3 to +3 scale: z = s·(x − b)/σ, clipped at ±{cfg.weights['z_clip']:g}. Positive always means inflationary; beyond ±{thr:g} an indicator points up or down. Hover or focus any z for its calculation.</p>
+    <nav class="reading-guide" aria-label="Sections"><span>On this page</span>
+      <a href="#part-1">1. Where the economy is</a><a href="#part-2">2. What has driven inflation</a>
+      <a href="#part-3">3. Inflation pressure ahead</a><a href="#part-4">4. Monetary policy</a></nav>
   </section>
   {notice}
+  {part(1, "Where the economy is", "Headline data and where inflation already stands.")}
+  {context_html}
+  {mom}
+  {part(2, "What has driven inflation", "Three model-based ways to split inflation into its sources, looking back.")}
+  {drivers_html}
+  {part(3, "Inflation pressure ahead", "The terms of the Phillips curve: expectations, slack on the demand and supply sides, and external cost-push. Together they give the inflation-pressure score.")}
   {headline_strip(blocks, cfg, stance)}
   <p class="legend"><span><i class="swatch up"></i>Inflationary (z above +{thr:g})</span><span><i class="swatch neutral"></i>Neutral</span><span><i class="swatch down"></i>Disinflationary (z below −{thr:g})</span><span><i class="swatch band"></i>Neutral band ±{thr:g}</span></p>
+  <p class="basis-note">Scores are z-scores on a fixed −3 to +3 scale: z = s·(x − b)/σ, clipped at ±{cfg.weights['z_clip']:g}. Positive always means inflationary; beyond ±{thr:g} an indicator points up or down. Hover or focus any z for its calculation.</p>
+  {blocks_html}
+  {part(4, "Monetary policy", "Whether policy is stimulating or restraining the economy, and where markets expect it to go.")}
+  {stance_html}
   {path_html}
-  {drivers_html}
-  {context_html}
-  {sections}
   <footer>
     <div><strong>Monetary Space</strong><p>AI augmented by Patrick Schneider</p></div>
     <div><p>Built {now:%-d %B %Y, %H:%M} UK time</p></div>
@@ -560,7 +574,7 @@ h1,h2,h3,p{margin-top:0}
 .basis-note{font-size:12px;color:var(--muted);line-height:1.6;max-width:900px;margin:0 0 8px}
 .up{color:var(--up)}.down{color:var(--down)}.neutral{color:var(--neutral)}
 .notice{padding:12px 16px;background:var(--notice-bg);border:1px solid var(--notice-bd);color:var(--notice-fg);border-radius:8px;margin:14px 0;font-size:13px;line-height:1.6}
-.headline-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:2px solid var(--ink);border-bottom:1px solid var(--border);margin-top:24px}
+.headline-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:2px solid var(--ink);border-bottom:1px solid var(--border);margin-top:24px}
 .metric{padding:20px 20px 18px;border-right:1px solid var(--border);min-width:0}
 .metric:first-child{padding-left:0}
 .metric:last-child{border-right:0}
@@ -611,6 +625,14 @@ h1,h2,h3,p{margin-top:0}
 .muted-row th,.muted-row td{color:var(--muted)}
 .disclosure-plain summary{cursor:pointer;color:var(--accent);margin-bottom:10px}
 .table-wrap a{color:var(--accent)}
+.part-heading{margin:56px 0 0;padding-top:18px;border-top:2px solid var(--ink)}
+.part-number{font-size:10px;font-weight:700;letter-spacing:1.65px;text-transform:uppercase;color:var(--accent);margin:0 0 6px}
+.part-heading h2{font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:clamp(26px,3vw,34px);letter-spacing:-.6px;color:var(--ink);margin:0 0 8px}
+.part-heading>p:last-child{font-size:14px;color:var(--muted);margin:0 0 8px;max-width:760px}
+.reading-guide{display:flex;flex-wrap:wrap;gap:8px 22px;padding:12px 0 4px;font-size:12px;border-top:1px solid var(--border);margin-top:6px}
+.reading-guide>span{font-weight:700;color:var(--muted)}
+.reading-guide a{color:var(--accent);text-decoration:none}
+.reading-guide a:hover{text-decoration:underline}
 .legend{display:flex;gap:10px 22px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin:14px 0 4px}
 .legend span{display:flex;align-items:center;gap:7px}
 .swatch{width:12px;height:12px;display:inline-block}
@@ -646,7 +668,7 @@ footer p{margin:8px 0 0}
 footer>div:last-child{text-align:right;align-self:flex-end}
 @media(max-width:900px){.verdict{grid-template-columns:1fr}}
 @media(max-width:1000px){.header-inner{padding:0 26px}.page-shell{padding:30px 26px 0}
-.headline-strip{grid-template-columns:1fr 1fr 1fr}.metric{border-bottom:1px solid var(--border)}.metric:nth-child(3n){border-right:0}.metric:nth-child(3n+1){padding-left:0}}
+.headline-strip{grid-template-columns:1fr 1fr}.metric{border-bottom:1px solid var(--border)}.metric:nth-child(2n){border-right:0}.metric:nth-child(2n+1){padding-left:0}}
 @media(max-width:700px){.header-inner{height:auto;padding:20px 18px;flex-wrap:wrap;gap:12px}.brand{font-size:25px}
 .page-shell{padding:24px 18px 0}.lead-sentence{font-size:18px}
 .headline-strip{grid-template-columns:1fr}.metric{padding:18px 0;border-right:0}

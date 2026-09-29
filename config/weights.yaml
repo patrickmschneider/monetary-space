@@ -33,12 +33,6 @@ stance:                    # step 7
   expected_inflation_fields: [cpi_1y]
   rstar_band_min_half_width: 0.5      # pp; r* and its band come from the model in config/rstar.yaml
 
-rule:                      # illustrative Taylor-type rule, policy path chart only (Phase 2)
-  inflation_target: 2.0
-  phi_pi: 1.5
-  phi_y: 0.5
-  okun: 2.0                # output gap ≈ −okun·(u − u*)
-
 freshness:
   stale_grace_days: 14     # stale if the next release is more than this overdue
 

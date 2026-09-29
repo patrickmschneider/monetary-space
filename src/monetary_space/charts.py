@@ -194,11 +194,25 @@ def svg(c: ChartData, width: int = W) -> tuple[str, str]:
     return markup, note
 
 
+def fig_note(text: str = "", source: str = "") -> str:
+    """A figure note: the first sentence shows; the rest, and the source, sit in a dropdown."""
+    import re
+    parts = re.split(r"(?<=[.!?])\s+(?=[A-Z(‘'])", text.strip(), maxsplit=1) if text.strip() else []
+    first = parts[0] if parts else (f"Source: {source}" if source else "")
+    rest = " ".join(parts[1:])
+    extra = " ".join(x for x in (rest, f"Source: {source}." if source and parts else "") if x)
+    if not first:
+        return ""
+    if not extra:
+        return f'<p class="fig-note-line">{escape(first)}</p>'
+    return (f'<details class="fig-note"><summary><span>{escape(first)}</span></summary>'
+            f'<p>{escape(extra)}</p></details>')
+
+
 def panel(c: ChartData) -> str:
     markup, note = svg(c)
     x = c.x.dropna()
     latest = value_label(x.iloc[-1], c.unit, c.decimals)
-    note_html = f'<p class="chart-note">{escape(note)}</p>' if note else ""
     return f"""
 <figure class="chart-panel" tabindex="0" aria-describedby="tip-{c.id}">
   <figcaption class="panel-heading">
@@ -207,8 +221,7 @@ def panel(c: ChartData) -> str:
   </figcaption>
   <p class="chart-latest"><strong>{escape(latest)}</strong> <span>{x.index[-1].strftime('%B %Y')}</span></p>
   <div class="chart-frame">{markup}<div class="chart-tip" id="tip-{c.id}" aria-live="polite"></div></div>
-  {note_html}
-  <p class="chart-source" title="{escape(c.attribution)}">Source: {escape(c.source)}</p>
+  <div class="fig-foot" title="{escape(c.attribution)}">{fig_note(note, c.source)}</div>
 </figure>"""
 
 
@@ -242,7 +255,7 @@ def section(charts: list[ChartData], number: int) -> str:
     <div>
       <p class="eyebrow">CONTEXT</p>
       <h2 id="h-context">The economy at a glance</h2>
-      <p class="takeaway">Headline series for orientation. They are not scored; the blocks below are. Hover a chart, or focus it and use the arrow keys, to read values.</p>
+      <p class="takeaway">Headline series for orientation; they are not scored. Hover a chart, or focus it and use the arrow keys, to read values.</p>
     </div>
   </div>
   <div class="chart-grid">{''.join(panel(c) for c in charts)}</div>
@@ -250,8 +263,16 @@ def section(charts: list[ChartData], number: int) -> str:
 
 
 CSS = """
-.chart-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px 32px}
+.chart-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:32px}
 .chart-panel{margin:0;min-width:0;padding-top:14px;border-top:1px solid var(--border)}
+.chart-grid>.chart-panel{display:grid;grid-template-rows:subgrid;grid-row:span 4;row-gap:0;margin-bottom:28px}
+.fig-note{font-size:11px;color:var(--muted);line-height:1.5;margin:6px 0 0}
+.fig-note>summary{cursor:pointer;list-style:none;display:flex;gap:6px;align-items:baseline}
+.fig-note>summary::-webkit-details-marker{display:none}
+.fig-note>summary::after{content:"more";flex:none;font-size:10px;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.fig-note[open]>summary::after{content:"less"}
+.fig-note>p{margin:6px 0 0}
+.fig-note-line{font-size:11px;color:var(--muted);line-height:1.5;margin:6px 0 0}
 .chart-panel:focus-visible{outline:3px solid #bc843d;outline-offset:6px}
 .chart-panel .panel-heading h3{font-size:17px;font-weight:650;letter-spacing:-.02em;color:var(--ink);margin:0 0 4px}
 .chart-panel .panel-heading p{font-size:12px;color:var(--muted);line-height:1.5;margin:0;min-height:36px}

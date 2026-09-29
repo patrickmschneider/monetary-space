@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from monetary_space import config, policy_path, rstar, stance, transform
+from monetary_space import config, rstar, stance, transform
 from monetary_space.fetch import fred, oecd
 from monetary_space.score import EASE, HAWKISH, ON_TRACK
 
@@ -107,14 +107,3 @@ def test_oecd_and_fred_parsers():
     payload = {"observations": [{"date": "2026-09-21", "value": "116.15"}, {"date": "2026-09-22", "value": "."}]}
     s = fred.parse_observations(payload, "D", "DCOILBRENTEU")
     assert len(s) == 1 and s.iloc[0] == 116.15
-
-
-def test_policy_rule():
-    cfg = config.load(ROOT)
-    m = pd.period_range("2024-01", "2026-08", freq="M")
-    q = pd.period_range("2023Q1", "2026Q2", freq="Q")
-    data = {"DKO8": pd.Series(3.0, index=m), "MGSX": pd.Series(5.0, index=m)}
-    est = {"rstar": fake_rstar(1.0), "nairu": SimpleNamespace(u_star=pd.Series(4.5, index=q))}
-    rule = policy_path.rule_path(cfg, data, est, pd.Period("2025-01", "M"))
-    # 1 + 2 + 1.5·(3 − 2) + 0.5·(−2·(5 − 4.5)) = 4.0
-    assert rule.iloc[-1] == pytest.approx(4.0)
