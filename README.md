@@ -4,7 +4,7 @@ A single-screen UK monetary policy dashboard: is policy tight enough for the inf
 
 A Python script fetches the data, scores it and renders one static HTML page. GitHub Actions rebuilds the page on a schedule and GitHub Pages hosts it. The full build spec is in [docs/SPEC.md](docs/SPEC.md).
 
-**Status:** Phase 2 of 4. All four blocks, the verdict and the policy path chart are live. The layout pass, Compare-to, release log and embed view come in Phase 3.
+**Status:** Phase 2 of 4, restructured around the Phillips curve. The layout pass, Compare-to, release log and embed view come in Phase 3.
 
 ## Run it locally
 
@@ -78,11 +78,38 @@ The estimate is fragile and depends on the fixed settings. The model reads the 2
 
 Published estimates cluster around 1% real (Bank staff's 3% nominal; Alan Taylor's 0.75–1%); the page lists them for comparison (`manual/rstar.csv`).
 
-## Global block
+## Phillips-curve structure
 
-- Brent crude (FRED, US$) and the sterling effective exchange rate (Bank of England) enter as 12-month % changes of monthly averages.
-- Gas is the ONS System Average Price, from 2018. Its σ is a config value: the 2010–19 SD of 12-month changes in the NBP day-ahead price (36pp).
-- The OECD no longer publishes a euro-area leading indicator. Germany, France, Italy and Spain stand in, weighted with the US 65/35 by UK export shares (EU 41%, US 22% of UK exports in 2025); the country weights within Europe are approximate GDP shares (confirm).
+Inflation pressure is read as the terms of a hybrid New Keynesian Phillips curve, π = expectations + slack + cost-push, with slack split into demand and supply. This replaces the spec's demand / domestic inflation / global blocks (a design change agreed with the owner).
+
+| Block | Question | Scored indicators |
+| --- | --- | --- |
+| Expectations | Are inflation expectations anchored at 2%? | Firms' expected own-price growth (DMP), households' 1-year expectations (BoE IAS) |
+| Demand | Is demand running ahead of capacity? | Unemployment vs estimated u\*, vacancies per unemployed, payrolls, GDP growth vs estimated potential, Agents' capacity utilisation |
+| Supply | Is capacity growing more slowly than normal? | Unit labour cost growth vs 2%, productivity growth vs its 5-year trend, change in inactivity |
+| Cost-push | Are external costs pushing up prices? | Brent (US$), UK gas, sterling ERI, import prices |
+
+Not scored, shown as momentum and context: services CPI, core CPI, private pay, 5y5y implied inflation, trading partners' leading indicators.
+
+**Pressure weights.** Two weightings are computed; `pressure.method` in `config/weights.yaml` picks the one that drives the verdict, and the page shows both.
+- *Config (literature-based):* Expectations 0.35, Demand 0.25, Supply 0.25, Cost-push 0.15. Look through first-round cost-push, respond fully to second-round channels ([reports/UK cost push pass through.md](reports/UK%20cost%20push%20pass%20through.md)).
+- *Estimated:* each block's effect on CPI inflation 2–3 years out in a UK Bernanke–Blanchard wage–price model (`analysis/bb_uk.py`): Expectations 0.18, Demand 0.30, Supply 0.36, Cost-push 0.16. Energy adds 0.9pp to inflation in year one of a 1-SD shock but only about 0.2pp at the policy horizon: look-through, estimated rather than assumed.
+- *State multiplier on cost-push:* 1 + (ratio − 1)·logistic((CPI − 3.1)/0.25), capped at 2.5. The ratio is the estimated high/low-inflation pass-through (headline CPI response to an oil supply shock when CPI is above vs below 3%, `analysis/passthrough_lp.py`): about 1.9.
+
+**Estimations** (`analysis/`, re-run weekly by `.github/workflows/estimate.yml`; results in `analysis/results/`):
+
+| Script | What it estimates |
+| --- | --- |
+| `passthrough_lp.py` | Local projections of UK prices and pay on Känzig's oil supply news shock, linear, LP-IV and state-dependent. A 10% oil shock raises headline CPI about 0.6% and core about 0.3% within two years; pay does not respond measurably |
+| `bb_uk.py` | UK Bernanke–Blanchard four-equation model, 2001–2026; contributions of energy, food and labour-market tightness; block weights |
+| `shapiro_uk.py` | Shapiro (2022) demand/supply split of household-spending inflation over 39 ONS categories |
+| `svar_uk.py` | Sign-identified Bayesian VAR (oil, GDP, CPI, Bank Rate, sterling; 1993–), historical decomposition of CPI inflation. An illustration, not a forecast |
+
+## Data notes
+
+- Gas is the ONS System Average Price, from 2018; its σ is a config value (2010–19 SD of NBP gas price changes, 36pp).
+- Unit labour costs and productivity use a σ sample from 1993 (inflation targeting); the full samples include the 1970s.
+- The OECD no longer publishes a euro-area leading indicator: Germany, France, Italy and Spain stand in, weighted 65/35 with the US by UK export shares.
 
 ## Scheduled builds
 

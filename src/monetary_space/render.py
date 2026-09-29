@@ -9,7 +9,7 @@ from html import escape
 
 import pandas as pd
 
-from . import charts, policy_path
+from . import charts, decomposition, policy_path
 from .config import BLOCK_NAMES, BLOCK_TITLES, Config
 from .indicators import Block, Indicator
 from .score import DOWN, EASE, HAWKISH, UP
@@ -63,7 +63,11 @@ def summary(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], proble
         "verdict": None if verdict is None else {
             "verdict": verdict.verdict, "driver": verdict.driver, "pressure": round(verdict.pressure, 3),
             "pressure_class": verdict.pressure_class, "stance_class": verdict.stance_class,
-            "contributions": {k: round(v, 3) for k, v in verdict.contributions.items()}},
+            "contributions": {k: round(v, 3) for k, v in verdict.contributions.items()},
+            "method": verdict.method, "weights": {k: round(v, 3) for k, v in verdict.weights.items()},
+            "cost_push_multiplier": round(verdict.multiplier, 3),
+            "alternative": {k: (round(v, 3) if isinstance(v, float) else v) for k, v in verdict.alternative.items()
+                            if k in ("method", "pressure", "class", "verdict", "driver")}},
         "stance": None if stance is None else {
             "ois_2y": stance.ois_2y, "ois_date": str(stance.ois_date.date()),
             "expected_inflation": stance.expected_inflation, "expectation_source": stance.expectation_source,
@@ -116,6 +120,8 @@ def sparkline(hist: pd.Series, months: int, label: str, scale: float = SCALE) ->
     )
 
 
+BLOCK_ROLE = {"E": "PHILLIPS CURVE: EXPECTED INFLATION", "D": "PHILLIPS CURVE: SLACK, DEMAND SIDE",
+              "S": "PHILLIPS CURVE: SLACK, SUPPLY SIDE", "C": "PHILLIPS CURVE: COST-PUSH"}
 STANCE_SCALE = 4.0   # pp, fixed −4..+4 (spec Section 6)
 STANCE_WORD = {"tight": "Tight", "loose": "Loose", "neutral": "Neutral"}
 VERDICT_CLASS = {HAWKISH: "up", EASE: "down"}
@@ -147,16 +153,18 @@ def in_sentence(name: str) -> str:
 
 
 def lead_sentence(blocks: dict[str, Block], threshold: float, stance=None, verdict=None) -> str:
-    parts = []
+    """Plain-language reading of the four Phillips-curve terms and the stance."""
     phrases = {
-        "A": {UP: "Demand is running hot", DOWN: "Demand is running cool", "neutral": "Demand is close to normal"},
-        "B": {UP: "domestic inflation is running above a 2%-consistent pace",
-              DOWN: "domestic inflation is running below a 2%-consistent pace",
-              "neutral": "domestic inflation is close to a 2%-consistent pace"},
-        "C": {UP: "the world is pushing UK inflation up", DOWN: "the world is pushing UK inflation down",
-              "neutral": "global prices are broadly neutral"},
+        "E": {UP: "inflation expectations are above 2%-consistent levels", DOWN: "inflation expectations are below 2%-consistent levels",
+              "neutral": "inflation expectations are close to 2%-consistent levels"},
+        "D": {UP: "demand is running ahead of capacity", DOWN: "demand is running below capacity",
+              "neutral": "demand is close to capacity"},
+        "S": {UP: "supply capacity is weakening", DOWN: "supply capacity is strengthening", "neutral": "supply capacity is growing normally"},
+        "C": {UP: "external costs are pushing prices up", DOWN: "external costs are pulling prices down",
+              "neutral": "external costs are broadly neutral"},
     }
-    for k in ("A", "B", "C"):
+    parts = []
+    for k in ("E", "D", "S", "C"):
         if k not in blocks:
             continue
         b = blocks[k]
@@ -199,18 +207,23 @@ def verdict_strip(cfg: Config, blocks: dict[str, Block], stance, verdict, data: 
         facts.append(f"Last MPC {last['date']:%-d %b}: {escape(str(last['vote']).split(':')[0])}")
     if not future.empty:
         facts.append(f"Next MPC <strong>{future.iloc[0]['date']:%-d %B}</strong>")
-    contrib = " · ".join(f"{k} {fmt(v, 2)}" for k, v in verdict.contributions.items())
+    contrib = " · ".join(f"{BLOCK_NAMES[k]} {fmt(v, 2)}" for k, v in verdict.contributions.items())
+    alt = verdict.alternative
+    alt_note = (f"With {alt['method']} weights: {fmt(alt['pressure'])}, verdict {escape(alt['verdict'])}. " if alt else "")
+    mult_note = (f"Cost-push weight × {verdict.multiplier:.2f}: second-round effects are about {verdict.multiplier_ratio:.1f}× "
+                 f"larger when CPI inflation is above {cfg.weights['pressure']['cost_push_state']['cpi_threshold']:g}%.")
     return f"""
 <section class="verdict" aria-label="Verdict">
   <div class="verdict-main">
     <p class="verdict-label">Verdict</p>
     <p class="verdict-word {vcls}">{escape(verdict.verdict)}</p>
-    <p class="verdict-driver">driven by <a href="#block-{drv}">{drv}. {BLOCK_NAMES[drv]}</a></p>
+    <p class="verdict-driver">driven by <a href="#block-{drv}">{BLOCK_NAMES[drv].lower()}</a></p>
   </div>
   <div class="dial">
     <h2>Inflation pressure <span class="{pcls}">{fmt(verdict.pressure)} {ARROW[pcls]} {WORD[pcls]}</span></h2>
     {zbar(verdict.pressure, pcls, f"Pressure {fmt(verdict.pressure)} on a −3 to +3 scale")}
-    <p class="dial-note">Weighted blocks: {contrib}</p>
+    <p class="dial-note">{verdict.method.capitalize()} weights: {contrib}</p>
+    <p class="dial-note">{alt_note}{mult_note}</p>
   </div>
   <div class="dial">
     <h2>Policy stance <span class="stance-word">{fmt(stance.gap)}pp · {STANCE_WORD[stance.cls]}</span></h2>
@@ -225,12 +238,12 @@ def headline_strip(blocks: dict[str, Block], cfg: Config, stance=None) -> str:
     thr = cfg.weights["direction_threshold"]
     months = cfg.weights["history"]["sparkline_months"]
     cols = []
-    for k in ("A", "B", "C", "D"):
-        title = f"{k}. {BLOCK_NAMES[k]}"
-        if k == "D" and stance is not None:
+    for k in ("E", "D", "S", "C", "P"):
+        title = BLOCK_NAMES[k]
+        if k == "P" and stance is not None:
             half = (stance.band[1] - stance.band[0]) / 2
             cols.append(
-                f'<div class="metric"><h2><a href="#block-D">{title}</a></h2><p class="question">{escape(BLOCK_TITLES[k])}</p>'
+                f'<div class="metric"><h2><a href="#block-P">{title}</a></h2><p class="question">{escape(BLOCK_TITLES[k])}</p>'
                 f'<p class="metric-value">{fmt(stance.gap)}<span class="metric-unit">pp</span> <span class="metric-word">{STANCE_WORD[stance.cls]}</span></p>'
                 f'{stance_bar(stance.gap, half, f"Real-rate gap {fmt(stance.gap)}pp")}'
                 f'<p class="metric-detail">2y OIS {num(stance.ois_2y, 2)}% ({stance.ois_date:%-d %b}) − expected inflation {num(stance.expected_inflation)}% − r* {num(stance.r_star)}%</p>'
@@ -292,7 +305,7 @@ def block_section(b: Block, cfg: Config, number: int) -> str:
   <div class="story-heading">
     <span class="section-number">{number:02d}</span>
     <div>
-      <p class="eyebrow">{b.id}. {BLOCK_NAMES[b.id].upper()}</p>
+      <p class="eyebrow">{BLOCK_NAMES[b.id].upper()} · {BLOCK_ROLE[b.id]}</p>
       <h2 id="h-{b.id}">{escape(BLOCK_TITLES[b.id])}</h2>
       <p class="takeaway">Block score <strong class="{d}">{fmt(b.score)} {ARROW[d]} {WORD[d]}</strong>, the equal-weighted mean of {len(b.indicators)} indicators. {diffusion_dots(b.diffusion)}.</p>
     </div>
@@ -343,12 +356,12 @@ def stance_section(stance, estimates: dict, cfg: Config, number: int) -> str:
                 f'<p class="chart-note">Hand-maintained in manual/rstar.csv. Nominal figures are converted to real by subtracting 2.</p></details>'
                 if pub_rows else "")
     return f"""
-<section class="story-section" id="block-D" aria-labelledby="h-D">
+<section class="story-section" id="block-P" aria-labelledby="h-P">
   <div class="story-heading">
     <span class="section-number">{number:02d}</span>
     <div>
-      <p class="eyebrow">D. STANCE</p>
-      <h2 id="h-D">{escape(BLOCK_TITLES['D'])}</h2>
+      <p class="eyebrow">POLICY STANCE</p>
+      <h2 id="h-P">{escape(BLOCK_TITLES['P'])}</h2>
       <p class="takeaway">Stance is measured in percentage points, not z: the real 2-year rate against our estimate of the neutral real rate r*. A z-score of the real rate would mean little over a sample half spent at the zero lower bound. Stance is never coloured, because "up" means tight, not inflationary.</p>
     </div>
   </div>
@@ -360,6 +373,51 @@ def stance_section(stance, estimates: dict, cfg: Config, number: int) -> str:
   {pub_html}
   <p class="chart-note">r* comes from a Holston–Laubach–Williams-style model of GDP, core inflation and the real policy rate (settings in config/rstar.yaml). In UK data the IS-curve slope is not identified, so it is fixed at {rs.get('ar')}; the estimate is sensitive to this and to the smoothing ratios. The zero lower bound and QE years (2009–21) make the real policy rate an imperfect measure of stance.</p>
   <p class="chart-source">Source: Bank of England; Office for National Statistics; Monetary Space estimates</p>
+</section>"""
+
+
+def momentum_section(data: dict, number: int) -> str:
+    """Unscored: where inflation already is, and slower-moving context."""
+    rows = []
+
+    def add(name, s, unit, note, dp=1):
+        s = s.dropna() if s is not None else None
+        if s is None or s.empty:
+            return
+        p = s.index[-1]
+        year_ago = s.get(p - (12 if p.freqstr == "M" else 4))
+        prev = f"{num(year_ago, dp)}{unit}" if year_ago is not None and pd.notna(year_ago) else "–"
+        rows.append(f"<tr><th scope=\"row\">{escape(name)}</th><td class=\"num\">{num(s.iloc[-1], dp)}{unit}</td>"
+                    f"<td>{period_label(p)}</td><td class=\"num\">{prev}</td><td>{escape(note)}</td></tr>")
+
+    add("Services CPI inflation", data.get("D7NN"), "%", "Mostly domestic costs; about 3¼% is consistent with 2% overall")
+    add("Core CPI inflation", data.get("DKO8"), "%", "Excluding energy, food, alcohol and tobacco")
+    add("Private-sector regular pay growth", data.get("KAJ4"), "%", "3-month average, y/y; about 3¼% is target-consistent")
+    if "IUDSIZC" in data and "IUDMIZC" in data:
+        f = (10 * data["IUDMIZC"] - 5 * data["IUDSIZC"]) / 5
+        f = f.groupby(f.index.asfreq("M")).mean()
+        add("5y5y implied inflation", f, "%", "Market-implied, 5–10 years ahead. RPI basis until 2030, CPIH after: not comparable with history", 2)
+    cli = [data.get(f"OECD_CLI:{c}") for c in ("DEU", "FRA", "ITA", "ESP", "USA")]
+    if all(c is not None for c in cli):
+        w = [0.25, 0.18, 0.13, 0.09, 0.35]
+        comb = sum(wi * ci for wi, ci in zip(w, cli)) / sum(w)
+        add("Trading partners' leading indicator", comb, "", "OECD CLI, 100 = trend; euro area proxy and US weighted by UK exports")
+    if not rows:
+        return ""
+    return f"""
+<section class="story-section" id="momentum" aria-labelledby="h-momentum">
+  <div class="story-heading">
+    <span class="section-number">{number:02d}</span>
+    <div>
+      <p class="eyebrow">MOMENTUM AND CONTEXT · NOT SCORED</p>
+      <h2 id="h-momentum">Where inflation already is</h2>
+      <p class="takeaway">These are outcomes or slow-moving context rather than drivers, so they are shown but not scored. Services inflation and pay are what second-round effects would show up in.</p>
+    </div>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th scope="col">Measure</th><th scope="col" class="num">Latest</th><th scope="col">Date</th><th scope="col" class="num">A year earlier</th><th scope="col">Note</th></tr></thead>
+    <tbody>{''.join(rows)}</tbody>
+  </table></div>
 </section>"""
 
 
@@ -393,13 +451,17 @@ def page(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems:
     path_html = policy_path.section(
         policy_path.prepare(cfg, data, estimates, stance, now.tz_localize(None).normalize()), n, stance)
     n += bool(path_html)
+    drivers_html = decomposition.section(cfg.analysis, n)
+    n += bool(drivers_html)
     context_html = charts.section(context or [], n)
     n += bool(context_html)
     sections = ""
     for b in blocks.values():
         sections += block_section(b, cfg, n)
         n += 1
-    sections += stance_section(stance, estimates, cfg, n)
+    mom = momentum_section(data, n)
+    n += bool(mom)
+    sections += mom + stance_section(stance, estimates, cfg, n)
     notice = ""
     if problems or failed:
         items = [f"Source failed this run, last good value kept: {escape(s)}." for s in failed]
@@ -413,7 +475,7 @@ def page(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems:
 <meta name="theme-color" content="#153f46">
 <meta name="description" content="Is UK monetary policy tight enough for the inflation pressure? Official data, transparent scores.">
 <title>Monetary Space</title>
-<style>{CSS}{charts.CSS}{policy_path.CSS}</style>
+<style>{CSS}{charts.CSS}{policy_path.CSS}{decomposition.CSS}</style>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -434,6 +496,7 @@ def page(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems:
   {headline_strip(blocks, cfg, stance)}
   <p class="legend"><span><i class="swatch up"></i>Inflationary (z above +{thr:g})</span><span><i class="swatch neutral"></i>Neutral</span><span><i class="swatch down"></i>Disinflationary (z below −{thr:g})</span><span><i class="swatch band"></i>Neutral band ±{thr:g}</span></p>
   {path_html}
+  {drivers_html}
   {context_html}
   {sections}
   <footer>
@@ -480,7 +543,7 @@ h1,h2,h3,p{margin-top:0}
 .basis-note{font-size:12px;color:var(--muted);line-height:1.6;max-width:900px;margin:0 0 8px}
 .up{color:var(--up)}.down{color:var(--down)}.neutral{color:var(--neutral)}
 .notice{padding:12px 16px;background:var(--notice-bg);border:1px solid var(--notice-bd);color:var(--notice-fg);border-radius:8px;margin:14px 0;font-size:13px;line-height:1.6}
-.headline-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:2px solid var(--ink);border-bottom:1px solid var(--border);margin-top:24px}
+.headline-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:2px solid var(--ink);border-bottom:1px solid var(--border);margin-top:24px}
 .metric{padding:20px 20px 18px;border-right:1px solid var(--border);min-width:0}
 .metric:first-child{padding-left:0}
 .metric:last-child{border-right:0}
@@ -564,7 +627,7 @@ footer p{margin:8px 0 0}
 footer>div:last-child{text-align:right;align-self:flex-end}
 @media(max-width:900px){.verdict{grid-template-columns:1fr}}
 @media(max-width:1000px){.header-inner{padding:0 26px}.page-shell{padding:30px 26px 0}
-.headline-strip{grid-template-columns:1fr 1fr}.metric{border-bottom:1px solid var(--border)}.metric:nth-child(2n){border-right:0}.metric:nth-child(odd){padding-left:0}}
+.headline-strip{grid-template-columns:1fr 1fr 1fr}.metric{border-bottom:1px solid var(--border)}.metric:nth-child(3n){border-right:0}.metric:nth-child(3n+1){padding-left:0}}
 @media(max-width:700px){.header-inner{height:auto;padding:20px 18px;flex-wrap:wrap;gap:12px}.brand{font-size:25px}
 .page-shell{padding:24px 18px 0}.lead-sentence{font-size:18px}
 .headline-strip{grid-template-columns:1fr}.metric{padding:18px 0;border-right:0}

@@ -3,9 +3,23 @@
 z_clip: 3.0                # step 3: z clipped at ±z_clip
 direction_threshold: 0.5   # step 4: |z| above this points up/down
 
-pressure:                  # step 6
-  weights: {B: 0.5, A: 0.3, C: 0.2}   # default, not an estimate (open question); equal weights are the alternative
+pressure:                  # step 6, restructured around the Phillips curve
+  # Two weightings are computed and shown; `method` picks the one that drives the verdict.
+  method: config
+  # Literature-based (reports/UK cost push pass through.md): full weight on second-round
+  # channels (expectations, slack), little on first-round cost-push.
+  weights: {E: 0.35, D: 0.25, S: 0.25, C: 0.15}
+  # Estimated: each block's effect on CPI inflation 2–3 years out in the UK
+  # Bernanke–Blanchard model (analysis/bb_uk.py), normalised to sum to one.
+  estimated_from: analysis/results/bb_uk.json
+  estimated_map: {E: expectations, D: slack_demand, S: slack_supply, C: cost_push}
   threshold: 0.5
+  cost_push_state:           # multiplier on the C weight: second-round effects are larger when inflation is high
+    cpi_threshold: 3.1       # % CPI inflation (BoE staff threshold, Greene 2026)
+    width: 0.25              # logistic transition, pp
+    ratio_from: analysis/results/passthrough_lp.json   # high/low-state headline CPI response at 12 months
+    ratio_default: 2.0
+    cap: 2.5
 
 stance:                    # step 7
   ois_series: OIS_2Y                  # nominal 2-year OIS, so a hawkish hold registers on the day

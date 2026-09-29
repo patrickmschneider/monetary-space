@@ -80,7 +80,9 @@ def assess(cfg: config.Config, data: dict[str, pd.Series], blocks: dict, estimat
             problems.append(f"stance: {type(e).__name__}: {e}")
     needed = set(cfg.weights["pressure"]["weights"])
     if st and needed <= set(blocks):
-        vd = stance.verdict(cfg, {k: blocks[k].score for k in needed}, st)
+        cpi = data.get("D7G7")
+        cpi_yy = float(cpi.dropna().iloc[-1]) if cpi is not None else 2.0
+        vd = stance.verdict(cfg, {k: blocks[k].score for k in needed}, st, cpi_yy)
     elif st:
         problems.append(f"verdict: needs blocks {sorted(needed - set(blocks))}")
     return st, vd, problems

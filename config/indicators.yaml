@@ -163,6 +163,42 @@ series:
     title: "OECD Composite Leading Indicators, amplitude adjusted (long-term average = 100)"
     areas: [DEU, FRA, ITA, ESP, USA]
     freq: M
+  DMWN:
+    fetcher: ons_timeseries
+    source: ons
+    title: "Unit labour costs, whole economy, % change on a year earlier, SA"
+    uri: /employmentandlabourmarket/peopleinwork/labourproductivity/timeseries/dmwn/ucst
+    freq: Q
+  LZVD:
+    fetcher: ons_timeseries
+    source: ons
+    title: "Output per hour worked, whole economy, % change on a year earlier, SA"
+    uri: /employmentandlabourmarket/peopleinwork/labourproductivity/timeseries/lzvd/prdy
+    freq: Q
+  LF2S:
+    fetcher: ons_timeseries
+    source: ons
+    title: "Economic inactivity rate, 16–64, %, SA (LFS, rolling 3 months)"
+    uri: /employmentandlabourmarket/peoplenotinwork/economicinactivity/timeseries/lf2s/lms
+    freq: M
+  GD74:
+    fetcher: ons_timeseries
+    source: ons
+    title: "Import price index, total, 2015 = 100, NSA"
+    uri: /economy/inflationandpriceindices/timeseries/gd74/ppi
+    freq: M
+  IUDSIZC:
+    fetcher: boe_iadb
+    source: boe
+    title: "Implied inflation (RPI), 5-year spot, %, daily (5y5y context)"
+    code: IUDSIZC
+    freq: D
+  IUDMIZC:
+    fetcher: boe_iadb
+    source: boe
+    title: "Implied inflation (RPI), 10-year spot, %, daily (5y5y context)"
+    code: IUDMIZC
+    freq: D
   AGENTS_CAPACITY:
     fetcher: agents_capacity
     source: boe_agents
@@ -183,219 +219,301 @@ series:
     freq: Q
 
 indicators:
-  # ---------------------------------------------------------------- A. Demand
-  - id: unemployment
-    name: Unemployment rate
-    block: A
-    series: [MGSX]
-    transform: level
-    unit: "%"
-    freq: M
-    lag_days: 45
-    benchmark: {method: nairu, label: "u*, estimated NAIRU (config/nairu.yaml)", compare_manual: u_star}
-    sigma: {method: pre2020_sd}   # SD of the gap u − u*
-    sign: -1
-    smoothing: "3-month average (LFS rolling quarter), dated by its last month"
-    note: "LFS response rates are poor; payrolls are the cross-check."
-
-  - id: vacancies_per_unemployed
-    name: Vacancies per unemployed
-    block: A
-    series: [AP2Y, MGSC]
-    transform: ratio
-    unit: ratio
-    freq: M
-    lag_days: 45
-    benchmark: {method: pre2020_mean}
-    sigma: {method: pre2020_sd}
-    sign: 1
-    smoothing: "Both series are rolling 3-month averages over the same window"
-    note: "Vacancy survey starts 2001; pre-2020 sample is 2001–2019."
-
-  - id: payrolls
-    name: PAYE payrolled employees
-    phrase: payroll employment
-    block: A
-    series: [RTI_PAYROLLS]
-    transform: annualised_3m3m
-    drop_last: 1
-    unit: "% ann."
-    freq: M
-    lag_days: 45
-    benchmark: {method: pre2020_mean}
-    sigma:
-      method: value
-      value: 1.0
-      rationale: >-
-        Payrolls start in July 2014, too short for a pre-2020 SD. 1.0pp = SD of LFS
-        employees' annualised quarterly growth 1992–2019 (1.48pp) scaled by the ratio
-        of payroll to LFS growth SDs over 2015–2019 (0.73/1.10).
-    sign: 1
-    smoothing: "3 months on previous 3 months, annualised; flash month dropped"
-    note: "The latest (flash) month is heavily revised and excluded."
-
-  - id: gdp
-    name: Real GDP growth
-    block: A
-    series: [ECY2]
-    transform: annualised_3m3m
-    unit: "% ann."
-    freq: M
-    lag_days: 42
-    benchmark: {method: value, value: 1.0, label: "Potential growth 1.0% (config; confirm vs MPR)"}
-    sigma: {method: pre2020_sd}
-    sign: 1
-    smoothing: "3 months on previous 3 months, annualised"
-    note: "GDP growth measures the change in the output gap, not its level."
-
-  - id: capacity
-    name: Capacity utilisation (Agents)
-    phrase: the Agents' capacity utilisation score
-    block: A
-    series: [AGENTS_CAPACITY]
-    transform: level
-    unit: score
-    freq: Q
-    lag_days: -20      # the quarter's score is published before the quarter ends
-    benchmark: {method: value, value: 0, label: "0 = normal utilisation"}
-    sigma:
-      method: value
-      value: 0.75
-      rationale: >-
-        Scores start in 2017 Q4, too short for a pre-2020 SD. 0.75 = SD of the quarterly
-        series excluding the 2020–2023 shock years (confirm).
-    sign: 1
-    smoothing: "Quarterly average of Agents' rounds"
-    note: "Scores are whole numbers from about 2022, fractional before."
-
-  # ------------------------------------------------------ B. Domestic inflation
-  - id: services_cpi
-    name: Services CPI inflation
-    block: B
-    series: [D7NN]
-    transform: level
-    unit: "% y/y"
-    freq: M
-    lag_days: 18
-    benchmark: {method: value, value: 3.25, label: "3.25% target-consistent (config; assumes ~1.25% productivity growth, confirm)"}
-    sigma: {method: pre2020_sd}
-    sign: 1
-    smoothing: none
-    note: "Includes indexed and regulated items (rents, phone and broadband contracts, some fees) that reprice each April; watch April effects."
-
-  - id: private_pay
-    name: Private-sector regular pay growth
-    block: B
-    series: [KAJ4]
-    transform: level
-    unit: "% y/y"
-    freq: M
-    lag_days: 45
-    benchmark: {method: value, value: 3.25, label: "2% + trend productivity ~1.25% (config; confirm)"}
-    sigma: {method: pre2020_sd}
-    sign: 1
-    smoothing: "3-month average, year on year (published transform)"
-    note: "Average weekly earnings, regular pay excluding bonuses and arrears."
-
+  # ------------------------------------------------------------------------
+  # E. Expectations: are inflation expectations anchored at 2%?
   - id: dmp_prices
     name: Firms' expected own-price growth
     phrase: firms' price expectations
-    block: B
-    series: [DMP_PRICE_1Y]
+    block: E
+    series:
+    - DMP_PRICE_1Y
     transform: level
-    unit: "%"
+    unit: '%'
     freq: M
     lag_days: 10
-    benchmark: {method: pre2020_mean}
+    benchmark:
+      method: pre2020_mean
     sigma:
       method: value
       value: 0.7
-      rationale: >-
-        The panel starts in 2017; its 2017–2019 SD (0.2pp) would pin the score at the clip.
-        0.7pp = SD excluding the 2020–2023 shock years (0.71pp), close to the pre-2020 SD
-        of household expectations (0.65pp) (confirm).
+      rationale: The panel starts in 2017; its 2017–2019 SD (0.2pp) would pin the score at the clip. 0.7pp = SD excluding
+        the 2020–2023 shock years (0.71pp), close to the pre-2020 SD of household expectations (0.65pp) (confirm).
     sign: 1
-    smoothing: "3-month average (DMP headline)"
-    note: "Year-ahead expected change in the firm's own prices; pre-2020 sample is 2017–2019."
+    smoothing: 3-month average (DMP headline)
+    note: Year-ahead expected change in the firm's own prices; pre-2020 sample is 2017–2019.
 
   - id: household_expectations
     name: Household inflation expectations
     phrase: households' inflation expectations
-    block: B
-    series: [IAS_MEDIAN_1Y]
+    block: E
+    series:
+    - IAS_MEDIAN_1Y
     transform: level
-    unit: "%"
+    unit: '%'
     freq: Q
-    lag_days: -19      # the quarter's survey (Feb/May/Aug/Nov) is published inside the quarter
-    benchmark: {method: pre2020_mean}
-    sigma: {method: pre2020_sd}
+    lag_days: -19
+    benchmark:
+      method: pre2020_mean
+    sigma:
+      method: pre2020_sd
     sign: 1
     smoothing: none
-    note: "Median expected change in shop prices over the next 12 months. The survey provider appears to have changed from Ipsos to Savanta in 2026 (confirm for a break)."
+    note: Median expected change in shop prices over the next 12 months. The survey provider appears to have changed
+      from Ipsos to Savanta in 2026 (confirm for a break).
 
-  # ------------------------------------------------------------------- C. Global
+  # ------------------------------------------------------------------------
+  # D. Demand: is spending running ahead of the economy's capacity?
+  - id: unemployment
+    name: Unemployment rate vs u*
+    block: D
+    series:
+    - MGSX
+    transform: level
+    unit: '%'
+    freq: M
+    lag_days: 45
+    benchmark:
+      method: nairu
+      label: u*, estimated NAIRU (config/nairu.yaml)
+      compare_manual: u_star
+    sigma:
+      method: pre2020_sd
+    sign: -1
+    smoothing: 3-month average (LFS rolling quarter), dated by its last month
+    note: LFS response rates are poor; payrolls are the cross-check.
+
+  - id: vacancies_per_unemployed
+    name: Vacancies per unemployed
+    block: D
+    series:
+    - AP2Y
+    - MGSC
+    transform: ratio
+    unit: ratio
+    freq: M
+    lag_days: 45
+    benchmark:
+      method: pre2020_mean
+    sigma:
+      method: pre2020_sd
+    sign: 1
+    smoothing: Both series are rolling 3-month averages over the same window
+    note: Vacancy survey starts 2001; pre-2020 sample is 2001–2019.
+
+  - id: payrolls
+    name: PAYE payrolled employees
+    phrase: payroll employment
+    block: D
+    series:
+    - RTI_PAYROLLS
+    transform: annualised_3m3m
+    drop_last: 1
+    unit: '% ann.'
+    freq: M
+    lag_days: 45
+    benchmark:
+      method: pre2020_mean
+    sigma:
+      method: value
+      value: 1.0
+      rationale: Payrolls start in July 2014, too short for a pre-2020 SD. 1.0pp = SD of LFS employees' annualised
+        quarterly growth 1992–2019 (1.48pp) scaled by the ratio of payroll to LFS growth SDs over 2015–2019 (0.73/1.10).
+    sign: 1
+    smoothing: 3 months on previous 3 months, annualised; flash month dropped
+    note: The latest (flash) month is heavily revised and excluded.
+
+  - id: gdp
+    name: Real GDP growth vs potential
+    block: D
+    series:
+    - ECY2
+    transform: annualised_3m3m
+    unit: '% ann.'
+    freq: M
+    lag_days: 42
+    benchmark:
+      method: potential_growth
+      label: potential growth, estimated (config/rstar.yaml)
+    sigma:
+      method: pre2020_sd
+    sign: 1
+    smoothing: 3 months on previous 3 months, annualised
+    note: GDP growth above potential closes spare capacity. Potential is the r* model's trend growth.
+
+  - id: capacity
+    name: Capacity utilisation (Agents)
+    phrase: the Agents' capacity utilisation score
+    block: D
+    series:
+    - AGENTS_CAPACITY
+    transform: level
+    unit: score
+    freq: Q
+    lag_days: -20
+    benchmark:
+      method: value
+      value: 0
+      label: 0 = normal utilisation
+    sigma:
+      method: value
+      value: 0.75
+      rationale: Scores start in 2017 Q4, too short for a pre-2020 SD. 0.75 = SD of the quarterly series excluding
+        the 2020–2023 shock years (confirm).
+    sign: 1
+    smoothing: Quarterly average of Agents' rounds
+    note: Scores are whole numbers from about 2022, fractional before.
+
+  # ------------------------------------------------------------------------
+  # S. Supply: is the economy's capacity growing more slowly than normal?
+  - id: ulc
+    name: Unit labour cost growth
+    phrase: unit labour costs
+    block: S
+    series:
+    - DMWN
+    transform: level
+    unit: '% y/y'
+    freq: Q
+    lag_days: 140
+    benchmark:
+      method: value
+      value: 2.0
+      label: '2%: consistent with the inflation target at a constant labour share'
+    sigma:
+      method: pre2020_sd
+      since: '1993-01'   # inflation targeting; the full sample includes the 1970s
+    sign: 1
+    smoothing: Year-on-year growth (published)
+    note: 'Pay per unit of output: pay growth minus productivity growth. Published about 4.5 months after the quarter.'
+
+  - id: productivity
+    name: Productivity growth vs trend
+    phrase: weak productivity
+    block: S
+    series:
+    - LZVD
+    transform: level
+    unit: '% y/y'
+    freq: Q
+    lag_days: 140
+    benchmark:
+      method: trailing_mean
+      years: 5
+      label: its own 5-year trailing average
+    sigma:
+      method: pre2020_sd
+      since: '1993-01'   # inflation targeting; the full sample includes the 1970s
+    sign: -1
+    smoothing: Year-on-year growth of output per hour (published)
+    note: Productivity below trend lowers the economy's capacity, which is inflationary for a given level of demand.
+
+  - id: inactivity
+    name: Change in economic inactivity
+    phrase: rising inactivity
+    block: S
+    series:
+    - LF2S
+    transform: diff_12m
+    unit: pp y/y
+    freq: M
+    lag_days: 45
+    benchmark:
+      method: value
+      value: 0
+      label: '0: no change on a year earlier'
+    sigma:
+      method: pre2020_sd
+    sign: 1
+    smoothing: 3-month average (LFS rolling quarter), 12-month change
+    note: Rising inactivity shrinks labour supply. LFS response rates are poor; expect revisions.
+
+  # ------------------------------------------------------------------------
+  # C. Cost-push: are external costs pushing up prices?
   - id: brent
     name: Brent crude oil price
     phrase: oil prices
     block: C
-    series: [DCOILBRENTEU]
-    transform: [monthly_mean, pct_change_12m]
-    unit: "% y/y"
+    series:
+    - DCOILBRENTEU
+    transform:
+    - monthly_mean
+    - pct_change_12m
+    unit: '% y/y'
     freq: M
     lag_days: 5
-    benchmark: {method: value, value: 0, label: "0: no change on a year earlier"}
-    sigma: {method: pre2020_sd}
+    benchmark:
+      method: value
+      value: 0
+      label: '0: no change on a year earlier'
+    sigma:
+      method: pre2020_sd
     sign: 1
-    smoothing: "Monthly average of daily prices, 12-month % change"
-    note: "In US dollars, so the exchange rate is not counted twice."
+    smoothing: Monthly average of daily prices, 12-month % change
+    note: In US dollars, so the exchange rate is not counted twice.
 
   - id: gas
     name: UK wholesale gas price
     phrase: gas prices
     block: C
-    series: [SAP_GAS]
+    series:
+    - SAP_GAS
     transform: pct_change_12m
-    unit: "% y/y"
+    unit: '% y/y'
     freq: M
     lag_days: 25
-    benchmark: {method: value, value: 0, label: "0: no change on a year earlier"}
+    benchmark:
+      method: value
+      value: 0
+      label: '0: no change on a year earlier'
     sigma:
       method: value
       value: 36
-      rationale: >-
-        The System Average Price starts in 2018, too short for a pre-2020 SD. 36pp = SD of
-        12-month changes in the UK NBP day-ahead gas price, 2010–2019 (Ofgem monthly averages).
+      rationale: The System Average Price starts in 2018, too short for a pre-2020 SD. 36pp = SD of 12-month changes
+        in the UK NBP day-ahead gas price, 2010–2019 (Ofgem monthly averages).
     sign: 1
-    smoothing: "Monthly average, 12-month % change"
-    note: "Priced in sterling, a small overlap with the exchange rate that the team accepts."
+    smoothing: Monthly average, 12-month % change
+    note: Priced in sterling, a small overlap with the exchange rate that the team accepts.
 
   - id: sterling
     name: Sterling effective exchange rate
     block: C
-    series: [XUDLBK67]
-    transform: [monthly_mean, pct_change_12m]
-    unit: "% y/y"
+    series:
+    - XUDLBK67
+    transform:
+    - monthly_mean
+    - pct_change_12m
+    unit: '% y/y'
     freq: M
     lag_days: 3
-    benchmark: {method: value, value: 0, label: "0: no change on a year earlier"}
-    sigma: {method: pre2020_sd}
+    benchmark:
+      method: value
+      value: 0
+      label: '0: no change on a year earlier'
+    sigma:
+      method: pre2020_sd
     sign: -1
-    smoothing: "Monthly average of daily index, 12-month % change"
-    note: "A rise is an appreciation, which lowers import prices: the sign is negative."
+    smoothing: Monthly average of daily index, 12-month % change
+    note: 'A rise is an appreciation, which lowers import prices: the sign is negative.'
 
-  - id: leading_indicator
-    name: Trading partners' leading indicator
+  - id: import_prices
+    name: Import prices
+    phrase: import prices
     block: C
-    series: [OECD_CLI:DEU, OECD_CLI:FRA, OECD_CLI:ITA, OECD_CLI:ESP, OECD_CLI:USA]
-    transform: weighted_mean
-    # Europe 65%, US 35%: UK exports to the EU (41%) and US (22%) in 2025 (ONS L84Y, XEUL).
-    # Within Europe, approximate GDP shares; the OECD no longer publishes a euro-area CLI (confirm).
-    weights: [0.25, 0.18, 0.13, 0.09, 0.35]
-    unit: index
+    series:
+    - GD74
+    transform: pct_change_12m
+    unit: '% y/y'
     freq: M
-    lag_days: 40
-    benchmark: {method: value, value: 100, label: "100 = long-term trend"}
-    sigma: {method: pre2020_sd}
+    lag_days: 20
+    benchmark:
+      method: value
+      value: 0
+      label: '0: no change on a year earlier'
+    sigma:
+      method: pre2020_sd
     sign: 1
-    smoothing: "OECD amplitude-adjusted CLI"
-    note: "Germany, France, Italy and Spain stand in for the euro area, with the United States."
+    smoothing: 12-month % change of the NSA index
+    note: 'Pipeline pressure: import costs reach consumer prices over about 4–8 quarters. Series starts Dec 2008.'
+
+# Not scored (momentum and context): services CPI (D7NN), private regular pay (KAJ4),
+# trading partners' leading indicator (OECD_CLI), 5y5y implied inflation (IUDSIZC/IUDMIZC).

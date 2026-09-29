@@ -40,13 +40,33 @@ def test_band_uses_standard_error_when_wider():
 
 def test_verdict_combines_pressure_and_stance():
     cfg = config.load(ROOT)
+    zero = {"E": 0, "D": 0, "S": 0, "C": 0}
     tight = stance.compute(cfg, {"OIS_2Y": ois(5.2)}, fake_rstar(), pd.Timestamp("2026-09-24"))
-    assert stance.verdict(cfg, {"A": 0, "B": 0, "C": 0}, tight).verdict == EASE
-    assert stance.verdict(cfg, {"A": 2, "B": 2, "C": 2}, tight).verdict == ON_TRACK
+    assert stance.verdict(cfg, zero, tight, cpi_yy=2.0).verdict == EASE
+    assert stance.verdict(cfg, dict.fromkeys(zero, 2.0), tight, cpi_yy=2.0).verdict == ON_TRACK
     loose = stance.compute(cfg, {"OIS_2Y": ois(3.0)}, fake_rstar(), pd.Timestamp("2026-09-24"))
-    v = stance.verdict(cfg, {"A": 0.5, "B": 1.5, "C": 0.2}, loose)
-    assert v.verdict == HAWKISH and v.driver == "B"
-    assert v.pressure == pytest.approx(0.5 * 1.5 + 0.3 * 0.5 + 0.2 * 0.2)
+    v = stance.verdict(cfg, {"E": 0.5, "D": 1.5, "S": 0.2, "C": 1.0}, loose, cpi_yy=1.0)
+    assert v.method == "config" and v.verdict == HAWKISH and v.driver == "D"
+    w = cfg.weights["pressure"]["weights"]
+    expected = w["E"] * 0.5 + w["D"] * 1.5 + w["S"] * 0.2 + w["C"] * 1.0 * v.multiplier
+    assert v.pressure == pytest.approx(expected)
+
+
+def test_cost_push_multiplier_rises_with_inflation():
+    cfg = config.load(ROOT)
+    low, ratio = stance.cost_push_multiplier(cfg, 1.0)
+    high, _ = stance.cost_push_multiplier(cfg, 6.0)
+    mid, _ = stance.cost_push_multiplier(cfg, cfg.weights["pressure"]["cost_push_state"]["cpi_threshold"])
+    assert low == pytest.approx(1.0, abs=0.01) and high == pytest.approx(ratio, abs=0.01)
+    assert mid == pytest.approx(1 + (ratio - 1) / 2) and 1.0 <= ratio <= 2.5
+
+
+def test_estimated_weights_are_normalised():
+    cfg = config.load(ROOT)
+    w = stance.estimated_weights(cfg)
+    if w is None:
+        pytest.skip("no analysis results")
+    assert set(w) == {"E", "D", "S", "C"} and sum(w.values()) == pytest.approx(1.0)
 
 
 def test_seasonal_adjustment_keeps_trend_and_removes_pattern():

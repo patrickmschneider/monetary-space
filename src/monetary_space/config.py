@@ -1,21 +1,24 @@
 """Load and validate config/ and manual/. Everything tunable lives there, not in code."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pandas as pd
 import yaml
 
 MAX_SCORED = 14
-BLOCKS = ("A", "B", "C")
+# Phillips-curve terms: π = expectations + slack (demand, supply) + cost-push. P is policy stance.
+BLOCKS = ("E", "D", "S", "C")
 BLOCK_TITLES = {
-    "A": "Is the economy running hot or cold?",
-    "B": "Is underlying inflation consistent with 2%?",
-    "C": "Is the world pushing UK inflation up or down?",
-    "D": "Is policy tight or loose, looking two years ahead?",
+    "E": "Are inflation expectations anchored at 2%?",
+    "D": "Is demand running ahead of the economy's capacity?",
+    "S": "Is the economy's capacity growing more slowly than normal?",
+    "C": "Are external costs pushing up prices?",
+    "P": "Is policy tight or loose, looking two years ahead?",
 }
-BLOCK_NAMES = {"A": "Demand", "B": "Domestic inflation", "C": "Global", "D": "Stance"}
+BLOCK_NAMES = {"E": "Expectations", "D": "Demand", "S": "Supply", "C": "Cost-push", "P": "Policy stance"}
 
 
 @dataclass
@@ -28,6 +31,7 @@ class Config:
     charts: dict
     nairu: dict
     rstar: dict
+    analysis: dict = field(default_factory=dict)   # analysis/results/*.json, re-estimated after releases
 
 
 def load(root: Path) -> Config:
@@ -40,7 +44,8 @@ def load(root: Path) -> Config:
     nairu = yaml.safe_load(nairu_path.read_text()) if nairu_path.exists() else {}
     rstar_path = root / "config" / "rstar.yaml"
     rstar = yaml.safe_load(rstar_path.read_text()) if rstar_path.exists() else {}
-    cfg = Config(ind["sources"], ind["series"], ind["indicators"], weights, manual, charts, nairu, rstar)
+    analysis = {p.stem: json.loads(p.read_text()) for p in sorted((root / "analysis" / "results").glob("*.json"))}
+    cfg = Config(ind["sources"], ind["series"], ind["indicators"], weights, manual, charts, nairu, rstar, analysis)
     validate(cfg)
     return cfg
 

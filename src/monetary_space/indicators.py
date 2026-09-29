@@ -41,6 +41,16 @@ def _benchmark(spec: dict, x: pd.Series, cfg: Config, as_of: pd.Timestamp,
                estimates: dict) -> tuple[float | pd.Series, str]:
     """A constant, or a time-varying series (the estimated u*), with a label for the tooltip."""
     m = spec["method"]
+    if m == "potential_growth":
+        est = estimates.get("rstar")
+        if est is None:
+            raise ValueError("potential growth estimate unavailable")
+        g = est.growth.dropna()
+        return g, f"{spec.get('label', 'potential growth')}; {g.index[-1]} {g.iloc[-1]:.2f}%"
+    if m == "trailing_mean":
+        per_year = 12 if x.index.freqstr == "M" else 4
+        path = x.rolling(spec["years"] * per_year).mean().shift(1).dropna()
+        return path, spec.get("label", f"{spec['years']}-year trailing mean")
     if m == "nairu":
         est = estimates.get("nairu")
         if est is None:
@@ -70,8 +80,9 @@ def _sigma(spec: dict, x: pd.Series) -> tuple[float, str]:
     if spec["method"] == "value":
         return float(spec["value"]), spec["rationale"]
     if spec["method"] == "pre2020_sd":
-        sample = transform.pre2020(x)
-        return transform.pre2020_sd(x), f"SD {sample.index[0]}–{sample.index[-1]}"
+        since = spec.get("since")
+        sample = transform.pre2020(x, since)
+        return transform.pre2020_sd(x, since), f"SD {sample.index[0]}–{sample.index[-1]}"
     raise ValueError(f"unknown sigma method {spec['method']!r}")
 
 

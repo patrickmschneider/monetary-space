@@ -1,0 +1,733 @@
+{
+ "method": "Shapiro (2022) sign classification by COICOP group: 4-lag AR residuals over a rolling 40-quarter window; same-sign price/quantity surprises = demand, opposite = supply; |residual| < 0.05 s.e. = ambiguous. Excludes imputed rents (04.2) and modelled illegal activities. Contributions to y/y household-spending deflator inflation, pp, year-ago expenditure shares.",
+ "source": "ONS Consumer trends (household final consumption by COICOP, CP and CVM, SA), quarterly",
+ "categories": 39,
+ "series": {
+  "1996Q1": {
+   "demand": 1.398,
+   "supply": 1.445,
+   "ambiguous": 0.169,
+   "total": 3.011
+  },
+  "1996Q2": {
+   "demand": 0.885,
+   "supply": 1.844,
+   "ambiguous": 0.08,
+   "total": 2.809
+  },
+  "1996Q3": {
+   "demand": 0.739,
+   "supply": 2.847,
+   "ambiguous": 0.226,
+   "total": 3.812
+  },
+  "1996Q4": {
+   "demand": 2.155,
+   "supply": 1.954,
+   "ambiguous": 0.547,
+   "total": 4.656
+  },
+  "1997Q1": {
+   "demand": 1.487,
+   "supply": -0.059,
+   "ambiguous": 0.507,
+   "total": 1.935
+  },
+  "1997Q2": {
+   "demand": 0.177,
+   "supply": 1.808,
+   "ambiguous": 0.147,
+   "total": 2.132
+  },
+  "1997Q3": {
+   "demand": 0.3,
+   "supply": 0.667,
+   "ambiguous": 0.122,
+   "total": 1.089
+  },
+  "1997Q4": {
+   "demand": -0.052,
+   "supply": 0.649,
+   "ambiguous": -0.082,
+   "total": 0.514
+  },
+  "1998Q1": {
+   "demand": 0.639,
+   "supply": 1.286,
+   "ambiguous": 0.238,
+   "total": 2.164
+  },
+  "1998Q2": {
+   "demand": 0.846,
+   "supply": -0.02,
+   "ambiguous": 0.491,
+   "total": 1.317
+  },
+  "1998Q3": {
+   "demand": 0.471,
+   "supply": 0.038,
+   "ambiguous": 0.999,
+   "total": 1.508
+  },
+  "1998Q4": {
+   "demand": 0.558,
+   "supply": 0.979,
+   "ambiguous": 0.337,
+   "total": 1.874
+  },
+  "1999Q1": {
+   "demand": 1.149,
+   "supply": 0.632,
+   "ambiguous": 0.106,
+   "total": 1.887
+  },
+  "1999Q2": {
+   "demand": 0.702,
+   "supply": 0.295,
+   "ambiguous": 0.157,
+   "total": 1.154
+  },
+  "1999Q3": {
+   "demand": -0.394,
+   "supply": 0.004,
+   "ambiguous": -0.04,
+   "total": -0.43
+  },
+  "1999Q4": {
+   "demand": 0.151,
+   "supply": -0.746,
+   "ambiguous": 0.7,
+   "total": 0.105
+  },
+  "2000Q1": {
+   "demand": 0.309,
+   "supply": -0.501,
+   "ambiguous": 0.157,
+   "total": -0.035
+  },
+  "2000Q2": {
+   "demand": -0.1,
+   "supply": -0.038,
+   "ambiguous": -0.145,
+   "total": -0.283
+  },
+  "2000Q3": {
+   "demand": -0.122,
+   "supply": 0.39,
+   "ambiguous": 0.272,
+   "total": 0.539
+  },
+  "2000Q4": {
+   "demand": 0.519,
+   "supply": -0.025,
+   "ambiguous": -0.648,
+   "total": -0.155
+  },
+  "2001Q1": {
+   "demand": -0.125,
+   "supply": 0.356,
+   "ambiguous": 0.368,
+   "total": 0.599
+  },
+  "2001Q2": {
+   "demand": -1.063,
+   "supply": 1.868,
+   "ambiguous": 0.086,
+   "total": 0.891
+  },
+  "2001Q3": {
+   "demand": 1.467,
+   "supply": -1.109,
+   "ambiguous": 0.527,
+   "total": 0.885
+  },
+  "2001Q4": {
+   "demand": 0.963,
+   "supply": -0.359,
+   "ambiguous": -0.64,
+   "total": -0.036
+  },
+  "2002Q1": {
+   "demand": 0.376,
+   "supply": 0.672,
+   "ambiguous": -1.243,
+   "total": -0.194
+  },
+  "2002Q2": {
+   "demand": -0.282,
+   "supply": 0.531,
+   "ambiguous": -0.073,
+   "total": 0.175
+  },
+  "2002Q3": {
+   "demand": -0.099,
+   "supply": -0.106,
+   "ambiguous": 0.573,
+   "total": 0.368
+  },
+  "2002Q4": {
+   "demand": 0.459,
+   "supply": 1.758,
+   "ambiguous": 0.365,
+   "total": 2.582
+  },
+  "2003Q1": {
+   "demand": 0.344,
+   "supply": 0.985,
+   "ambiguous": 0.151,
+   "total": 1.48
+  },
+  "2003Q2": {
+   "demand": 0.81,
+   "supply": 0.558,
+   "ambiguous": -0.214,
+   "total": 1.154
+  },
+  "2003Q3": {
+   "demand": 0.09,
+   "supply": 1.367,
+   "ambiguous": 0.132,
+   "total": 1.589
+  },
+  "2003Q4": {
+   "demand": 0.65,
+   "supply": 0.999,
+   "ambiguous": -0.327,
+   "total": 1.323
+  },
+  "2004Q1": {
+   "demand": -0.065,
+   "supply": 1.639,
+   "ambiguous": 0.213,
+   "total": 1.787
+  },
+  "2004Q2": {
+   "demand": 1.318,
+   "supply": 1.132,
+   "ambiguous": 0.124,
+   "total": 2.574
+  },
+  "2004Q3": {
+   "demand": 1.343,
+   "supply": 0.721,
+   "ambiguous": 0.109,
+   "total": 2.173
+  },
+  "2004Q4": {
+   "demand": 1.565,
+   "supply": 1.3,
+   "ambiguous": -0.175,
+   "total": 2.689
+  },
+  "2005Q1": {
+   "demand": 0.898,
+   "supply": 0.893,
+   "ambiguous": 0.37,
+   "total": 2.162
+  },
+  "2005Q2": {
+   "demand": 0.196,
+   "supply": 0.373,
+   "ambiguous": 0.655,
+   "total": 1.224
+  },
+  "2005Q3": {
+   "demand": 0.957,
+   "supply": 0.423,
+   "ambiguous": 0.33,
+   "total": 1.71
+  },
+  "2005Q4": {
+   "demand": 1.755,
+   "supply": -0.037,
+   "ambiguous": -0.077,
+   "total": 1.641
+  },
+  "2006Q1": {
+   "demand": 0.905,
+   "supply": 0.991,
+   "ambiguous": 0.126,
+   "total": 2.022
+  },
+  "2006Q2": {
+   "demand": 1.736,
+   "supply": 1.38,
+   "ambiguous": 0.597,
+   "total": 3.713
+  },
+  "2006Q3": {
+   "demand": 1.345,
+   "supply": 2.193,
+   "ambiguous": 0.09,
+   "total": 3.628
+  },
+  "2006Q4": {
+   "demand": 1.118,
+   "supply": 2.423,
+   "ambiguous": -0.224,
+   "total": 3.317
+  },
+  "2007Q1": {
+   "demand": 2.423,
+   "supply": -0.538,
+   "ambiguous": -0.34,
+   "total": 1.545
+  },
+  "2007Q2": {
+   "demand": 0.776,
+   "supply": 1.518,
+   "ambiguous": -0.294,
+   "total": 2.0
+  },
+  "2007Q3": {
+   "demand": 1.058,
+   "supply": 0.332,
+   "ambiguous": 0.181,
+   "total": 1.571
+  },
+  "2007Q4": {
+   "demand": 0.554,
+   "supply": 0.794,
+   "ambiguous": 0.116,
+   "total": 1.464
+  },
+  "2008Q1": {
+   "demand": 1.328,
+   "supply": 2.801,
+   "ambiguous": -0.402,
+   "total": 3.727
+  },
+  "2008Q2": {
+   "demand": 0.635,
+   "supply": 3.376,
+   "ambiguous": -0.422,
+   "total": 3.589
+  },
+  "2008Q3": {
+   "demand": 0.781,
+   "supply": 3.49,
+   "ambiguous": 0.647,
+   "total": 4.918
+  },
+  "2008Q4": {
+   "demand": 0.653,
+   "supply": 2.541,
+   "ambiguous": 0.009,
+   "total": 3.203
+  },
+  "2009Q1": {
+   "demand": 1.911,
+   "supply": 0.012,
+   "ambiguous": -0.01,
+   "total": 1.912
+  },
+  "2009Q2": {
+   "demand": -1.248,
+   "supply": 0.022,
+   "ambiguous": 1.446,
+   "total": 0.221
+  },
+  "2009Q3": {
+   "demand": -1.881,
+   "supply": 0.695,
+   "ambiguous": 0.066,
+   "total": -1.12
+  },
+  "2009Q4": {
+   "demand": -0.245,
+   "supply": -0.732,
+   "ambiguous": 0.727,
+   "total": -0.25
+  },
+  "2010Q1": {
+   "demand": -0.961,
+   "supply": 0.887,
+   "ambiguous": 0.257,
+   "total": 0.183
+  },
+  "2010Q2": {
+   "demand": 1.307,
+   "supply": -0.225,
+   "ambiguous": 0.23,
+   "total": 1.312
+  },
+  "2010Q3": {
+   "demand": 0.584,
+   "supply": 1.129,
+   "ambiguous": 0.476,
+   "total": 2.189
+  },
+  "2010Q4": {
+   "demand": 0.681,
+   "supply": 2.824,
+   "ambiguous": 0.161,
+   "total": 3.667
+  },
+  "2011Q1": {
+   "demand": 1.371,
+   "supply": 3.687,
+   "ambiguous": 0.264,
+   "total": 5.322
+  },
+  "2011Q2": {
+   "demand": 1.589,
+   "supply": 2.109,
+   "ambiguous": 0.725,
+   "total": 4.423
+  },
+  "2011Q3": {
+   "demand": 1.827,
+   "supply": 1.15,
+   "ambiguous": 1.176,
+   "total": 4.153
+  },
+  "2011Q4": {
+   "demand": 0.686,
+   "supply": 2.477,
+   "ambiguous": 0.973,
+   "total": 4.137
+  },
+  "2012Q1": {
+   "demand": 0.845,
+   "supply": 1.144,
+   "ambiguous": 0.525,
+   "total": 2.514
+  },
+  "2012Q2": {
+   "demand": 0.918,
+   "supply": 1.591,
+   "ambiguous": 0.388,
+   "total": 2.896
+  },
+  "2012Q3": {
+   "demand": 0.3,
+   "supply": 1.346,
+   "ambiguous": 0.05,
+   "total": 1.697
+  },
+  "2012Q4": {
+   "demand": 0.446,
+   "supply": 1.292,
+   "ambiguous": -0.468,
+   "total": 1.269
+  },
+  "2013Q1": {
+   "demand": 0.616,
+   "supply": 1.417,
+   "ambiguous": 0.138,
+   "total": 2.171
+  },
+  "2013Q2": {
+   "demand": 0.903,
+   "supply": 1.095,
+   "ambiguous": 0.23,
+   "total": 2.228
+  },
+  "2013Q3": {
+   "demand": 0.652,
+   "supply": 1.76,
+   "ambiguous": 0.59,
+   "total": 3.002
+  },
+  "2013Q4": {
+   "demand": 0.313,
+   "supply": 1.837,
+   "ambiguous": 0.252,
+   "total": 2.402
+  },
+  "2014Q1": {
+   "demand": 0.943,
+   "supply": 1.042,
+   "ambiguous": -0.113,
+   "total": 1.872
+  },
+  "2014Q2": {
+   "demand": 1.595,
+   "supply": -0.012,
+   "ambiguous": 0.207,
+   "total": 1.79
+  },
+  "2014Q3": {
+   "demand": 0.527,
+   "supply": 0.52,
+   "ambiguous": 0.419,
+   "total": 1.466
+  },
+  "2014Q4": {
+   "demand": 0.904,
+   "supply": -0.116,
+   "ambiguous": 0.001,
+   "total": 0.789
+  },
+  "2015Q1": {
+   "demand": -0.325,
+   "supply": 0.16,
+   "ambiguous": -0.257,
+   "total": -0.422
+  },
+  "2015Q2": {
+   "demand": -1.235,
+   "supply": 0.216,
+   "ambiguous": 0.2,
+   "total": -0.818
+  },
+  "2015Q3": {
+   "demand": 0.113,
+   "supply": -0.713,
+   "ambiguous": 0.121,
+   "total": -0.48
+  },
+  "2015Q4": {
+   "demand": -0.071,
+   "supply": -0.099,
+   "ambiguous": 0.419,
+   "total": 0.248
+  },
+  "2016Q1": {
+   "demand": 0.437,
+   "supply": -0.089,
+   "ambiguous": 0.055,
+   "total": 0.404
+  },
+  "2016Q2": {
+   "demand": 0.058,
+   "supply": 0.124,
+   "ambiguous": 0.067,
+   "total": 0.25
+  },
+  "2016Q3": {
+   "demand": 0.122,
+   "supply": 0.703,
+   "ambiguous": -0.235,
+   "total": 0.591
+  },
+  "2016Q4": {
+   "demand": 0.799,
+   "supply": 0.378,
+   "ambiguous": -0.22,
+   "total": 0.957
+  },
+  "2017Q1": {
+   "demand": 0.664,
+   "supply": 0.403,
+   "ambiguous": 0.175,
+   "total": 1.242
+  },
+  "2017Q2": {
+   "demand": 0.738,
+   "supply": 0.847,
+   "ambiguous": 0.14,
+   "total": 1.725
+  },
+  "2017Q3": {
+   "demand": 0.854,
+   "supply": 0.623,
+   "ambiguous": -0.14,
+   "total": 1.336
+  },
+  "2017Q4": {
+   "demand": 0.874,
+   "supply": 0.995,
+   "ambiguous": -0.151,
+   "total": 1.718
+  },
+  "2018Q1": {
+   "demand": 0.933,
+   "supply": 1.13,
+   "ambiguous": 0.385,
+   "total": 2.448
+  },
+  "2018Q2": {
+   "demand": 0.794,
+   "supply": 1.25,
+   "ambiguous": 0.221,
+   "total": 2.264
+  },
+  "2018Q3": {
+   "demand": 1.146,
+   "supply": 1.308,
+   "ambiguous": 0.073,
+   "total": 2.527
+  },
+  "2018Q4": {
+   "demand": 1.406,
+   "supply": 0.135,
+   "ambiguous": 0.584,
+   "total": 2.126
+  },
+  "2019Q1": {
+   "demand": 0.976,
+   "supply": 0.357,
+   "ambiguous": -0.034,
+   "total": 1.299
+  },
+  "2019Q2": {
+   "demand": 0.286,
+   "supply": 1.059,
+   "ambiguous": 0.056,
+   "total": 1.401
+  },
+  "2019Q3": {
+   "demand": -0.04,
+   "supply": 1.132,
+   "ambiguous": 0.54,
+   "total": 1.632
+  },
+  "2019Q4": {
+   "demand": 0.399,
+   "supply": 0.928,
+   "ambiguous": 0.19,
+   "total": 1.518
+  },
+  "2020Q1": {
+   "demand": 0.076,
+   "supply": 0.466,
+   "ambiguous": 0.075,
+   "total": 0.617
+  },
+  "2020Q2": {
+   "demand": -0.966,
+   "supply": 1.369,
+   "ambiguous": -0.365,
+   "total": 0.038
+  },
+  "2020Q3": {
+   "demand": 0.204,
+   "supply": 0.014,
+   "ambiguous": -0.26,
+   "total": -0.043
+  },
+  "2020Q4": {
+   "demand": 0.535,
+   "supply": -0.821,
+   "ambiguous": 0.223,
+   "total": -0.063
+  },
+  "2021Q1": {
+   "demand": 1.057,
+   "supply": 0.224,
+   "ambiguous": 0.27,
+   "total": 1.551
+  },
+  "2021Q2": {
+   "demand": 0.621,
+   "supply": 0.68,
+   "ambiguous": 0.485,
+   "total": 1.787
+  },
+  "2021Q3": {
+   "demand": 1.73,
+   "supply": 1.393,
+   "ambiguous": 0.266,
+   "total": 3.389
+  },
+  "2021Q4": {
+   "demand": 3.323,
+   "supply": 2.514,
+   "ambiguous": 0.0,
+   "total": 5.836
+  },
+  "2022Q1": {
+   "demand": 1.861,
+   "supply": 4.516,
+   "ambiguous": 0.284,
+   "total": 6.661
+  },
+  "2022Q2": {
+   "demand": 3.657,
+   "supply": 4.867,
+   "ambiguous": 2.284,
+   "total": 10.809
+  },
+  "2022Q3": {
+   "demand": 2.649,
+   "supply": 7.768,
+   "ambiguous": 0.403,
+   "total": 10.82
+  },
+  "2022Q4": {
+   "demand": 1.611,
+   "supply": 8.554,
+   "ambiguous": 1.268,
+   "total": 11.432
+  },
+  "2023Q1": {
+   "demand": 5.188,
+   "supply": 6.276,
+   "ambiguous": 0.132,
+   "total": 11.596
+  },
+  "2023Q2": {
+   "demand": 3.697,
+   "supply": 3.358,
+   "ambiguous": 1.281,
+   "total": 8.336
+  },
+  "2023Q3": {
+   "demand": 2.786,
+   "supply": 2.387,
+   "ambiguous": 1.518,
+   "total": 6.69
+  },
+  "2023Q4": {
+   "demand": 2.28,
+   "supply": -0.239,
+   "ambiguous": 1.266,
+   "total": 3.306
+  },
+  "2024Q1": {
+   "demand": 0.837,
+   "supply": 0.131,
+   "ambiguous": 1.688,
+   "total": 2.656
+  },
+  "2024Q2": {
+   "demand": -0.537,
+   "supply": 1.815,
+   "ambiguous": 0.788,
+   "total": 2.066
+  },
+  "2024Q3": {
+   "demand": 0.624,
+   "supply": 0.091,
+   "ambiguous": 1.211,
+   "total": 1.926
+  },
+  "2024Q4": {
+   "demand": 0.288,
+   "supply": 1.194,
+   "ambiguous": 1.091,
+   "total": 2.572
+  },
+  "2025Q1": {
+   "demand": 0.187,
+   "supply": 1.181,
+   "ambiguous": 1.108,
+   "total": 2.477
+  },
+  "2025Q2": {
+   "demand": 0.439,
+   "supply": 1.358,
+   "ambiguous": 1.325,
+   "total": 3.123
+  },
+  "2025Q3": {
+   "demand": 0.706,
+   "supply": 1.585,
+   "ambiguous": 1.222,
+   "total": 3.513
+  },
+  "2025Q4": {
+   "demand": 0.782,
+   "supply": 1.318,
+   "ambiguous": 1.038,
+   "total": 3.139
+  },
+  "2026Q1": {
+   "demand": 0.604,
+   "supply": 1.225,
+   "ambiguous": 1.076,
+   "total": 2.904
+  }
+ }
+}

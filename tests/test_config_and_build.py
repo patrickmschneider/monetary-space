@@ -54,9 +54,12 @@ def test_changing_a_benchmark_changes_the_score_without_code(tmp_root):
     as_of = pd.Timestamp("2026-09-24")
     data = {"ECY2": synthetic_gdp()}
     spec = lambda: next(i for i in config.load(tmp_root).indicators if i["id"] == "gdp")
-    before = indicators.compute(spec(), data, config.load(tmp_root), as_of)
+    from types import SimpleNamespace
+    est = {"rstar": SimpleNamespace(growth=pd.Series(1.5, index=pd.period_range("1995Q1", "2026Q2", freq="Q")))}
+    before = indicators.compute(spec(), data, config.load(tmp_root), as_of, estimates=est)
+    assert before.b == 1.5                                   # potential growth from the r* model
     edit_indicator(tmp_root, "gdp", benchmark={"method": "value", "value": 0.0})
-    after = indicators.compute(spec(), data, config.load(tmp_root), as_of)
+    after = indicators.compute(spec(), data, config.load(tmp_root), as_of, estimates=est)
     assert after.b == 0.0 and after.latest.raw > before.latest.raw
 
 

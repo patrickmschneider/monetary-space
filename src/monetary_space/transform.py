@@ -44,6 +44,12 @@ def pct_change_12m(inputs: list[pd.Series]) -> pd.Series:
     return x.pct_change(periods, fill_method=None).mul(100).dropna()
 
 
+def diff_12m(inputs: list[pd.Series]) -> pd.Series:
+    """Change on a year earlier, in the series' own units (e.g. percentage points)."""
+    x = _one(inputs)
+    return (x - x.shift(12 if x.index.freqstr == "M" else 4)).dropna()
+
+
 def growth_3m_yoy(inputs: list[pd.Series]) -> pd.Series:
     """Latest three months on the same three months a year earlier, in %."""
     x = _one(inputs)
@@ -76,6 +82,7 @@ TRANSFORMS = {
     "annualised_3m3m": annualised_3m3m,
     "pct_change_12m": pct_change_12m,
     "growth_3m_yoy": growth_3m_yoy,
+    "diff_12m": diff_12m,
     "monthly_mean": monthly_mean,
     "monthly_last": monthly_last,
 }
@@ -98,8 +105,12 @@ def apply(name: str | list, inputs: list[pd.Series], drop_last: int = 0, weights
     return x.astype(float)
 
 
-def pre2020(x: pd.Series) -> pd.Series:
-    return x[x.index.to_timestamp(how="end") <= PRE2020_END.to_timestamp(how="end")]
+def pre2020(x: pd.Series, since: str | None = None) -> pd.Series:
+    """Observations before 2020, optionally from `since` (e.g. inflation targeting, 1993)."""
+    x = x[x.index.to_timestamp(how="end") <= PRE2020_END.to_timestamp(how="end")]
+    if since:
+        x = x[x.index.to_timestamp() >= pd.Timestamp(since)]
+    return x
 
 
 def sample_years(x: pd.Series) -> float:
@@ -114,9 +125,9 @@ def pre2020_mean(x: pd.Series) -> float:
     return float(sample.mean())
 
 
-def pre2020_sd(x: pd.Series) -> float:
+def pre2020_sd(x: pd.Series, since: str | None = None) -> float:
     """Step 2: standard deviation over the full pre-2020 sample (needs ≥10 years)."""
-    sample = pre2020(x)
+    sample = pre2020(x, since)
     years = sample_years(sample)
     if years < MIN_SAMPLE_YEARS:
         raise ValueError(

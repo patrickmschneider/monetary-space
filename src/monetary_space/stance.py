@@ -71,21 +71,62 @@ def compute(cfg: Config, data: dict[str, pd.Series], rstar_est, as_of_day: pd.Ti
 
 @dataclass
 class Verdict:
-    pressure: float
+    pressure: float                 # drives the verdict (method in weights.yaml)
     pressure_class: str
     stance_class: str
     verdict: str
     driver: str
     contributions: dict[str, float]
+    method: str
+    weights: dict[str, float]       # effective weights, cost-push multiplier applied
+    alternative: dict               # the other weighting: method, pressure, class, verdict
+    multiplier: float               # cost-push state multiplier
+    multiplier_ratio: float
 
 
-def verdict(cfg: Config, block_scores: dict[str, float], stance: Stance) -> Verdict:
+def estimated_weights(cfg: Config) -> dict[str, float] | None:
     pw = cfg.weights["pressure"]
-    p = score.pressure(block_scores, pw["weights"])
-    pc = score.direction(p, pw["threshold"])
+    res = cfg.analysis.get("bb_uk", {}).get("estimated_weights_policy_horizon")
+    if not res:
+        return None
+    w = {k: float(res[v]) for k, v in pw["estimated_map"].items()}
+    total = sum(w.values())
+    return {k: v / total for k, v in w.items()}
+
+
+def cost_push_multiplier(cfg: Config, cpi_yy: float) -> tuple[float, float]:
+    """1 + (ratio − 1)·logistic((CPI − threshold)/width), capped. Ratio: estimated high/low-inflation
+    pass-through (analysis/passthrough_lp.py), headline CPI at 12 months."""
+    import math
+    st = cfg.weights["pressure"]["cost_push_state"]
+    ratio = st["ratio_default"]
+    lp = cfg.analysis.get("passthrough_lp", {}).get("state_inflation", {}).get("cpi")
+    if lp and lp["b_low"][12] > 0:
+        ratio = lp["b_high"][12] / lp["b_low"][12]
+    ratio = min(max(ratio, 1.0), st["cap"])
+    s = 1 / (1 + math.exp(-(cpi_yy - st["cpi_threshold"]) / st["width"]))
+    return min(1 + (ratio - 1) * s, st["cap"]), ratio
+
+
+def verdict(cfg: Config, block_scores: dict[str, float], stance: Stance, cpi_yy: float) -> Verdict:
+    pw = cfg.weights["pressure"]
+    m, ratio = cost_push_multiplier(cfg, cpi_yy)
+    options = {"config": dict(pw["weights"])}
+    est = estimated_weights(cfg)
+    if est:
+        options["estimated"] = est
+    results = {}
+    for name, w in options.items():
+        w = {k: v * (m if k == "C" else 1.0) for k, v in w.items()}
+        p = score.pressure(block_scores, w)
+        pc = score.direction(p, pw["threshold"])
+        results[name] = {"weights": w, "pressure": p, "class": pc, "verdict": score.verdict(pc, stance.cls),
+                         "driver": score.driver(block_scores, w)}
+    method = pw.get("method", "config") if pw.get("method", "config") in results else "config"
+    r = results[method]
+    other = next((dict(v, method=k) for k, v in results.items() if k != method), {})
     return Verdict(
-        pressure=p, pressure_class=pc, stance_class=stance.cls,
-        verdict=score.verdict(pc, stance.cls),
-        driver=score.driver(block_scores, pw["weights"]),
-        contributions={k: w * block_scores[k] for k, w in pw["weights"].items()},
+        pressure=r["pressure"], pressure_class=r["class"], stance_class=stance.cls, verdict=r["verdict"],
+        driver=r["driver"], contributions={k: w * block_scores[k] for k, w in r["weights"].items()},
+        method=method, weights=r["weights"], alternative=other, multiplier=m, multiplier_ratio=ratio,
     )

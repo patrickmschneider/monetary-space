@@ -1,0 +1,44 @@
+name: estimate
+
+# Re-estimate the models behind the Phillips-curve weights and the 'What's driving
+# inflation' charts, then commit analysis/results/*.json to main (which triggers a
+# page build). Weekly is enough: the inputs are monthly and quarterly releases.
+on:
+  schedule:
+    - cron: "0 5 * * 1"     # Mondays 05:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: estimate
+  cancel-in-progress: false
+
+jobs:
+  estimate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e .
+      - name: Estimate
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: |
+          python analysis/passthrough_lp.py
+          python analysis/bb_uk.py
+          python analysis/shapiro_uk.py
+          python analysis/svar_uk.py
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add analysis/results
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Re-estimate models $(date -u +%F)"
+          git pull --rebase origin main && git push origin HEAD:main
