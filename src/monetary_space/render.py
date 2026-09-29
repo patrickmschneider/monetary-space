@@ -10,7 +10,7 @@ from html import escape
 import pandas as pd
 
 from . import charts, decomposition, policy_path
-from .config import BLOCK_NAMES, BLOCK_TITLES, Config
+from .config import BLOCK_EXPLAIN, BLOCK_NAMES, BLOCK_TITLES, Config
 from .indicators import Block, Indicator
 from .score import DOWN, EASE, HAWKISH, UP
 
@@ -142,6 +142,15 @@ def stance_bar(gap: float, half: float, label: str) -> str:
     )
 
 
+def term(label: str, explain: str, href: str | None = None) -> str:
+    """A label with a plain-language explanation shown on hover or keyboard focus."""
+    if not explain:
+        return f'<a href="{href}">{escape(label)}</a>' if href else escape(label)
+    tag = "a" if href else "span"
+    attrs = f' href="{href}"' if href else ' tabindex="0"'
+    return f'<{tag} class="term"{attrs} data-explain="{escape(explain)}">{escape(label)}</{tag}>'
+
+
 def diffusion_dots(d: dict[str, int]) -> str:
     dots = "".join(f'<i class="dot {k}" aria-hidden="true"></i>' * d[k] for k in (UP, "neutral", DOWN))
     return f'<span class="dots">{dots}</span> {d[UP]} up · {d["neutral"]} neutral · {d[DOWN]} down'
@@ -271,7 +280,7 @@ def headline_strip(blocks: dict[str, Block], cfg: Config, stance=None) -> str:
         b = blocks[k]
         d = direction_of(b.score, thr)
         cols.append(
-            f'<div class="metric"><h2><a href="#block-{k}">{title}</a></h2><p class="question">{escape(BLOCK_TITLES[k])}</p>'
+            f'<div class="metric"><h2>{term(title, BLOCK_EXPLAIN.get(k, ""), href=f"#block-{k}")}</h2><p class="question">{escape(BLOCK_TITLES[k])}</p>'
             f'<p class="metric-value {d}">{fmt(b.score)} <span class="metric-word">{ARROW[d]} {WORD[d]}</span></p>'
             f'{zbar(b.score, d, f"Block score {fmt(b.score)} on a −3 to +3 scale")}'
             f'<p class="metric-detail">{diffusion_dots(b.diffusion)}</p>'
@@ -299,7 +308,7 @@ def block_section(b: Block, cfg: Config, number: int) -> str:
     for i in b.indicators:
         rows.append(
             f'<tr class="{"stale" if i.stale else ""}">'
-            f'<th scope="row">{escape(i.name)}{_flags(i, sat)}</th>'
+            f'<th scope="row">{term(i.name, i.explain)}{_flags(i, sat)}</th>'
             f'<td class="num">{num(i.latest.x)}<span class="unit"> {escape(i.unit)}</span></td>'
             f"<td>{period_label(i.period)}</td>"
             f'<td class="num">{num(i.b, 2)}</td>'
@@ -512,6 +521,20 @@ def part(number: int, title: str, intro: str) -> str:
             f'<h2>{escape(title)}</h2><p>{escape(intro)}</p></header>')
 
 
+TERM_SCRIPT = """
+(()=>{const tip=document.getElementById('term-tip');if(!tip)return;let cur=null;
+const show=el=>{cur=el;tip.textContent=el.dataset.explain;tip.hidden=false;el.setAttribute('aria-describedby','term-tip');
+const r=el.getBoundingClientRect(),w=Math.min(340,window.innerWidth-24);tip.style.width=w+'px';
+let x=Math.min(Math.max(12,r.left),window.innerWidth-w-12);tip.style.left=(x+window.scrollX)+'px';
+const below=r.bottom+8+tip.offsetHeight<window.innerHeight;
+tip.style.top=((below?r.bottom+8:r.top-8-tip.offsetHeight)+window.scrollY)+'px';};
+const hide=()=>{if(cur)cur.removeAttribute('aria-describedby');cur=null;tip.hidden=true;};
+for(const el of document.querySelectorAll('.term')){el.addEventListener('mouseenter',()=>show(el));el.addEventListener('mouseleave',hide);
+el.addEventListener('focus',()=>show(el));el.addEventListener('blur',hide);}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')hide();});window.addEventListener('scroll',hide,{passive:true});})();
+"""
+
+
 TABS = [("index.html", "Overview"), ("drivers.html", "Inflation drivers"), ("stance.html", "Stance working")]
 
 
@@ -523,7 +546,15 @@ def shell(title: str, active: str, body: str, now, script: bool = True) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#153f46">
-<meta name="description" content="Is UK monetary policy tight enough for the inflation pressure? Official data, transparent scores.">
+<meta name="description" content="Monetary Space: a guide to UK monetary policy">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Monetary Space">
+<meta property="og:title" content="{escape(title)}">
+<meta property="og:description" content="Monetary Space: a guide to UK monetary policy">
+<meta property="og:url" content="https://patrickmschneider.github.io/monetary-space/{active if active != 'index.html' else ''}">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="{escape(title)}">
+<meta name="twitter:description" content="Monetary Space: a guide to UK monetary policy">
 <title>{escape(title)}</title>
 <style>{CSS}{charts.CSS}{policy_path.CSS}{decomposition.CSS}</style>
 </head>
@@ -543,7 +574,8 @@ def shell(title: str, active: str, body: str, now, script: bool = True) -> str:
     <div><p>Built {now:%-d %B %Y, %H:%M} UK time</p></div>
   </footer>
 </main>
-{f"<script>{charts.SCRIPT}</script>" if script else ""}
+<div id="term-tip" class="term-tip" role="tooltip" hidden></div>
+<script>{charts.SCRIPT}{TERM_SCRIPT}</script>
 </body>
 </html>
 """
@@ -739,6 +771,9 @@ h1,h2,h3,p{margin-top:0}
 .stance-answer-bar{grid-column:2;grid-row:1 / span 2;align-self:center}
 @media(max-width:700px){.stance-answer{grid-template-columns:1fr}.stance-answer-bar{grid-column:1;grid-row:auto}}
 .more-link a{color:var(--accent)}
+.term{text-decoration:underline dotted var(--muted);text-underline-offset:3px;cursor:help;color:inherit}
+a.term:hover{color:var(--accent)}
+.term-tip{position:absolute;z-index:50;background:var(--ink);color:var(--bg);font-size:12px;font-weight:400;line-height:1.5;padding:10px 12px;border-radius:6px;box-shadow:0 4px 14px #0002;pointer-events:none;text-align:left;white-space:normal;letter-spacing:0}
 .legend{display:flex;gap:10px 22px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin:14px 0 4px}
 .legend span{display:flex;align-items:center;gap:7px}
 .swatch{width:12px;height:12px;display:inline-block}

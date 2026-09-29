@@ -223,6 +223,8 @@ indicators:
   # E. Expectations: are inflation expectations anchored at 2%?
   - id: dmp_prices
     name: Firms' expected own-price growth
+    explain: >-
+      What firms in the Bank of England's Decision Maker Panel expect to charge over the next year. Pricing intentions feed straight into inflation, so this is one of the most direct forward-looking signals. Above its pre-2020 average (about 2.4%), firms plan to raise prices faster than is consistent with 2% inflation.
     phrase: firms' price expectations
     block: E
     series:
@@ -244,6 +246,8 @@ indicators:
 
   - id: household_expectations
     name: Household inflation expectations
+    explain: >-
+      Households' expectations of inflation over the next 12 months (Bank of England Inflation Attitudes Survey). Higher expectations can feed into wage demands and spending, making inflation more persistent. Households' expectations run above actual inflation on average, so the score compares them with their own pre-2020 average rather than with 2%.
     phrase: households' inflation expectations
     block: E
     series:
@@ -263,6 +267,8 @@ indicators:
 
   - id: market_inflation
     name: Market-implied inflation, 5 years
+    explain: >-
+      Inflation over the next five years implied by gilt prices: the gap between conventional and index-linked yields, converted from RPI to a CPI basis. It moves daily and reflects investors' money at stake, but it also includes a premium for inflation risk, which rises when inflation is uncertain. Above its pre-2020 average, markets doubt that inflation will return to target quickly.
     phrase: market-implied inflation
     block: E
     series: [IUDSIZC]
@@ -286,6 +292,8 @@ indicators:
   # D. Demand: is spending running ahead of the economy's capacity?
   - id: unemployment
     name: Unemployment rate vs u*
+    explain: >-
+      The share of the workforce looking for work, against our estimate of the lowest rate consistent with stable inflation (u*). Unemployment below u* means a tight labour market that pushes up wages and prices; above u* means slack. The sign is reversed, so a positive score means tight and inflationary.
     block: D
     series:
     - MGSX
@@ -305,6 +313,8 @@ indicators:
 
   - id: vacancies_per_unemployed
     name: Vacancies per unemployed
+    explain: >-
+      Job vacancies per unemployed person: a measure of labour-market tightness that tracked UK pay pressure well after 2021. More vacancies per jobseeker means firms compete harder for workers and pay rises faster. Compared with its 2001–2019 average.
     block: D
     series:
     - AP2Y
@@ -323,6 +333,8 @@ indicators:
 
   - id: payrolls
     name: PAYE payrolled employees
+    explain: >-
+      Growth in the number of employees on company payrolls, from HMRC tax records, over the latest three months at an annual rate. It is timelier and more reliable than the survey-based employment figures. Growth faster than the pre-2020 norm means strong demand for labour.
     phrase: payroll employment
     block: D
     series:
@@ -345,6 +357,8 @@ indicators:
 
   - id: gdp
     name: Real GDP growth vs potential
+    explain: >-
+      Real GDP growth over the latest three months against the economy's potential growth rate (about 1.4% a year, from the Bank's Market Participants Survey). Growth above potential uses up spare capacity and adds to inflation pressure; growth below it creates slack. It shows the change in the output gap, not its level.
     block: D
     series:
     - ECY2
@@ -363,6 +377,8 @@ indicators:
 
   - id: capacity
     name: Capacity utilisation (Agents)
+    explain: >-
+      The Bank of England Agents' score for how hard firms are working their existing capacity, from conversations with businesses around the UK; 0 is normal. Firms working above normal capacity find it easier to raise prices. A negative score points to spare capacity.
     phrase: the Agents' capacity utilisation score
     block: D
     series:
@@ -388,6 +404,8 @@ indicators:
   # S. Supply: is the economy's capacity growing more slowly than normal?
   - id: ulc
     name: Unit labour cost growth
+    explain: >-
+      Unit labour costs: pay per unit of output, or wage growth minus productivity growth. They are the main cost firms pass on to prices, especially in services. Growth of about 2% is consistent with the inflation target; faster growth pushes inflation up unless firms absorb it in their margins.
     phrase: unit labour costs
     block: S
     series:
@@ -409,6 +427,8 @@ indicators:
 
   - id: productivity
     name: Productivity growth vs trend
+    explain: >-
+      Growth in output per hour worked against its own five-year trend. Weaker productivity means the economy produces less for the same effort, so for a given level of demand there is less spare capacity and more inflation pressure. The sign is reversed, so productivity below trend scores as inflationary.
     phrase: weak productivity
     block: S
     series:
@@ -432,6 +452,8 @@ indicators:
   # C. Cost-push: are external costs pushing up prices?
   - id: brent
     name: Brent crude oil price
+    explain: >-
+      The world price of crude oil in US dollars, change on a year earlier. Oil reaches petrol prices within weeks and transport and production costs more slowly. It is measured in dollars so the exchange rate is not counted twice. Most of its effect on inflation is direct and temporary; it matters for policy mainly if it spills into pay and expectations.
     phrase: oil prices
     block: C
     series:
@@ -454,6 +476,8 @@ indicators:
 
   - id: gas
     name: UK wholesale gas price
+    explain: >-
+      The UK wholesale gas price (System Average Price), change on a year earlier. Gas drives household energy bills, through the Ofgem price cap a few months later, and costs for industry. Like oil, much of its effect is first-round; the risk is that it spills over into pay and inflation expectations.
     phrase: gas prices
     block: C
     series:
@@ -477,6 +501,8 @@ indicators:
 
   - id: sterling
     name: Sterling effective exchange rate
+    explain: >-
+      The sterling effective exchange rate against a basket of trading partners, change on a year earlier. A weaker pound raises import prices: roughly 60% of a fall reaches import prices and about a fifth reaches consumer prices over one to two years. The sign is reversed, so a depreciation scores as inflationary.
     block: C
     series:
     - XUDLBK67
@@ -498,6 +524,8 @@ indicators:
 
   - id: import_prices
     name: Import prices
+    explain: >-
+      Prices of goods imported into the UK, change on a year earlier. They are the pipeline through which global and exchange-rate shocks reach UK shop prices, typically over four to eight quarters. Rising import prices signal cost pressure still to come through.
     phrase: import prices
     block: C
     series:

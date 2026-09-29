@@ -18,6 +18,12 @@ BLOCK_TITLES = {
     "C": "Are external costs pushing up prices?",
     "P": "Is policy stimulating or restraining the economy?",
 }
+BLOCK_EXPLAIN = {
+    "E": "What people expect inflation to be. Expectations feed into wage and price setting, so if they drift above 2% inflation becomes harder to bring down. In the Phillips curve this is the expected-inflation term.",
+    "D": "Whether spending is outstripping what the economy can produce. A tight labour market and fast growth push up wages and prices. This is the demand side of the slack (output gap) term.",
+    "S": "Whether the economy's capacity is growing more slowly than normal. Weak productivity or fast-rising labour costs leave less room to grow without inflation, even if demand is not strong. This is the supply side of the slack term.",
+    "C": "External costs: energy, import prices and the exchange rate. Their first effect on prices is usually temporary, so they get a smaller weight, which rises when inflation is already high and knock-on effects on pay and expectations are more likely.",
+}
 BLOCK_NAMES = {"E": "Expectations", "D": "Demand", "S": "Supply", "C": "Cost-push", "P": "Policy stance"}
 
 

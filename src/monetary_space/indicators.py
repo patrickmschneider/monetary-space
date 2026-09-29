@@ -35,6 +35,7 @@ class Indicator:
     clip_share_recent: float
     failed_series: list[str] = field(default_factory=list)
     phrase: str = ""             # how the lead sentence names it, if not the lower-cased name
+    explain: str = ""            # plain-language description, shown on hover
 
 
 def _benchmark(spec: dict, x: pd.Series, cfg: Config, as_of: pd.Timestamp,
@@ -138,6 +139,7 @@ def compute(spec: dict, data: dict[str, pd.Series], cfg: Config, as_of: pd.Times
         clip_share_recent=float((recent.abs() > clip).mean()) if len(recent) else 0.0,
         failed_series=[s for s in spec["series"] if s.split(":")[0] in failed],
         phrase=spec.get("phrase", ""),
+        explain=" ".join(str(spec.get("explain", "")).split()),
     )
 
 
