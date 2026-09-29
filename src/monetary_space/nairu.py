@@ -34,7 +34,8 @@ class KalmanOutput:
 
 def kalman(Y: np.ndarray, Z: np.ndarray, d: np.ndarray, T: np.ndarray, RQR: np.ndarray, H: np.ndarray,
            a0: np.ndarray, P0: np.ndarray) -> KalmanOutput:
-    """Linear Gaussian filter; NaN observations are skipped element by element."""
+    """Linear Gaussian filter; NaN observations are skipped element by element.
+    H may be fixed (k×k) or time-varying (n×k×k)."""
     n, m = len(Y), len(a0)
     a, P, ll = a0.copy(), P0.copy(), 0.0
     at, Pt, ap, Pp = np.zeros((n, m)), np.zeros((n, m, m)), np.zeros((n, m)), np.zeros((n, m, m))
@@ -43,7 +44,8 @@ def kalman(Y: np.ndarray, Z: np.ndarray, d: np.ndarray, T: np.ndarray, RQR: np.n
         ap[t], Pp[t] = a, P
         obs = np.isfinite(Y[t])
         if obs.any():
-            Zt, Ht = Z[t][obs], H[np.ix_(obs, obs)]
+            Hfull = H[t] if H.ndim == 3 else H
+            Zt, Ht = Z[t][obs], Hfull[np.ix_(obs, obs)]
             v = Y[t][obs] - d[t][obs] - Zt @ a
             F = Zt @ P @ Zt.T + Ht
             Fi = np.linalg.inv(F)

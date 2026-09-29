@@ -214,7 +214,7 @@ def panel(c: ChartData) -> str:
 
 SCRIPT = """
 (()=>{for(const fig of document.querySelectorAll('.chart-panel')){
-const svg=fig.querySelector('svg'),tip=fig.querySelector('.chart-tip'),g=svg.querySelector('.hover');
+const svg=fig.querySelector('svg[data-points]'),tip=fig.querySelector('.chart-tip');if(!svg||!tip)continue;const g=svg.querySelector('.hover');
 const P=JSON.parse(svg.dataset.points),n=P.x.length;let i=n-1;
 const show=k=>{i=Math.max(0,Math.min(n-1,k));g.setAttribute('visibility','visible');
 g.querySelector('line').setAttribute('x1',P.x[i]);g.querySelector('line').setAttribute('x2',P.x[i]);

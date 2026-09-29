@@ -180,7 +180,7 @@ def lead_sentence(blocks: dict[str, Block], threshold: float, stance=None, verdi
     if stance is not None:
         s = {"tight": "tight", "loose": "loose", "neutral": "close to neutral"}[stance.cls]
         text += (f" Policy is {s}: a real 2-year rate of {num(stance.real_rate)}% against an estimated "
-                 f"neutral rate of {num(stance.r_star)}%.")
+                 f"neutral rate of {num(stance.r_star, 2)}%.")
     return text
 
 
@@ -228,7 +228,7 @@ def verdict_strip(cfg: Config, blocks: dict[str, Block], stance, verdict, data: 
   <div class="dial">
     <h2>Policy stance <span class="stance-word">{fmt(stance.gap)}pp · {STANCE_WORD[stance.cls]}</span></h2>
     {stance_bar(stance.gap, half, f"Real-rate gap {fmt(stance.gap)} percentage points, {stance.cls}")}
-    <p class="dial-note">Real rate {num(stance.real_rate)}% vs r* {num(stance.r_star)}% (neutral {num(stance.band[0])} to {num(stance.band[1])}%)</p>
+    <p class="dial-note">Real rate {num(stance.real_rate)}% vs r* {num(stance.r_star, 2)}% (neutral {num(stance.band[0], 2)} to {num(stance.band[1], 2)}%)</p>
   </div>
   <p class="verdict-facts">{" · ".join(facts)}</p>
 </section>"""
@@ -326,21 +326,32 @@ def block_section(b: Block, cfg: Config, number: int) -> str:
 def stance_section(stance, estimates: dict, cfg: Config, number: int) -> str:
     if stance is None:
         return ""
-    est = estimates["rstar"]
-    rs = cfg.rstar
+    suite = estimates["rstar"]
     rows = [
         ("2-year OIS rate", f"{num(stance.ois_2y, 2)}%", f"{stance.ois_date:%-d %b %Y}", "Bank of England yield curves"),
         ("− Expected inflation", f"{num(stance.expected_inflation)}%", "", stance.expectation_source),
         ("= Real rate", f"{num(stance.real_rate, 2)}%", "", ""),
-        ("r*, estimated", f"{num(stance.r_star, 2)}%", str(stance.r_star_quarter),
-         f"HLW-style model; ± {num(stance.r_star_se, 2)} (1 s.e.); trend growth {num(est.growth.iloc[-1])}%"),
-        ("Neutral zone", f"{num(stance.band[0])} to {num(stance.band[1])}%", "",
-         f"r* ± max({rs.get('band_z', 1):g} s.e., {cfg.weights['stance']['rstar_band_min_half_width']:g}pp)"),
+        ("r*, suite headline", f"{num(stance.r_star, 2)}%", "", "Weighted estimators below, rounded to 0.25pp"),
+        ("Neutral zone", f"{num(stance.band[0])} to {num(stance.band[1])}%", "", "Range of the weighted estimators, at least 0.5pp wide"),
         ("Gap: real rate − r*", f"{fmt(stance.gap, 2)}pp", "", f"{STANCE_WORD[stance.cls]}"),
     ]
     body = "".join(f"<tr><th scope=\"row\">{escape(a)}</th><td class=\"num\">{b}</td><td>{escape(c)}</td><td>{escape(d)}</td></tr>"
                    for a, b, c, d in rows)
-    chart = rstar_chart(est, cfg)
+    est_rows = ""
+    if hasattr(suite, "estimators"):
+        for k, v in suite.estimators.items():
+            if not v:
+                continue
+            w = v.get("weight", 0)
+            est_rows += (f"<tr class=\"{'' if w else 'muted-row'}\"><th scope=\"row\">{escape(v['name'])}</th>"
+                         f"<td class=\"num\">{num(v['value'], 2)}%</td><td class=\"num\">{num(v['value'] + 2, 2)}%</td>"
+                         f"<td>{escape(v['date'])}</td><td>{escape(v['role'])}</td><td class=\"num\">{w:.2f}</td>"
+                         f"<td>{escape(v['basis'])}. <em>{escape(v['status'])}</em></td></tr>")
+    est_table = (f'<h3 class="sub-h">The r* suite</h3><div class="table-wrap"><table><thead><tr><th scope="col">Estimator</th>'
+                 f'<th scope="col" class="num">Real</th><th scope="col" class="num">Nominal</th><th scope="col">Date</th>'
+                 f'<th scope="col">Horizon</th><th scope="col" class="num">Weight</th><th scope="col">Basis and status</th></tr></thead>'
+                 f'<tbody>{est_rows}</tbody></table></div>' if est_rows else "")
+    chart = rstar_chart(suite, cfg)
     published = cfg.manual.get("rstar")
     pub_rows = ""
     if published is not None:
@@ -362,17 +373,18 @@ def stance_section(stance, estimates: dict, cfg: Config, number: int) -> str:
     <div>
       <p class="eyebrow">POLICY STANCE</p>
       <h2 id="h-P">{escape(BLOCK_TITLES['P'])}</h2>
-      <p class="takeaway">Stance is measured in percentage points, not z: the real 2-year rate against our estimate of the neutral real rate r*. A z-score of the real rate would mean little over a sample half spent at the zero lower bound. Stance is never coloured, because "up" means tight, not inflationary.</p>
+      <p class="takeaway">The real 2-year rate against the neutral real rate r*. No single estimate of r* is reliable, so r* is a weighted suite of estimators, following central-bank practice, and the neutral zone is their range. Stance is in percentage points and never coloured, because "up" means tight, not inflationary.</p>
     </div>
   </div>
   <div class="table-wrap"><table>
     <thead><tr><th scope="col">Component</th><th scope="col" class="num">Value</th><th scope="col">Date</th><th scope="col">Basis</th></tr></thead>
     <tbody>{body}</tbody>
   </table></div>
+  {est_table}
   {chart}
   {pub_html}
-  <p class="chart-note">r* comes from a Holston–Laubach–Williams-style model of GDP, core inflation and the real policy rate (settings in config/rstar.yaml). In UK data the IS-curve slope is not identified, so it is fixed at {rs.get('ar')}; the estimate is sensitive to this and to the smoothing ratios. The zero lower bound and QE years (2009–21) make the real policy rate an imperfect measure of stance.</p>
-  <p class="chart-source">Source: Bank of England; Office for National Statistics; Monetary Space estimates</p>
+  <p class="chart-note">Method and evidence: reports/UK neutral rate estimation methods.md. The suite is re-estimated weekly. The Market Participants Survey asks for the neutral Bank Rate in nominal terms; 2% is subtracted. The gilt forward includes term and liquidity premia and is shown only.</p>
+  <p class="chart-source">Source: Bank of England (yield curves, Market Participants Survey, Inflation Attitudes Survey); Office for National Statistics; Monetary Space estimates</p>
 </section>"""
 
 
@@ -421,20 +433,24 @@ def momentum_section(data: dict, number: int) -> str:
 </section>"""
 
 
-def rstar_chart(est, cfg: Config) -> str:
-    """r* (with its band) against the real policy rate the model uses, since the sample start."""
+def rstar_chart(suite, cfg: Config) -> str:
+    """Trend-cycle r̄ (with ±1 s.e.), the suite headline and the gilt forward, since 2000."""
     from .transform import to_monthly
-    z = cfg.rstar.get("band_z", 1.0)
-    real = to_monthly(est.real_rate.dropna()) if hasattr(est, "real_rate") else None
-    if real is None or real.empty:
+    if not hasattr(suite, "history"):
         return ""
-    path = [to_monthly(s) for s in (est.r_star, est.r_star - z * est.se, est.r_star + z * est.se)]
+    h = suite.history
+    tc = pd.Series({pd.Period(k, "Q"): v[0] for k, v in h["trend_cycle"].items()}).sort_index()
+    se = pd.Series({pd.Period(k, "Q"): v[1] for k, v in h["trend_cycle"].items()}).sort_index()
+    fwd = pd.Series({pd.Period(k, "Q"): v for k, v in h["market_5y5y"].items()}).sort_index()
+    since = pd.Period("2000Q1", "Q")
+    tc, se, fwd = tc[tc.index >= since], se[se.index >= since], fwd[fwd.index >= since]
+    path = [to_monthly(s) for s in (tc, tc - se, tc + se)]
     c = charts.ChartData(
-        id="rstar", title="Estimated r* and the real policy rate",
-        subtitle="Real policy rate: Bank Rate minus core inflation over the past year, %. Shaded: r* ± 1 s.e.",
-        unit="%", decimals=1, step=False, x=real, reference=None,
-        ref_path=(path[0], path[1], path[2], f"r* {path[0].iloc[-1]:.1f}"), ylim=(-4.0, 8.0),
-        source="Bank of England; Office for National Statistics; Monetary Space estimates", attribution="")
+        id="rstar", title="r*: the trend-cycle estimate and the gilt market",
+        subtitle="Real, %. Line: index-linked gilt 5y5y real forward (includes term premia). Dashed with band: trend-cycle r̄ ± 1 s.e.",
+        unit="%", decimals=1, step=False, x=to_monthly(fwd), reference=None,
+        ref_path=(path[0], path[1], path[2], f"r̄ {path[0].iloc[-1]:.1f}"), ylim=(-3.0, 5.0),
+        source="Bank of England; Monetary Space estimates", attribution="")
     markup, note = charts.svg(c, width=760)
     note_html = f'<p class="chart-note">{escape(note)}</p>' if note else ""
     return (f'<figure class="chart-panel wide" tabindex="0" aria-describedby="tip-rstar">'
@@ -590,6 +606,8 @@ h1,h2,h3,p{margin-top:0}
 .metric-unit{font-size:16px;font-weight:600;margin-left:1px}
 .chart-panel.wide{max-width:760px;margin:6px 0 18px;border-top:0;padding-top:0}
 .disclosure-plain{margin:10px 0 14px;font-size:13px}
+.sub-h{font-size:16px;font-weight:650;color:var(--ink);margin:22px 0 8px}
+.muted-row th,.muted-row td{color:var(--muted)}
 .disclosure-plain summary{cursor:pointer;color:var(--accent);margin-bottom:10px}
 .table-wrap a{color:var(--accent)}
 .legend{display:flex;gap:10px 22px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin:14px 0 4px}

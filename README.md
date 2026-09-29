@@ -58,25 +58,17 @@ For comparison, the February 2026 MPR put u\* at about 4¾%.
 
 ## Estimated r\* (neutral real rate)
 
-Policy stance compares the real 2-year rate (2-year OIS minus the MPR's year-ahead CPI projection) with our own estimate of r\*. It comes from a Holston–Laubach–Williams-style model (`src/monetary_space/rstar.py`, settings in `config/rstar.yaml`), estimated by Kalman filter on quarterly data from 1993:
+Stance compares the real 2-year rate (2-year OIS minus the MPR's year-ahead CPI projection) with r\*. No single r\* estimate is reliable for the UK, so, following central-bank practice (Bank of England, ECB, Bank of Canada), r\* is a suite of estimators (`analysis/rstar_suite.py`, method and evidence in [reports/UK neutral rate estimation methods.md](reports/UK%20neutral%20rate%20estimation%20methods.md)):
 
-- IS curve: the output gap depends on its own lags and on the real policy rate relative to r\*.
-- Phillips curve: seasonally adjusted core CPI inflation depends on its lags and the output gap.
-- Potential output, trend growth g and other factors z follow random walks; r\* = 4g + z (g at an annual rate).
-- As in HLW, two shock variances are tied to others by ratios (λg, λz). HLW estimate them in earlier stages; here they are fixed. The IS-curve slope is not identified in UK data (real rates were negative for a decade without overheating), so it is fixed too. 2020–21 is excluded.
-- The neutral zone is r\* ± one standard error, never narrower than ±0.5pp.
+| Estimator | Horizon | Weight | Latest (real) |
+| --- | --- | --- | --- |
+| Trend-cycle model (after Del Negro, Giannone, Giannoni & Tambalotti): common random-walk trends in Bank Rate (missing at the lower bound 2009–21), CPI inflation and 10-year nominal and real gilt yields; trend-shock variances at DGGT's priors; cycle persistence capped at 0.9 | long run | 0.40 | 1.25% ± 0.3 |
+| Repaired HLW-style model: λz = 0 (Buncic 2022), IS slope estimated, COVID and lower-bound variance scaling, households' expectations as the deflator | policy horizon | 0.25 if identified | excluded: the IS slope goes to its bound, so r\* is not identified (as the NY Fed found for the UK) |
+| Bank of England Market Participants Survey: median neutral Bank Rate minus 2% (scraped from each round since 2022) | policy horizon | 0.35 | 1.25% |
+| Index-linked gilt 5y5y real forward | long run | shown only: includes term and liquidity premia | 2.6% |
+| 10-year average real Bank Rate | benchmark | shown only | −0.5% |
 
-The estimate is fragile and depends on the fixed settings. The model reads the 2009–21 years of negative real rates, without overheating, as a low r\*; the zero lower bound and QE make the real policy rate an imperfect measure of stance, which biases r\* down. Latest quarter (2025 Q4), with λg = 0.05:
-
-| IS slope ar | λz | 1998 | 2007 | 2014 | 2019 | 2023 | 2025 Q4 | ± 1 s.e. |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **−0.10 (default)** | **0.03** | 3.6 | 1.5 | −0.2 | −0.7 | −0.8 | **−0.8** | 1.1 |
-| −0.15 | 0.03 | 3.6 | 1.5 | 0.1 | −0.3 | −0.4 | −0.3 | 0.9 |
-| −0.05 | 0.03 | 3.9 | 1.6 | −0.3 | −1.1 | −1.5 | −1.5 | 2.3 |
-| −0.10 | 0.05 | 4.4 | 1.1 | −1.5 | −2.4 | −2.7 | −2.6 | 1.3 |
-| −0.05 | 0.05 | 5.1 | 0.5 | −2.9 | −4.7 | −5.6 | −5.5 | 3.1 |
-
-Published estimates cluster around 1% real (Bank staff's 3% nominal; Alan Taylor's 0.75–1%); the page lists them for comparison (`manual/rstar.csv`).
+Headline: the weighted mean of the estimators that pass diagnostics, rounded to 0.25pp: **1.25% real (3.25% nominal)**. The neutral zone is their range, rounded outward and at least ±0.5pp: 0.75–1.75%. It is consistent with published estimates (Alan Taylor 0.75%, Bank staff models up 25–75bp since 2018, MaPS 1.25%). An earlier single-model estimate (−0.8%) was an artefact of the HLW model failing on UK data; the report explains why.
 
 ## Phillips-curve structure
 

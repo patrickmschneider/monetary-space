@@ -49,9 +49,13 @@ def compute(cfg: Config, data: dict[str, pd.Series], rstar_est, as_of_day: pd.Ti
     ois = ois[ois.index.to_timestamp() <= as_of_day]
     proj = mpr_path(cfg, st["expected_inflation_field"])
     e, mpr_date = as_of(proj, as_of_day)
-    rs, se = float(rstar_est.r_star.iloc[-1]), float(rstar_est.se.iloc[-1])
-    half = max(cfg.rstar.get("band_z", 1.0) * se, st["rstar_band_min_half_width"])
-    band = score.rstar_band(rs - half, rs + half, st["rstar_band_min_half_width"])
+    if hasattr(rstar_est, "range"):                       # the r* suite: headline and range
+        rs, se = float(rstar_est.headline), float(rstar_est.se.iloc[-1])
+        band = score.rstar_band(*rstar_est.range, st["rstar_band_min_half_width"])
+    else:                                                 # a single model with a standard error
+        rs, se = float(rstar_est.r_star.iloc[-1]), float(rstar_est.se.iloc[-1])
+        half = max(cfg.rstar.get("band_z", 1.0) * se, st["rstar_band_min_half_width"])
+        band = score.rstar_band(rs - half, rs + half, st["rstar_band_min_half_width"])
     real = float(ois.iloc[-1]) - e
 
     # Monthly history: monthly-average 2y OIS − projection in force − r* of that quarter.

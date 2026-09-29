@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import charts, config, indicators, nairu, render, rstar, stance, store
+from . import charts, config, indicators, nairu, render, rstar_suite, stance, store
 from .fetch import fetch
 
 log = logging.getLogger("monetary_space")
@@ -58,15 +58,12 @@ def estimate_all(cfg: config.Config, data: dict[str, pd.Series]) -> tuple[dict, 
         except Exception as e:  # noqa: BLE001
             problems.append(f"u* estimate: {type(e).__name__}: {e}")
             log.warning("u* estimate failed: %s", e)
-    if cfg.rstar:
-        try:
-            est = rstar.from_config(data, cfg.rstar)
-            estimates["rstar"] = est
-            log.info("r* %s = %.2f ± %.2f (trend growth %.2f)", est.r_star.index[-1], est.r_star.iloc[-1],
-                     est.se.iloc[-1], est.growth.iloc[-1])
-        except Exception as e:  # noqa: BLE001
-            problems.append(f"r* estimate: {type(e).__name__}: {e}")
-            log.warning("r* estimate failed: %s", e)
+    suite = rstar_suite.load(cfg.analysis)
+    if suite is None:
+        problems.append("r* suite: no results in analysis/results/rstar_suite.json")
+    else:
+        estimates["rstar"] = suite
+        log.info("r* suite headline %.2f%% (range %.2f–%.2f)", suite.headline, *suite.range)
     return estimates, problems
 
 

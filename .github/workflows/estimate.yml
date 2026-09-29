@@ -34,6 +34,7 @@ jobs:
           python analysis/bb_uk.py
           python analysis/shapiro_uk.py
           python analysis/svar_uk.py
+          python analysis/rstar_suite.py
       - name: Commit results
         run: |
           git config user.name "github-actions[bot]"
