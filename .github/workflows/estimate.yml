@@ -30,6 +30,7 @@ jobs:
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
+          python -m monetary_space refresh-calendar
           python analysis/passthrough_lp.py
           python analysis/bb_uk.py
           python analysis/shapiro_uk.py
@@ -39,7 +40,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add analysis/results
+          git add analysis/results manual/mpc_dates.csv manual/mpr.csv
           if git diff --cached --quiet; then echo "No changes"; exit 0; fi
-          git commit -m "Re-estimate models $(date -u +%F)"
+          git commit -m "Re-estimate models and refresh MPC calendar $(date -u +%F)"
           git pull --rebase origin main && git push origin HEAD:main

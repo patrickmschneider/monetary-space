@@ -27,12 +27,21 @@ def main() -> None:
     b.add_argument("--store", type=Path, default=Path("store"), help="checkout of the data branch")
     b.add_argument("--out", type=Path, default=Path("site"))
     b.add_argument("--no-fetch", action="store_true", help="rebuild from the latest stored vintage")
+    r = sub.add_parser("refresh-calendar", help="update manual/mpc_dates.csv and manual/mpr.csv from the Bank's website")
+    r.add_argument("--root", type=Path, default=Path("."))
     args = p.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     load_dotenv(args.root / ".env")
     if args.cmd == "build":
         build.run(args.root, args.store, args.out, fetch_data=not args.no_fetch)
+    elif args.cmd == "refresh-calendar":
+        import pandas as pd
+        from . import config
+        cfg = config.load(args.root)
+        build.refresh_calendar(cfg, pd.Timestamp.now(tz="Europe/London"))
+        build.write_csv_keeping_header(args.root / "manual" / "mpc_dates.csv", cfg.manual["mpc_dates"])
+        build.write_csv_keeping_header(args.root / "manual" / "mpr.csv", cfg.manual["mpr"])
 
 
 if __name__ == "__main__":

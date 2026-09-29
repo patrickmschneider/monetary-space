@@ -23,9 +23,27 @@ DAILY, MPC = (7, 10), (12, 15)
 MPC_DATES = Path(__file__).resolve().parents[1] / "manual" / "mpc_dates.csv"
 
 
+def calendar_dates() -> set[str]:
+    """Announcement dates from the Bank's calendar page; empty if unreachable."""
+    import re
+    import urllib.request
+    try:
+        req = urllib.request.Request("https://www.bankofengland.co.uk/monetary-policy/upcoming-mpc-dates",
+                                     headers={"User-Agent": "Mozilla/5.0 (compatible; monetary-space)"})
+        page = urllib.request.urlopen(req, timeout=20).read().decode("utf-8", "replace")
+    except Exception:  # noqa: BLE001
+        return set()
+    out = set()
+    for year, body in re.findall(r"<h2>\s*(\d{4}) confirmed dates\s*</h2>(.*?)</table>", page, flags=re.S):
+        for day, month in re.findall(r"<td>[A-Za-z]+(?:&nbsp;|\s)+(\d{1,2}) ([A-Z][a-z]+)", body):
+            out.add(dt.datetime.strptime(f"{day} {month} {year}", "%d %B %Y").date().isoformat())
+    return out
+
+
 def mpc_dates() -> set[str]:
     with MPC_DATES.open() as f:
-        return {row["date"] for row in csv.DictReader(line for line in f if not line.startswith("#"))}
+        manual = {row["date"] for row in csv.DictReader(line for line in f if not line.startswith("#"))}
+    return manual | calendar_dates()
 
 
 def should_run(event: str, cron: str, now_utc: dt.datetime, mpc: set[str]) -> tuple[bool, str]:

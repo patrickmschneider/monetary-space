@@ -115,6 +115,16 @@ Not scored, shown as momentum and context: services CPI, core CPI, private pay, 
 - Unit labour costs and productivity use a σ sample from 1993 (inflation targeting); the full samples include the 1970s.
 - The OECD no longer publishes a euro-area leading indicator: Germany, France, Italy and Spain stand in, weighted 65/35 with the US by UK export shares.
 
+## What updates automatically
+
+| When | What |
+| --- | --- |
+| Daily, 07:10 UK, and on every push | All data re-fetched; indicators, u*, pressure, stance, verdict and all three tabs rebuilt. MPC dates, decisions and MPR projections are read from the Bank of England website |
+| 12:15 UK on MPC days (dates from the Bank's calendar page) | The same, so a decision and a new MPR projection show the same afternoon |
+| Mondays 05:00 UTC (`estimate.yml`) | The r* suite, estimated weights, cost-push multiplier and decompositions re-estimated; the MPC calendar, decisions and MPR projections written into `manual/mpc_dates.csv` and `manual/mpr.csv`; all committed, which triggers a rebuild |
+
+Still manual: the Känzig oil-shock vintage in `analysis/passthrough_lp.py` (about twice a year) and the published r* comparison table (`manual/rstar.csv`). If the Bank changes a page layout, the build falls back to the CSV files and logs a warning.
+
 ## Scheduled builds
 
 `.github/workflows/build.yml` runs at 07:10 UK time every day (after the 07:00 ONS releases) and at 12:15 UK on MPC announcement days listed in `manual/mpc_dates.csv`. It also runs on every push to `main` and from **Actions → build → Run workflow**. Each run saves the day's raw data to the `data` branch, then deploys the page.

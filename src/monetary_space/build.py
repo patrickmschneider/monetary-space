@@ -10,7 +10,7 @@ from pathlib import Path
 import pandas as pd
 
 from . import charts, config, indicators, nairu, render, rstar_suite, stance, store
-from .fetch import fetch
+from .fetch import fetch, mpc
 
 log = logging.getLogger("monetary_space")
 
@@ -102,10 +102,26 @@ def score_all(cfg: config.Config, data: dict[str, pd.Series], as_of: pd.Timestam
     return inds, blocks, problems
 
 
+def refresh_calendar(cfg: config.Config, now: pd.Timestamp) -> None:
+    """MPC dates, decisions and MPR projections from the Bank's website, over the CSVs."""
+    try:
+        cfg.manual["mpc_dates"], cfg.manual["mpr"] = mpc.refresh(
+            cfg.manual["mpc_dates"], cfg.manual["mpr"], now, log=lambda m: log.info("%s", m))
+    except Exception as e:  # noqa: BLE001 — fall back to the hand-maintained files
+        log.warning("MPC calendar refresh failed, using manual CSVs: %s", e)
+
+
+def write_csv_keeping_header(path: Path, df: pd.DataFrame) -> None:
+    header = "".join(line for line in path.read_text().splitlines(keepends=True) if line.startswith("#"))
+    path.write_text(header + df.to_csv(index=False))
+
+
 def run(root: Path, store_dir: Path, out_dir: Path, fetch_data: bool = True) -> dict:
     t0 = time.monotonic()
     cfg = config.load(root)
     now = pd.Timestamp.now(tz="Europe/London")
+    if fetch_data:
+        refresh_calendar(cfg, now)
     as_of = now.tz_localize(None).normalize()
 
     prev_day, previous = store.load_vintage(store_dir)
