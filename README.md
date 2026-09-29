@@ -6,6 +6,16 @@ A Python script fetches the data, scores it and renders one static HTML page. Gi
 
 **Status:** Phase 2 of 4, restructured around the Phillips curve. The layout pass, Compare-to, release log and embed view come in Phase 3.
 
+## Pages
+
+The site has three tabs (a departure from the spec's single screen, owner's decision, 29 Sep 2026):
+
+| Tab | File | Contents |
+| --- | --- | --- |
+| Overview | `index.html` | Verdict, the economy at a glance, inflation pressure (the four Phillips-curve blocks), policy stance and the market's expected path |
+| Inflation drivers | `drivers.html` | Where inflation already is (unscored momentum table) and three decompositions of what has driven it |
+| Stance workings | `stance.html` | The r\* suite, its history and published estimates |
+
 ## Run it locally
 
 ```sh

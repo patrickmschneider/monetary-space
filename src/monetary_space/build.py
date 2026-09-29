@@ -130,7 +130,9 @@ def run(root: Path, store_dir: Path, out_dir: Path, fetch_data: bool = True) -> 
     out_dir.mkdir(parents=True, exist_ok=True)
     summary = render.summary(cfg, inds, blocks, problems, now, st, vd)
     (out_dir / "scores.json").write_text(json.dumps(summary, indent=2, default=str))
-    (out_dir / "index.html").write_text(render.page(cfg, inds, blocks, problems, now, sorted(res.failed), context, st, vd, estimates, res.data))
+    for name, html in render.pages(cfg, inds, blocks, problems, now, sorted(res.failed), context, st, vd,
+                                   estimates, res.data).items():
+        (out_dir / name).write_text(html)
     log.info("built in %.1fs: %d indicators, %d blocks, %d problems",
              time.monotonic() - t0, len(inds), len(blocks), len(problems))
     return summary

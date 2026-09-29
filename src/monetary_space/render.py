@@ -208,11 +208,6 @@ def verdict_strip(cfg: Config, blocks: dict[str, Block], stance, verdict, data: 
         facts.append(f"Last MPC {last['date']:%-d %b}: {escape(str(last['vote']).split(':')[0])}")
     if not future.empty:
         facts.append(f"Next MPC <strong>{future.iloc[0]['date']:%-d %B}</strong>")
-    contrib = " · ".join(f"{BLOCK_NAMES[k]} {fmt(v, 2)}" for k, v in verdict.contributions.items())
-    alt = verdict.alternative
-    alt_note = (f"With {alt['method']} weights: {fmt(alt['pressure'])}, verdict {escape(alt['verdict'])}. " if alt else "")
-    mult_note = (f"Cost-push weight × {verdict.multiplier:.2f}: second-round effects are about {verdict.multiplier_ratio:.1f}× "
-                 f"larger when CPI inflation is above {cfg.weights['pressure']['cost_push_state']['cpi_threshold']:g}%.")
     return f"""
 <section class="verdict" aria-label="Verdict">
   <div class="verdict-main">
@@ -223,16 +218,31 @@ def verdict_strip(cfg: Config, blocks: dict[str, Block], stance, verdict, data: 
   <div class="dial">
     <h2>Inflation pressure <span class="{pcls}">{fmt(verdict.pressure)} {ARROW[pcls]} {WORD[pcls]}</span></h2>
     <div class="dial-bar">{zbar(verdict.pressure, pcls, f"Pressure {fmt(verdict.pressure)} on a −3 to +3 scale")}<span class="sbar-ends" aria-hidden="true"><span>← Disinflationary</span><span>Inflationary →</span></span></div>
-    <div class="dial-notes"><p class="dial-note">{verdict.method.capitalize()} weights: {contrib}</p>
-    <p class="dial-note">{alt_note}{mult_note}</p></div>
+
   </div>
   <div class="dial">
     <h2>Policy stance <span class="stance-word">{fmt(stance.gap)}pp · {STANCE_WORD[stance.cls]}</span></h2>
     <div class="dial-bar">{stance_bar(stance.gap, half, f"Real-rate gap {fmt(stance.gap)} percentage points, {stance.cls}")}</div>
-    <div class="dial-notes"><p class="dial-note">Real {escape(stance.rate_name)} {num(stance.real_rate)}% vs r* {num(stance.r_star, 2)}% (neutral {num(stance.band[0], 2)} to {num(stance.band[1], 2)}%)</p></div>
+
   </div>
   <p class="verdict-facts">{" · ".join(facts)}</p>
 </section>"""
+
+
+def pressure_note(cfg: Config, verdict) -> str:
+    """How the pressure score is built: weights, the alternative weighting and the cost-push multiplier."""
+    if verdict is None:
+        return ""
+    contrib = ", ".join(f"{BLOCK_NAMES[k].lower()} {fmt(v, 2)}" for k, v in verdict.contributions.items())
+    alt = verdict.alternative
+    text = (f"Inflation pressure is {fmt(verdict.pressure, 2)}: {contrib}, using {verdict.method} weights "
+            f"({', '.join(f'{BLOCK_NAMES[k].lower()} {w:.2f}' for k, w in verdict.weights.items())}). ")
+    if alt:
+        text += f"With {alt['method']} weights it is {fmt(alt['pressure'], 2)} and the verdict {alt['verdict']}. "
+    text += (f"The cost-push weight is multiplied by {verdict.multiplier:.2f}, because second-round effects are about "
+             f"{verdict.multiplier_ratio:.1f}× larger when CPI inflation is above "
+             f"{cfg.weights['pressure']['cost_push_state']['cpi_threshold']:g}%.")
+    return f'<div class="pressure-note">{charts.fig_note(text)}</div>'
 
 
 def headline_strip(blocks: dict[str, Block], cfg: Config, stance=None) -> str:
@@ -325,7 +335,42 @@ def block_section(b: Block, cfg: Config, number: int) -> str:
 </section>"""
 
 
+def stance_rows(stance) -> str:
+    rows = [
+        (stance.rate_name, f"{num(stance.rate, 2)}%", f"{stance.rate_date:%-d %b %Y}", "Bank of England"),
+        ("− Expected inflation", f"{num(stance.expected_inflation)}%", "", stance.expectation_source),
+        ("= Real rate", f"{num(stance.real_rate, 2)}%", "", ""),
+        ("r*, suite headline", f"{num(stance.r_star, 2)}%", "", "Weighted suite of estimators, rounded to 0.25pp"),
+        ("Neutral zone", f"{num(stance.band[0])} to {num(stance.band[1])}%", "", "Range of the weighted estimators, at least 0.5pp wide"),
+        ("Gap: real rate − r*", f"{fmt(stance.gap, 2)}pp", "", f"{STANCE_WORD[stance.cls]}"),
+    ]
+    body = "".join(f"<tr><th scope=\"row\">{escape(a)}</th><td class=\"num\">{b}</td><td>{escape(c)}</td><td>{escape(d)}</td></tr>"
+                   for a, b, c, d in rows)
+    return ('<div class="table-wrap"><table><thead><tr><th scope="col">Component</th><th scope="col" class="num">Value</th>'
+            f'<th scope="col">Date</th><th scope="col">Basis</th></tr></thead><tbody>{body}</tbody></table></div>')
+
+
 def stance_section(stance, estimates: dict, cfg: Config, number: int) -> str:
+    """Overview: the stance itself. The r* workings are on their own tab."""
+    if stance is None:
+        return ""
+    return f"""
+<section class="story-section" id="block-P" aria-labelledby="h-P">
+  <div class="story-heading">
+    <span class="section-number">{number:02d}</span>
+    <div>
+      <p class="eyebrow">POLICY STANCE</p>
+      <h2 id="h-P">{escape(BLOCK_TITLES['P'])}</h2>
+      <p class="takeaway">{escape(stance.rate_name)} against the neutral rate, the rate at which policy neither stimulates nor restrains the economy. Both are in real terms with the same expected inflation, so the gap is the same as in nominal terms: {escape(stance.rate_name)} {num(stance.rate, 2)}% against a nominal neutral rate of {num(stance.nominal_neutral, 2)}%.</p>
+    </div>
+  </div>
+  {stance_rows(stance)}
+  <p class="more-link"><a href="stance.html">How r* is estimated →</a></p>
+</section>"""
+
+
+def stance_workings_section(stance, estimates: dict, cfg: Config, number: int) -> str:
+    """Stance workings tab: the r* suite, its history and published estimates."""
     if stance is None:
         return ""
     suite = estimates["rstar"]
@@ -369,19 +414,16 @@ def stance_section(stance, estimates: dict, cfg: Config, number: int) -> str:
                 f'<p class="chart-note">Hand-maintained in manual/rstar.csv. Nominal figures are converted to real by subtracting 2.</p></details>'
                 if pub_rows else "")
     return f"""
-<section class="story-section" id="block-P" aria-labelledby="h-P">
+<section class="story-section" id="rstar" aria-labelledby="h-rstar">
   <div class="story-heading">
     <span class="section-number">{number:02d}</span>
     <div>
-      <p class="eyebrow">POLICY STANCE</p>
-      <h2 id="h-P">{escape(BLOCK_TITLES['P'])}</h2>
-      <p class="takeaway">The current policy setting against the neutral rate: the rate at which policy neither stimulates nor restrains the economy. Both are put in real terms with the same expected inflation, so the gap is the same as in nominal terms ({escape(stance.rate_name)} {num(stance.rate, 2)}% against a nominal neutral rate of {num(stance.nominal_neutral, 2)}%). Where markets expect policy to go is in the policy path chart. No single estimate of r* is reliable, so r* is a weighted suite of estimators, following central-bank practice, and the neutral zone is their range. Stance is in percentage points and never coloured, because "up" means tight, not inflationary.</p>
+      <p class="eyebrow">THE NEUTRAL RATE</p>
+      <h2 id="h-rstar">How r* is estimated</h2>
+      <p class="takeaway">No single estimate of the neutral rate is reliable, so r* is a weighted suite of estimators, following central-bank practice, and the neutral zone is their range. Stance is in percentage points and never coloured, because "up" means tight, not inflationary.</p>
     </div>
   </div>
-  <div class="table-wrap"><table>
-    <thead><tr><th scope="col">Component</th><th scope="col" class="num">Value</th><th scope="col">Date</th><th scope="col">Basis</th></tr></thead>
-    <tbody>{body}</tbody>
-  </table></div>
+  {stance_rows(stance)}
   {est_table}
   {chart}
   {pub_html}
@@ -463,20 +505,59 @@ def part(number: int, title: str, intro: str) -> str:
             f'<h2>{escape(title)}</h2><p>{escape(intro)}</p></header>')
 
 
-def page(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems: list[str], now,
-         failed: list[str], context: list | None = None, stance=None, verdict=None,
-         estimates: dict | None = None, data: dict | None = None) -> str:
+TABS = [("index.html", "Overview"), ("drivers.html", "Inflation drivers"), ("stance.html", "Stance workings")]
+
+
+def shell(title: str, active: str, body: str, now, script: bool = True) -> str:
+    nav = "".join(f'<a href="{f}"{" aria-current=\"page\" class=\"active\"" if f == active else ""}>{escape(n)}</a>' for f, n in TABS)
+    return f"""<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#153f46">
+<meta name="description" content="Is UK monetary policy tight enough for the inflation pressure? Official data, transparent scores.">
+<title>{escape(title)}</title>
+<style>{CSS}{charts.CSS}{policy_path.CSS}{decomposition.CSS}</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="index.html"><span><strong>Monetary Space</strong><small>A GUIDE TO UK MONETARY POLICY</small></span></a>
+    <nav class="tabs" aria-label="Pages">{nav}</nav>
+    <p class="release-stamp"><span class="status-dot" aria-hidden="true"></span>Data as of <strong>{now:%-d %B %Y}</strong></p>
+  </div>
+</header>
+<main id="main" class="page-shell editorial">
+{body}
+  <footer>
+    <div><strong>Monetary Space</strong><p>AI augmented by Patrick Schneider</p></div>
+    <div><p>Built {now:%-d %B %Y, %H:%M} UK time</p></div>
+  </footer>
+</main>
+{f"<script>{charts.SCRIPT}</script>" if script else ""}
+</body>
+</html>
+"""
+
+
+def pages(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems: list[str], now,
+          failed: list[str], context: list | None = None, stance=None, verdict=None,
+          estimates: dict | None = None, data: dict | None = None) -> dict[str, str]:
+    """Overview (index.html), Inflation drivers (drivers.html) and Stance workings (stance.html)."""
     thr = cfg.weights["direction_threshold"]
     estimates, data = estimates or {}, data or {}
-    # Reading order: the answer; where the economy is; what has driven inflation;
-    # the pressure ahead (Phillips-curve terms); then policy: stance, and where markets expect it to go.
+    notice = ""
+    if problems or failed:
+        items = [f"Source failed this run, last good value kept: {escape(s)}." for s in failed]
+        items += [f"Not scored: {escape(p)}." for p in problems]
+        notice = '<div class="notice" role="status">' + " ".join(items) + "</div>"
+
+    # Overview: the answer; where the economy is; the pressure ahead; policy and where markets expect it to go.
     n = 1
     context_html = charts.section(context or [], n)
     n += bool(context_html)
-    mom = momentum_section(data, n)
-    n += bool(mom)
-    drivers_html = decomposition.section(cfg.analysis, n)
-    n += bool(drivers_html)
     blocks_html = ""
     for b in blocks.values():
         blocks_html += block_section(b, cfg, n)
@@ -485,61 +566,55 @@ def page(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems:
     n += bool(stance_html)
     path_html = policy_path.section(
         policy_path.prepare(cfg, data, estimates, stance, now.tz_localize(None).normalize()), n, stance)
-    notice = ""
-    if problems or failed:
-        items = [f"Source failed this run, last good value kept: {escape(s)}." for s in failed]
-        items += [f"Not scored: {escape(p)}." for p in problems]
-        notice = '<div class="notice" role="status">' + " ".join(items) + "</div>"
-    return f"""<!doctype html>
-<html lang="en-GB">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#153f46">
-<meta name="description" content="Is UK monetary policy tight enough for the inflation pressure? Official data, transparent scores.">
-<title>Monetary Space</title>
-<style>{CSS}{charts.CSS}{policy_path.CSS}{decomposition.CSS}</style>
-</head>
-<body>
-<a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header">
-  <div class="header-inner">
-    <a class="brand" href="./"><span><strong>Monetary Space</strong><small>A GUIDE TO UK MONETARY POLICY</small></span></a>
-    <p class="release-stamp"><span class="status-dot" aria-hidden="true"></span>Data as of <strong>{now:%-d %B %Y}</strong></p>
-  </div>
-</header>
-<main id="main" class="page-shell editorial">
+    overview = f"""
   <section class="briefing-lead">
     <p class="eyebrow">UK MONETARY POLICY · {now:%B %Y}</p>
     {verdict_strip(cfg, blocks, stance, verdict, data, now)}
     <h1 class="lead-sentence">{lead_sentence(blocks, thr, stance, verdict)}</h1>
     <nav class="reading-guide" aria-label="Sections"><span>On this page</span>
-      <a href="#part-1">1. Where the economy is</a><a href="#part-2">2. What has driven inflation</a>
-      <a href="#part-3">3. Inflation pressure ahead</a><a href="#part-4">4. Monetary policy</a></nav>
+      <a href="#part-1">1. Where the economy is</a><a href="#part-2">2. Inflation pressure ahead</a>
+      <a href="#part-3">3. Monetary policy</a></nav>
   </section>
   {notice}
-  {part(1, "Where the economy is", "Headline data and where inflation already stands.")}
+  {part(1, "Where the economy is", "Headline data, for orientation.")}
   {context_html}
-  {mom}
-  {part(2, "What has driven inflation", "Three model-based ways to split inflation into its sources, looking back.")}
-  {drivers_html}
-  {part(3, "Inflation pressure ahead", "The terms of the Phillips curve: expectations, slack on the demand and supply sides, and external cost-push. Together they give the inflation-pressure score.")}
+  {part(2, "Inflation pressure ahead", "The terms of the Phillips curve: expectations, slack on the demand and supply sides, and external cost-push. Together they give the inflation-pressure score.")}
   {headline_strip(blocks, cfg, stance)}
+  {pressure_note(cfg, verdict)}
   <p class="legend"><span><i class="swatch up"></i>Inflationary (z above +{thr:g})</span><span><i class="swatch neutral"></i>Neutral</span><span><i class="swatch down"></i>Disinflationary (z below −{thr:g})</span><span><i class="swatch band"></i>Neutral band ±{thr:g}</span></p>
   <p class="basis-note">Scores are z-scores on a fixed −3 to +3 scale: z = s·(x − b)/σ, clipped at ±{cfg.weights['z_clip']:g}. Positive always means inflationary; beyond ±{thr:g} an indicator points up or down. Hover or focus any z for its calculation.</p>
   {blocks_html}
-  {part(4, "Monetary policy", "Whether policy is stimulating or restraining the economy, and where markets expect it to go.")}
+  {part(3, "Monetary policy", "Whether policy is stimulating or restraining the economy, and where markets expect it to go.")}
   {stance_html}
-  {path_html}
-  <footer>
-    <div><strong>Monetary Space</strong><p>AI augmented by Patrick Schneider</p></div>
-    <div><p>Built {now:%-d %B %Y, %H:%M} UK time</p></div>
-  </footer>
-</main>
-<script>{charts.SCRIPT}</script>
-</body>
-</html>
-"""
+  {path_html}"""
+
+    drivers = f"""
+  <section class="briefing-lead tab-lead">
+    <p class="eyebrow">INFLATION DRIVERS · {now:%B %Y}</p>
+    <h1 class="tab-title">Where inflation is, and what has driven it</h1>
+    <p class="basis-note">Not scored. Outcomes and slow-moving context, then three model-based ways to split inflation into its sources, looking back.</p>
+  </section>
+  {momentum_section(data, 1)}
+  {decomposition.section(cfg.analysis, 2)}"""
+
+    workings = f"""
+  <section class="briefing-lead tab-lead">
+    <p class="eyebrow">STANCE WORKINGS · {now:%B %Y}</p>
+    <h1 class="tab-title">How the policy stance is measured</h1>
+    <p class="basis-note">The neutral rate r*, the estimators behind it, and how they compare with published estimates.</p>
+  </section>
+  {stance_workings_section(stance, estimates, cfg, 1)}"""
+
+    return {
+        "index.html": shell("Monetary Space", "index.html", overview, now),
+        "drivers.html": shell("Inflation drivers · Monetary Space", "drivers.html", drivers, now),
+        "stance.html": shell("Stance workings · Monetary Space", "stance.html", workings, now),
+    }
+
+
+def page(*args, **kwargs) -> str:
+    """The overview page (kept for callers that want a single page)."""
+    return pages(*args, **kwargs)["index.html"]
 
 
 CSS = """
@@ -606,9 +681,9 @@ h1,h2,h3,p{margin-top:0}
 .spark-line{fill:none;stroke:var(--ink);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .spark-dot{fill:var(--ink)}
 .spark figcaption{font-size:10px;color:var(--muted);margin-top:4px}
-.verdict{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto auto auto;column-gap:36px;row-gap:0;border-top:2px solid var(--ink);padding:20px 0 16px;margin:6px 0 18px}
-.verdict-main{grid-row:1 / span 3;align-self:end}
-.dial{display:grid;grid-template-rows:subgrid;grid-row:1 / span 3}
+.verdict{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto auto;column-gap:36px;row-gap:0;border-top:2px solid var(--ink);padding:20px 0 16px;margin:6px 0 18px}
+.verdict-main{grid-row:1 / span 2;align-self:end}
+.dial{display:grid;grid-template-rows:subgrid;grid-row:1 / span 2;align-self:end}
 .dial-bar{align-self:start}
 .dial-notes{align-self:start}
 .verdict-label{font-size:10px;font-weight:700;letter-spacing:1.65px;color:var(--muted);text-transform:uppercase;margin:0 0 4px}
@@ -620,7 +695,7 @@ h1,h2,h3,p{margin-top:0}
 .dial h2 span{color:var(--fg);white-space:nowrap}
 .dial h2 span.up{color:var(--up)}.dial h2 span.down{color:var(--down)}
 .dial-note{font-size:11px;color:var(--muted);margin:8px 0 0;line-height:1.5}
-.verdict-facts{grid-column:1/-1;grid-row:4;margin-top:14px!important;font-size:12px;color:var(--muted);margin:4px 0 0;border-top:1px solid var(--border);padding-top:12px}
+.verdict-facts{grid-column:1/-1;grid-row:3;margin-top:14px!important;font-size:12px;color:var(--muted);margin:4px 0 0;border-top:1px solid var(--border);padding-top:12px}
 .verdict-facts strong{color:var(--fg);font-weight:600}
 .sbar{position:relative;display:block;height:8px;background:var(--track);min-width:90px}
 .sbar-band{position:absolute;top:0;bottom:0;background:var(--band)}
@@ -642,6 +717,15 @@ h1,h2,h3,p{margin-top:0}
 .reading-guide>span{font-weight:700;color:var(--muted)}
 .reading-guide a{color:var(--accent);text-decoration:none}
 .reading-guide a:hover{text-decoration:underline}
+.tabs{display:flex;align-self:stretch;gap:24px;margin-left:auto;margin-right:8px}
+.tabs a{display:flex;align-items:center;position:relative;font-size:13px;color:var(--muted);text-decoration:none;padding:0 2px}
+.tabs a:hover{color:var(--accent)}
+.tabs a.active{color:var(--accent);font-weight:700}
+.tabs a.active::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--accent)}
+.tab-title{font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:clamp(28px,3.4vw,40px);letter-spacing:-.8px;color:var(--ink);margin:0 0 10px}
+.tab-lead{padding-bottom:0}
+.more-link{font-size:13px;margin:10px 0 0}
+.more-link a{color:var(--accent)}
 .legend{display:flex;gap:10px 22px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin:14px 0 4px}
 .legend span{display:flex;align-items:center;gap:7px}
 .swatch{width:12px;height:12px;display:inline-block}
@@ -680,7 +764,7 @@ footer>div:last-child{text-align:right;align-self:flex-end}
 @media(max-width:900px){.verdict{grid-template-columns:1fr;grid-template-rows:none;row-gap:18px}.verdict-main,.dial{grid-row:auto}.dial{display:block}.verdict-facts{grid-row:auto}}
 @media(max-width:1000px){.header-inner{padding:0 26px}.page-shell{padding:30px 26px 0}
 .headline-strip{grid-template-columns:1fr 1fr}.metric{border-bottom:1px solid var(--border)}.metric:nth-child(2n){border-right:0}.metric:nth-child(2n+1){padding-left:0}}
-@media(max-width:700px){.header-inner{height:auto;padding:20px 18px;flex-wrap:wrap;gap:12px}.brand{font-size:25px}
+@media(max-width:700px){.tabs{order:3;width:100%;height:44px;margin:0;gap:18px;overflow-x:auto}.header-inner{height:auto;padding:20px 18px 0;flex-wrap:wrap;gap:12px}.brand{font-size:25px}
 .page-shell{padding:24px 18px 0}.lead-sentence{font-size:18px}
 .headline-strip{grid-template-columns:1fr}.metric{padding:18px 0;border-right:0}
 .story-heading{gap:12px}.story-heading h2{font-size:21px}.takeaway{font-size:14px}
