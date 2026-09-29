@@ -28,7 +28,6 @@ charts:
     series: MGSX
     transform: level
     unit: "%"
-    reference: {nairu: true, label: "u*"}
 
   - id: bank_rate
     title: Bank Rate

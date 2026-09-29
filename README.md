@@ -14,7 +14,7 @@ The site has three tabs (a departure from the spec's single screen, owner's deci
 | --- | --- | --- |
 | Overview | `index.html` | Verdict, the economy at a glance, inflation pressure (the four Phillips-curve blocks), policy stance and the market's expected path |
 | Inflation drivers | `drivers.html` | Where inflation already is (unscored momentum table) and three decompositions of what has driven it |
-| Stance workings | `stance.html` | The r\* suite, its history and published estimates |
+| Stance working | `stance.html` | The r\* suite, its history and published estimates |
 
 ## Run it locally
 
@@ -86,9 +86,9 @@ Inflation pressure is read as the terms of a hybrid New Keynesian Phillips curve
 
 | Block | Question | Scored indicators |
 | --- | --- | --- |
-| Expectations | Are inflation expectations anchored at 2%? | Firms' expected own-price growth (DMP), households' 1-year expectations (BoE IAS) |
+| Expectations | Are inflation expectations anchored at 2%? | Firms' expected own-price growth (DMP), households' 1-year expectations (BoE IAS), market-implied inflation over 5 years (gilt breakeven, converted to a CPI basis) |
 | Demand | Is demand running ahead of capacity? | Unemployment vs estimated u\*, vacancies per unemployed, payrolls, GDP growth vs estimated potential, Agents' capacity utilisation |
-| Supply | Is capacity growing more slowly than normal? | Unit labour cost growth vs 2%, productivity growth vs its 5-year trend, change in inactivity |
+| Supply | Is capacity growing more slowly than normal? | Unit labour cost growth vs 2%, productivity growth vs its 5-year trend |
 | Cost-push | Are external costs pushing up prices? | Brent (US$), UK gas, sterling ERI, import prices |
 
 Not scored, shown as momentum and context: services CPI, core CPI, private pay, 5y5y implied inflation, trading partners' leading indicators.
@@ -108,6 +108,8 @@ Not scored, shown as momentum and context: services CPI, core CPI, private pay, 
 | `svar_uk.py` | Sign-identified Bayesian VAR (oil, GDP, CPI, Bank Rate, sterling; 1993–), historical decomposition of CPI inflation. An illustration, not a forecast |
 
 ## Data notes
+
+- Market-implied inflation is the Bank of England 5-year breakeven (RPI basis) less the RPI–CPI wedge (0.82pp, the 1998–2019 average) for the part of the 5-year window before RPI is aligned with CPIH in February 2030. It includes inflation risk and liquidity premia.
 
 - Gas is the ONS System Average Price, from 2018; its σ is a config value (2010–19 SD of NBP gas price changes, 36pp).
 - Unit labour costs and productivity use a σ sample from 1993 (inflation targeting); the full samples include the 1970s.

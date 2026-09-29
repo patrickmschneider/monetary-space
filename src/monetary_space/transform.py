@@ -6,6 +6,7 @@ carried forward to monthly (the ragged-edge rule: carry forward, never interpola
 """
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 PRE2020_END = pd.Period("2019-12", "M")
@@ -76,6 +77,17 @@ def weighted_mean(inputs: list[pd.Series], weights: list[float]) -> pd.Series:
     return df.mul(w, axis=1).sum(axis=1)
 
 
+def rpi_breakeven_to_cpi(inputs: list[pd.Series], wedge: float, reform: str = "2030-02",
+                         horizon_years: float = 5.0) -> pd.Series:
+    """CPI-equivalent of an RPI-basis breakeven over the next `horizon_years`: subtract the
+    RPI–CPI wedge for the part of the window before RPI is aligned with CPIH (Feb 2030)."""
+    x = _one(inputs)
+    reform_t = pd.Timestamp(reform)
+    starts = x.index.to_timestamp()
+    years_rpi = np.clip(np.asarray((reform_t - starts).days, dtype=float) / 365.25, 0, horizon_years)
+    return x - wedge * pd.Series(years_rpi / horizon_years, index=x.index)
+
+
 TRANSFORMS = {
     "level": level,
     "ratio": ratio,
@@ -88,19 +100,23 @@ TRANSFORMS = {
 }
 
 
-def apply(name: str | list, inputs: list[pd.Series], drop_last: int = 0, weights: list[float] | None = None) -> pd.Series:
+def apply(name: str | list, inputs: list[pd.Series], drop_last: int = 0, weights: list[float] | None = None,
+          params: dict | None = None) -> pd.Series:
     """Apply a named transform, or a list applied in order (the first may combine inputs).
-    drop_last removes flash observations first; weights feed weighted_mean."""
+    drop_last removes flash observations first; weights feed weighted_mean; params feed
+    rpi_breakeven_to_cpi."""
     steps = name if isinstance(name, list) else [name]
     if drop_last:
         inputs = [s.iloc[:-drop_last] for s in inputs]
     for k, step in enumerate(steps):
         if step == "weighted_mean":
             x = weighted_mean(inputs, weights or [1.0] * len(inputs))
+        elif step == "rpi_breakeven_to_cpi":
+            x = rpi_breakeven_to_cpi(inputs, **(params or {}))
         elif step in TRANSFORMS:
             x = TRANSFORMS[step](inputs)
         else:
-            raise ValueError(f"unknown transform {step!r}; options: {sorted(TRANSFORMS) + ['weighted_mean']}")
+            raise ValueError(f"unknown transform {step!r}; options: {sorted(TRANSFORMS) + ['weighted_mean', 'rpi_breakeven_to_cpi']}")
         inputs = [x]
     return x.astype(float)
 

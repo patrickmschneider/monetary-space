@@ -123,6 +123,7 @@ def sparkline(hist: pd.Series, months: int, label: str, scale: float = SCALE) ->
 
 BLOCK_ROLE = {"E": "PHILLIPS CURVE: EXPECTED INFLATION", "D": "PHILLIPS CURVE: SLACK, DEMAND SIDE",
               "S": "PHILLIPS CURVE: SLACK, SUPPLY SIDE", "C": "PHILLIPS CURVE: COST-PUSH"}
+STANCE_ANSWER = {"tight": "Restraining", "loose": "Stimulating", "neutral": "Neither: close to neutral"}
 STANCE_SCALE = 4.0   # pp, fixed −4..+4 (spec Section 6)
 STANCE_WORD = {"tight": "Tight", "loose": "Loose", "neutral": "Neutral"}
 VERDICT_CLASS = {HAWKISH: "up", EASE: "down"}
@@ -351,7 +352,7 @@ def stance_rows(stance) -> str:
 
 
 def stance_section(stance, estimates: dict, cfg: Config, number: int) -> str:
-    """Overview: the stance itself. The r* workings are on their own tab."""
+    """Overview: the stance itself. How r* is estimated is on its own tab."""
     if stance is None:
         return ""
     return f"""
@@ -361,8 +362,14 @@ def stance_section(stance, estimates: dict, cfg: Config, number: int) -> str:
     <div>
       <p class="eyebrow">POLICY STANCE</p>
       <h2 id="h-P">{escape(BLOCK_TITLES['P'])}</h2>
-      <p class="takeaway">{escape(stance.rate_name)} against the neutral rate, the rate at which policy neither stimulates nor restrains the economy. Both are in real terms with the same expected inflation, so the gap is the same as in nominal terms: {escape(stance.rate_name)} {num(stance.rate, 2)}% against a nominal neutral rate of {num(stance.nominal_neutral, 2)}%.</p>
+      <p class="takeaway">{escape(stance.rate_name)} against the neutral rate, the rate at which policy neither stimulates nor restrains the economy. Both are in real terms with the same expected inflation, so the gap is the same as in nominal terms.</p>
     </div>
+  </div>
+  <div class="stance-answer">
+    <p class="stance-verdict">{STANCE_ANSWER[stance.cls]}</p>
+    <p class="stance-gap">{escape(stance.rate_name)} {num(stance.rate, 2)}% against a neutral rate of {num(stance.nominal_neutral, 2)}%:
+      <strong>{fmt(stance.gap, 2)}pp</strong> {"above" if stance.gap >= 0 else "below"} neutral in real terms (neutral zone {num(stance.band[0], 2)} to {num(stance.band[1], 2)}% real)</p>
+    <div class="stance-answer-bar">{stance_bar(stance.gap, (stance.band[1] - stance.band[0]) / 2, f"Real-rate gap {fmt(stance.gap)} percentage points, {stance.cls}")}</div>
   </div>
   {stance_rows(stance)}
   <p class="more-link"><a href="stance.html">How r* is estimated →</a></p>
@@ -370,7 +377,7 @@ def stance_section(stance, estimates: dict, cfg: Config, number: int) -> str:
 
 
 def stance_workings_section(stance, estimates: dict, cfg: Config, number: int) -> str:
-    """Stance workings tab: the r* suite, its history and published estimates."""
+    """Stance working tab: the r* suite, its history and published estimates."""
     if stance is None:
         return ""
     suite = estimates["rstar"]
@@ -505,7 +512,7 @@ def part(number: int, title: str, intro: str) -> str:
             f'<h2>{escape(title)}</h2><p>{escape(intro)}</p></header>')
 
 
-TABS = [("index.html", "Overview"), ("drivers.html", "Inflation drivers"), ("stance.html", "Stance workings")]
+TABS = [("index.html", "Overview"), ("drivers.html", "Inflation drivers"), ("stance.html", "Stance working")]
 
 
 def shell(title: str, active: str, body: str, now, script: bool = True) -> str:
@@ -545,7 +552,7 @@ def shell(title: str, active: str, body: str, now, script: bool = True) -> str:
 def pages(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems: list[str], now,
           failed: list[str], context: list | None = None, stance=None, verdict=None,
           estimates: dict | None = None, data: dict | None = None) -> dict[str, str]:
-    """Overview (index.html), Inflation drivers (drivers.html) and Stance workings (stance.html)."""
+    """Overview (index.html), Inflation drivers (drivers.html) and Stance working (stance.html)."""
     thr = cfg.weights["direction_threshold"]
     estimates, data = estimates or {}, data or {}
     notice = ""
@@ -599,7 +606,7 @@ def pages(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems
 
     workings = f"""
   <section class="briefing-lead tab-lead">
-    <p class="eyebrow">STANCE WORKINGS · {now:%B %Y}</p>
+    <p class="eyebrow">STANCE WORKING · {now:%B %Y}</p>
     <h1 class="tab-title">How the policy stance is measured</h1>
     <p class="basis-note">The neutral rate r*, the estimators behind it, and how they compare with published estimates.</p>
   </section>
@@ -608,7 +615,7 @@ def pages(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems
     return {
         "index.html": shell("Monetary Space", "index.html", overview, now),
         "drivers.html": shell("Inflation drivers · Monetary Space", "drivers.html", drivers, now),
-        "stance.html": shell("Stance workings · Monetary Space", "stance.html", workings, now),
+        "stance.html": shell("Stance working · Monetary Space", "stance.html", workings, now),
     }
 
 
@@ -725,6 +732,12 @@ h1,h2,h3,p{margin-top:0}
 .tab-title{font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:clamp(28px,3.4vw,40px);letter-spacing:-.8px;color:var(--ink);margin:0 0 10px}
 .tab-lead{padding-bottom:0}
 .more-link{font-size:13px;margin:10px 0 0}
+.stance-answer{border-top:2px solid var(--ink);border-bottom:1px solid var(--border);padding:18px 0 20px;margin:0 0 18px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 36px;align-items:end}
+.stance-verdict{grid-column:1;font-size:clamp(28px,3.2vw,40px);font-weight:650;letter-spacing:-1px;line-height:1.1;color:var(--ink);margin:0}
+.stance-gap{grid-column:1;font-size:14px;color:var(--muted);margin:4px 0 0}
+.stance-gap strong{color:var(--fg);font-weight:650}
+.stance-answer-bar{grid-column:2;grid-row:1 / span 2;align-self:center}
+@media(max-width:700px){.stance-answer{grid-template-columns:1fr}.stance-answer-bar{grid-column:1;grid-row:auto}}
 .more-link a{color:var(--accent)}
 .legend{display:flex;gap:10px 22px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin:14px 0 4px}
 .legend span{display:flex;align-items:center;gap:7px}

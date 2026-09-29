@@ -190,7 +190,7 @@ series:
   IUDSIZC:
     fetcher: boe_iadb
     source: boe
-    title: "Implied inflation (RPI), 5-year spot, %, daily (5y5y context)"
+    title: "Implied inflation (RPI basis), 5-year spot, %, daily: index-linked gilt breakeven"
     code: IUDSIZC
     freq: D
   IUDMIZC:
@@ -260,6 +260,27 @@ indicators:
     smoothing: none
     note: Median expected change in shop prices over the next 12 months. The survey provider appears to have changed
       from Ipsos to Savanta in 2026 (confirm for a break).
+
+  - id: market_inflation
+    name: Market-implied inflation, 5 years
+    phrase: market-implied inflation
+    block: E
+    series: [IUDSIZC]
+    transform: [monthly_mean, rpi_breakeven_to_cpi]
+    params:
+      wedge: 0.82          # RPI minus CPI inflation, 1998–2019 average (ONS CZBH − D7G7); 1.5pp since 2022
+      reform: "2030-02"    # RPI aligned with CPIH from February 2030
+      horizon_years: 5
+    unit: "%"
+    freq: M
+    lag_days: 3
+    benchmark: {method: pre2020_mean}
+    sigma:
+      method: pre2020_sd
+      since: '1998-01'     # Bank of England independence
+    sign: 1
+    smoothing: "Monthly average of the daily 5-year breakeven, converted to a CPI basis"
+    note: "Gilt breakeven (nominal minus index-linked yields) for the next 5 years, less the RPI–CPI wedge for the years before the 2030 RPI reform. Includes inflation risk and liquidity premia."
 
   # ------------------------------------------------------------------------
   # D. Demand: is spending running ahead of the economy's capacity?
@@ -407,26 +428,6 @@ indicators:
     smoothing: Year-on-year growth of output per hour (published)
     note: Productivity below trend lowers the economy's capacity, which is inflationary for a given level of demand.
 
-  - id: inactivity
-    name: Change in economic inactivity
-    phrase: rising inactivity
-    block: S
-    series:
-    - LF2S
-    transform: diff_12m
-    unit: pp y/y
-    freq: M
-    lag_days: 45
-    benchmark:
-      method: value
-      value: 0
-      label: '0: no change on a year earlier'
-    sigma:
-      method: pre2020_sd
-    sign: 1
-    smoothing: 3-month average (LFS rolling quarter), 12-month change
-    note: Rising inactivity shrinks labour supply. LFS response rates are poor; expect revisions.
-
   # ------------------------------------------------------------------------
   # C. Cost-push: are external costs pushing up prices?
   - id: brent
@@ -515,5 +516,5 @@ indicators:
     smoothing: 12-month % change of the NSA index
     note: 'Pipeline pressure: import costs reach consumer prices over about 4–8 quarters. Series starts Dec 2008.'
 
-# Not scored (momentum and context): services CPI (D7NN), private regular pay (KAJ4),
+# Not scored (momentum and context): services CPI (D7NN), private regular pay (KAJ4), inactivity (LF2S),
 # trading partners' leading indicator (OECD_CLI), 5y5y implied inflation (IUDSIZC/IUDMIZC).

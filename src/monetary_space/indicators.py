@@ -107,7 +107,8 @@ def compute(spec: dict, data: dict[str, pd.Series], cfg: Config, as_of: pd.Times
     w = cfg.weights
     clip = w["z_clip"]
     inputs = [data[s] for s in spec["series"]]
-    x = transform.apply(spec["transform"], inputs, drop_last=spec.get("drop_last", 0), weights=spec.get("weights"))
+    x = transform.apply(spec["transform"], inputs, drop_last=spec.get("drop_last", 0), weights=spec.get("weights"),
+                        params=spec.get("params"))
     x = x[x.index.to_timestamp(how="start") <= as_of]
     b, b_label = _benchmark(spec["benchmark"], x, cfg, as_of, estimates or {})
     b_path = _align(b, x) if isinstance(b, pd.Series) else None
