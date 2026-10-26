@@ -10,7 +10,7 @@ Also estimated as LP-IV: Δlog sterling Brent instrumented with Känzig's surpri
 State dependence: s_t interacted with a lagged 0/1 state (CPI inflation above 3%, or
 vacancies per unemployed above their median), as in Ramey–Zubairy (2018).
 
-Output: analysis/results/passthrough_lp.json and a printed summary. Run after ONS/BoE
+Output: analysis/results/uk/passthrough_lp.json and a printed summary. Run after ONS/BoE
 releases, not daily:  python analysis/passthrough_lp.py
 """
 from __future__ import annotations
@@ -30,7 +30,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from monetary_space.fetch import boe, fred, ons  # noqa: E402
 
 KANZIG = "https://raw.githubusercontent.com/dkaenzig/oilsupplynews/master/oilSupplyNewsShocks_{v}.xlsx"
-OUT = ROOT / "analysis" / "results"
+OUT = ROOT / "analysis" / "results" / "uk"
 H = 36
 OUTCOMES = {   # 100·log of each index
     "cpi": "/economy/inflationandpriceindices/timeseries/d7bt/mm23",

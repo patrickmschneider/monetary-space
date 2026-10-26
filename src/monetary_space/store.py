@@ -1,12 +1,13 @@
 """Dated vintages of raw series. The store directory is a checkout of the `data` branch.
 
-Layout:
-  vintages/YYYY-MM-DD.parquet   one file per build day: series_id, freq, period, value
-  fetch_log.csv                 one row per series per run: time, series_id, status, detail
+Layout, one folder per country edition (<country>/ is what the functions below take as `store`):
+  <country>/vintages/YYYY-MM-DD.parquet   one file per build day: series_id, freq, period, value
+  <country>/fetch_log.csv                 one row per series per run: time, series_id, status, detail
 """
 from __future__ import annotations
 
 import csv
+import shutil
 from pathlib import Path
 
 import pandas as pd
@@ -48,6 +49,18 @@ def load_vintage(store: Path, on_or_before: pd.Timestamp | None = None) -> tuple
         return None, {}
     day = dates[-1]
     return day, _from_long(pd.read_parquet(store / "vintages" / f"{day:%Y-%m-%d}.parquet"))
+
+
+def migrate_to_country(root: Path, country: str) -> bool:
+    """Move a single-country store (vintages/ and fetch_log.csv at the top) into <country>/.
+    Release dates are read from the fetch log, so it moves whole. Returns True if anything moved."""
+    legacy = [p for p in (root / "vintages", root / "fetch_log.csv") if p.exists()]
+    if not legacy or (root / country).exists():
+        return False
+    (root / country).mkdir(parents=True)
+    for p in legacy:
+        shutil.move(str(p), str(root / country / p.name))
+    return True
 
 
 def append_log(store: Path, rows: list[dict]) -> None:

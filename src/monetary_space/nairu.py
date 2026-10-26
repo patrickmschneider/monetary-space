@@ -10,7 +10,7 @@ State: u*_t (random walk) and the unemployment gap g_t = u_t − u*_t (stationar
 y_t is real pay growth in excess of trend productivity (see build_inputs). Because the gap
 must mean-revert, u* is the slow-moving trend of unemployment, placed by what pay growth
 says about slack; the constant c absorbs any average excess of real pay over productivity.
-σ_η, σ_u and a cap on gap persistence (ρ1 + ρ2) are fixed in config/nairu.yaml; without
+σ_η, σ_u and a cap on gap persistence (ρ1 + ρ2) are fixed in config/uk/nairu.yaml; without
 the cap the likelihood drives the gap to a unit root and u* stops tracking u.
 c, a, β, ρ1, ρ2, σ_ε and σ_ν are estimated by maximum likelihood.
 """
@@ -163,7 +163,7 @@ def quarterly_mean(x: pd.Series) -> pd.Series:
 
 def build_inputs(pay_level: pd.Series, unemp: pd.Series, household_exp: pd.Series, cpi: pd.Series,
                  productivity: pd.Series, spec: dict) -> tuple[pd.Series, pd.Series]:
-    """Assemble quarterly y (real pay growth over trend productivity) and u, per config/nairu.yaml.
+    """Assemble quarterly y (real pay growth over trend productivity) and u, per config/uk/nairu.yaml.
 
     y = pay growth (q/q annualised) − expected inflation − trend productivity growth, where
     expected inflation = w·(household expectations, re-centred) + (1 − w)·(CPI inflation, lagged).

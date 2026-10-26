@@ -1,0 +1,23 @@
+# Country edition: institutional names and page wording. The code reads these instead of
+# hard-coding them, so each edition is built from the same templates.
+
+id: uk
+name: UK                         # edition switch label
+order: 1                         # position in the edition switch
+published: true                  # shown in the edition switch (a country appears once it passes acceptance)
+path: ""                         # site subfolder: the UK at the root, others at au/, us/
+lang: en-GB
+time_zone: Europe/London
+time_label: UK time
+tagline: A GUIDE TO UK MONETARY POLICY
+description: "Monetary Space: a guide to UK monetary policy"
+eyebrow: UK MONETARY POLICY
+
+central_bank: Bank of England
+committee_short: MPC             # "Last MPC …", "Next MPC …"
+forecast_short: MPR              # citation label for projections ("MPR July 2026")
+
+target:
+  measure: CPI
+  point: 2.0
+headline_series: D7G7           # headline inflation, y/y % (facts strip, cost-push state)

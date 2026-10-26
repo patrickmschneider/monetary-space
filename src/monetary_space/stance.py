@@ -6,6 +6,7 @@ CPI projection; gap = r − r* midpoint; tight above the r* band, loose below it
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import pandas as pd
 
@@ -29,6 +30,7 @@ class Stance:
     cls: str
     history: pd.Series            # monthly gap, pp
     nominal_neutral: float = float("nan")     # r* + expected inflation: the same gap in nominal terms
+    rate_source: str = ""                     # the central bank that sets the rate
 
 
 def mpr_path(cfg: Config, field: str) -> pd.Series:
@@ -67,6 +69,7 @@ def compute(cfg: Config, data: dict[str, pd.Series], rstar_est, as_of_day: pd.Ti
         half = max(cfg.rstar.get("band_z", 1.0) * se, st["rstar_band_min_half_width"])
         band = score.rstar_band(rs - half, rs + half, st["rstar_band_min_half_width"])
     real = float(ois.iloc[-1]) - e
+    doc, measure = cfg.country["forecast_short"], cfg.country["target"]["measure"]
 
     # Monthly history: monthly-average 2y OIS − projection in force − r* of that quarter.
     m = ois.groupby(ois.index.asfreq("M")).mean()
@@ -78,10 +81,11 @@ def compute(cfg: Config, data: dict[str, pd.Series], rstar_est, as_of_day: pd.Ti
     return Stance(
         rate=float(ois.iloc[-1]), rate_date=ois.index[-1].to_timestamp(), rate_name=st.get("policy_rate_name", "Policy rate"),
         expected_inflation=e,
-        expectation_source=(f"MPR {mpr_date:%B %Y} CPI projection, mean of one and two years ahead"
-                            if len(fields) == 2 else f"MPR {mpr_date:%B %Y} year-ahead CPI projection"),
+        expectation_source=(f"{doc} {mpr_date:%B %Y} {measure} projection, mean of one and two years ahead"
+                            if len(fields) == 2 else f"{doc} {mpr_date:%B %Y} year-ahead {measure} projection"),
         real_rate=real, r_star=rs, r_star_se=se, r_star_quarter=rstar_est.r_star.index[-1],
         band=band, gap=real - rs, cls=score.stance(real, band), history=hist, nominal_neutral=rs + e,
+        rate_source=cfg.country["central_bank"],
     )
 
 
@@ -102,7 +106,7 @@ class Verdict:
 
 def estimated_weights(cfg: Config) -> dict[str, float] | None:
     pw = cfg.weights["pressure"]
-    res = cfg.analysis.get("bb_uk", {}).get("estimated_weights_policy_horizon")
+    res = cfg.analysis.get(Path(pw["estimated_from"]).stem, {}).get("estimated_weights_policy_horizon")
     if not res:
         return None
     w = {k: float(res[v]) for k, v in pw["estimated_map"].items()}
@@ -116,7 +120,7 @@ def cost_push_multiplier(cfg: Config, cpi_yy: float) -> tuple[float, float]:
     import math
     st = cfg.weights["pressure"]["cost_push_state"]
     ratio = st["ratio_default"]
-    lp = cfg.analysis.get("passthrough_lp", {}).get("state_inflation", {}).get("cpi")
+    lp = cfg.analysis.get(Path(st["ratio_from"]).stem, {}).get("state_inflation", {}).get("cpi")
     if lp and lp["b_low"][12] > 0:
         ratio = lp["b_high"][12] / lp["b_low"][12]
     ratio = min(max(ratio, 1.0), st["cap"])

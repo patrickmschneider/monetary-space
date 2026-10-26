@@ -336,7 +336,7 @@ def main() -> None:
         "series": {str(q): {k: round(float(r[k]), 3) for k in ("demand", "supply", "ambiguous", "total")}
                    for q, r in dec.iterrows()},
     }
-    res = Path(__file__).resolve().parent / "results"
+    res = Path(__file__).resolve().parent / "results" / "uk"
     res.mkdir(exist_ok=True)
     (res / "shapiro_uk.json").write_text(json.dumps(out, indent=1))
     print(dec[["demand", "supply", "ambiguous", "total"]].tail(10).round(2).to_string())

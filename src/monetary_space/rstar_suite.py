@@ -1,4 +1,4 @@
-"""Read the r* suite (analysis/rstar_suite.py → analysis/results/rstar_suite.json).
+"""Read the r* suite (analysis/rstar_suite.py → analysis/results/uk/rstar_suite.json).
 
 The suite is estimated after data releases, not on every build. It provides the headline r*
 and its range (the Stance block's neutral zone), a headline history for the real-rate gap and

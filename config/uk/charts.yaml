@@ -1,5 +1,5 @@
 # Context charts (not scored): the economy at a glance. Series come from indicators.yaml.
-# reference: a horizontal line from a value or a manual/mpr.csv field, or the estimated u* path (nairu: true).
+# reference: a horizontal line from a value or a manual/uk/mpr.csv field, or the estimated u* path (nairu: true).
 # ylim: fixed axis range; values outside it are clipped and listed in a note.
 
 since: "2016-01"

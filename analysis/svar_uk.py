@@ -18,7 +18,7 @@ draw of (B, Σ) under a flat prior, random orthogonal rotation, keep if all sign
   monetary         −     −     +      +
   other      (unrestricted residual shock)
 
-Output: analysis/results/svar_uk.json with median contributions (and 16th/84th
+Output: analysis/results/uk/svar_uk.json with median contributions (and 16th/84th
 percentiles) of each shock to CPI inflation relative to the model's baseline.
 Run after releases:  python analysis/svar_uk.py
 """
@@ -37,7 +37,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from monetary_space.fetch import boe, fred, ons  # noqa: E402
 from monetary_space.rstar import quarterly_mean, seasonally_adjust  # noqa: E402
 
-OUT = ROOT / "analysis" / "results"
+OUT = ROOT / "analysis" / "results" / "uk"
 VARS = ["oil", "gdp", "cpi", "rate", "eri"]
 SHOCKS = ["energy", "demand", "supply", "monetary", "other"]
 COMPONENTS = SHOCKS + ["pandemic", "baseline"]

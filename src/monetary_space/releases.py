@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 
-TZ = "Europe/London"
+TZ = "Europe/London"   # default; each edition passes its own country.yaml time_zone
 
 
 @dataclass(frozen=True)
@@ -35,12 +35,12 @@ def read_log(store: Path) -> pd.DataFrame:
     return pd.read_csv(path, dtype=str, keep_default_na=False)
 
 
-def first_seen(log: pd.DataFrame) -> dict[str, Seen]:
+def first_seen(log: pd.DataFrame, tz: str = TZ) -> dict[str, Seen]:
     """For each series, its latest logged period and when that period first appeared."""
     ok = log[(log["status"] == "ok") & (log["last_period"] != "")].copy()
     if ok.empty:
         return {}
-    ok["day"] = pd.to_datetime(ok["run_at"], utc=True).dt.tz_convert(TZ).dt.tz_localize(None).dt.normalize()
+    ok["day"] = pd.to_datetime(ok["run_at"], utc=True).dt.tz_convert(tz).dt.tz_localize(None).dt.normalize()
     start = ok["day"].min()
     out = {}
     for sid, g in ok.groupby("series_id", sort=False):

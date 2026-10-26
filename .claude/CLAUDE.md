@@ -6,8 +6,9 @@ Full spec: `docs/SPEC.md` (authoritative; `original_prompt.md` is the untouched 
 ## Architecture
 Python build script: fetch → store (dated Parquet vintages on `data` branch) → score (pure functions) → render (one self-contained HTML, Observable Plot inline). GitHub Actions builds on a schedule; GitHub Pages hosts. No server.
 
-- `config/indicators.yaml`, `config/weights.yaml` — every parameter lives here, never in code
-- `manual/` — hand-maintained CSVs (r* table, MPR projections, u*, MPC dates/votes, fiscal events)
+- `config/<country>/` (indicators, weights, nairu, rstar, charts, country.yaml) — every parameter and every country-specific word lives here, never in code
+- `manual/<country>/` — hand-maintained CSVs (r* table, MPR projections, u*, MPC dates/votes, fiscal events); `analysis/results/<country>/` — estimates
+- Country editions (Fiscal Space pattern): UK at the site root, others at `au/`, `us/`; one build per edition; store on the `data` branch under `<country>/`
 - `src/monetary_space/` — `fetch/` (one module per source), `store`, `score`, `render`
 - `tests/` — unit tests on fixtures; golden test for all nine verdict cells
 
@@ -38,3 +39,4 @@ Match the Fiscal Space dashboard (../fiscal-space, editorial layer at the end of
 - Restructured 2026-09-29 (user request) around the Phillips curve: blocks E (expectations), D (demand), S (supply), C (cost-push) + P (policy stance). Two pressure weightings (config from literature review; estimated from UK Bernanke–Blanchard at the 2–3y horizon), cost-push state multiplier from state-dependent LPs. Analysis scripts in analysis/, re-estimated weekly (estimate.yml); results committed in analysis/results/. User wants to compare the two weightings and the two demand/supply splits before choosing.
 - Data freshness (2026-10-26, user request): release date = first build that fetched the period, from fetch_log.csv (releases.py). User wants it called "released", not "first seen", and no New badges taking space: releases in the last 7 days (config) get a bold teal date instead. Release log drawer on the Overview (first Phase 3 item; MPR projection and consensus columns not yet). Daily market series never highlighted.
 - Phases 3–4 — see `docs/SPEC.md` §8
+- Australia + US editions (user request 2026-10-26): plan in `docs/PLAN_countries.md` (decisions in §7: score against what each central bank targets — Fed 2% PCE, RBA 2.5% CPI midpoint; stance deflator = central bank's own year-ahead forecast; AU r* survey = market economists; policy path from government-bond forwards; indicators may differ by country, energy chosen per country). Phase 0 (country layer, UK unchanged) built 2026-10-26; next is the US edition.

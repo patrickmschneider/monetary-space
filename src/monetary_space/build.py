@@ -1,4 +1,4 @@
-"""Fetch → store → score → render. One command: `python -m monetary_space build`."""
+"""Fetch → store → score → render, once per country edition. One command: `python -m monetary_space build`."""
 from __future__ import annotations
 
 import json
@@ -60,7 +60,7 @@ def estimate_all(cfg: config.Config, data: dict[str, pd.Series]) -> tuple[dict, 
             log.warning("u* estimate failed: %s", e)
     suite = rstar_suite.load(cfg.analysis)
     if suite is None:
-        problems.append("r* suite: no results in analysis/results/rstar_suite.json")
+        problems.append(f"r* suite: no results in analysis/results/{cfg.country['id']}/rstar_suite.json")
     else:
         estimates["rstar"] = suite
         log.info("r* suite headline %.2f%% (range %.2f–%.2f)", suite.headline, *suite.range)
@@ -77,7 +77,7 @@ def assess(cfg: config.Config, data: dict[str, pd.Series], blocks: dict, estimat
             problems.append(f"stance: {type(e).__name__}: {e}")
     needed = set(cfg.weights["pressure"]["weights"])
     if st and needed <= set(blocks):
-        cpi = data.get("D7G7")
+        cpi = data.get(cfg.country["headline_series"])
         cpi_yy = float(cpi.dropna().iloc[-1]) if cpi is not None else 2.0
         vd = stance.verdict(cfg, {k: blocks[k].score for k in needed}, st, cpi_yy)
     elif st:
@@ -104,10 +104,15 @@ def score_all(cfg: config.Config, data: dict[str, pd.Series], as_of: pd.Timestam
     return inds, blocks, problems
 
 
+CALENDARS = {"uk": mpc}   # country → scraper of meeting dates, decisions and projections
+
+
 def refresh_calendar(cfg: config.Config, now: pd.Timestamp) -> None:
-    """MPC dates, decisions and MPR projections from the Bank's website, over the CSVs."""
+    """Meeting dates, decisions and projections from the central bank's website, over the CSVs."""
+    if cfg.country["id"] not in CALENDARS:
+        return
     try:
-        cfg.manual["mpc_dates"], cfg.manual["mpr"] = mpc.refresh(
+        cfg.manual["mpc_dates"], cfg.manual["mpr"] = CALENDARS[cfg.country["id"]].refresh(
             cfg.manual["mpc_dates"], cfg.manual["mpr"], now, log=lambda m: log.info("%s", m))
     except Exception as e:  # noqa: BLE001 — fall back to the hand-maintained files
         log.warning("MPC calendar refresh failed, using manual CSVs: %s", e)
@@ -118,10 +123,15 @@ def write_csv_keeping_header(path: Path, df: pd.DataFrame) -> None:
     path.write_text(header + df.to_csv(index=False))
 
 
-def run(root: Path, store_dir: Path, out_dir: Path, fetch_data: bool = True) -> dict:
+def run(root: Path, store_root: Path, out_root: Path, fetch_data: bool = True,
+        country: str = config.DEFAULT_COUNTRY) -> dict:
+    """Build one edition: data in <store_root>/<country>/, pages in <out_root>/<path>/ (the UK at the root)."""
     t0 = time.monotonic()
-    cfg = config.load(root)
-    now = pd.Timestamp.now(tz="Europe/London")
+    cfg = config.load(root, country)
+    store.migrate_to_country(store_root, config.DEFAULT_COUNTRY)
+    store_dir, out_dir = store_root / country, out_root / cfg.country["path"]
+    editions = [c for c in config.countries(root) if c["published"]]
+    now = pd.Timestamp.now(tz=cfg.country["time_zone"])
     if fetch_data:
         refresh_calendar(cfg, now)
     as_of = now.tz_localize(None).normalize()
@@ -136,7 +146,7 @@ def run(root: Path, store_dir: Path, out_dir: Path, fetch_data: bool = True) -> 
             raise SystemExit("no stored vintage to build from; run with fetching enabled")
         res = FetchResult(previous, set(), [])
 
-    seen = releases.first_seen(releases.read_log(store_dir))
+    seen = releases.first_seen(releases.read_log(store_dir), cfg.country["time_zone"])
     estimates, est_problems = estimate_all(cfg, res.data)
     inds, blocks, problems = score_all(cfg, res.data, as_of, res.failed, estimates, seen)
     st, vd, v_problems = assess(cfg, res.data, blocks, estimates, as_of)
@@ -150,8 +160,33 @@ def run(root: Path, store_dir: Path, out_dir: Path, fetch_data: bool = True) -> 
     summary = render.summary(cfg, inds, blocks, problems, now, st, vd)
     (out_dir / "scores.json").write_text(json.dumps(summary, indent=2, default=str))
     for name, html in render.pages(cfg, inds, blocks, problems, now, sorted(res.failed), context, st, vd,
-                                   estimates, res.data).items():
+                                   estimates, res.data, editions).items():
         (out_dir / name).write_text(html)
-    log.info("built in %.1fs: %d indicators, %d blocks, %d problems",
-             time.monotonic() - t0, len(inds), len(blocks), len(problems))
+    log.info("built %s in %.1fs: %d indicators, %d blocks, %d problems",
+             country, time.monotonic() - t0, len(inds), len(blocks), len(problems))
     return summary
+
+
+def run_all(root: Path, store_root: Path, out_root: Path, fetch_data: bool = True,
+            countries: list[str] | None = None) -> dict[str, dict]:
+    """Build every edition. An edition whose build raises is rebuilt from its last stored vintage;
+    if that fails too, the other editions still build, then this raises so nothing is deployed and
+    the live site keeps its last good pages."""
+    ids = countries or [c["id"] for c in config.countries(root)]
+    done, failed = {}, {}
+    for c in ids:
+        try:
+            done[c] = run(root, store_root, out_root, fetch_data, c)
+        except Exception as e:  # noqa: BLE001 — one edition must not stop the others
+            log.exception("build %s failed", c)
+            failed[c] = f"{type(e).__name__}: {e}"
+            if fetch_data:
+                try:
+                    done[c] = run(root, store_root, out_root, False, c)
+                    log.warning("built %s from its last stored vintage instead", c)
+                    del failed[c]
+                except Exception as e2:  # noqa: BLE001
+                    failed[c] = f"{failed[c]}; from stored vintage: {type(e2).__name__}: {e2}"
+    if failed:
+        raise SystemExit("editions failed: " + "; ".join(f"{c}: {m}" for c, m in failed.items()))
+    return done

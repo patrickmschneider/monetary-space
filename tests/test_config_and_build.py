@@ -23,14 +23,14 @@ def tmp_root(tmp_path):
 
 
 def edit_indicator(root, ind_id, **changes):
-    p = root / "config" / "indicators.yaml"
+    p = root / "config" / "uk" / "indicators.yaml"
     doc = yaml.safe_load(p.read_text())
     next(i for i in doc["indicators"] if i["id"] == ind_id).update(changes)
     p.write_text(yaml.safe_dump(doc, sort_keys=False))
 
 
 def test_config_caps_scored_indicators(tmp_root):
-    p = tmp_root / "config" / "indicators.yaml"
+    p = tmp_root / "config" / "uk" / "indicators.yaml"
     doc = yaml.safe_load(p.read_text())
     base = doc["indicators"][0]
     doc["indicators"] += [dict(base, id=f"extra{k}") for k in range(15)]

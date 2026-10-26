@@ -8,8 +8,8 @@
 - MPR projection: the 'Central projection' table's CPI inflation row, whose columns are the
   current quarter and one, two and three years ahead.
 
-refresh() merges what it finds into the hand-maintained CSVs (manual/mpc_dates.csv,
-manual/mpr.csv), filling only what is missing. Anything that cannot be parsed is left to
+refresh() merges what it finds into the hand-maintained CSVs (manual/uk/mpc_dates.csv,
+manual/uk/mpr.csv), filling only what is missing. Anything that cannot be parsed is left to
 the CSVs, so a layout change degrades to the manual files rather than breaking the build.
 """
 from __future__ import annotations
@@ -134,7 +134,7 @@ def refresh(mpc_dates: pd.DataFrame, mpr: pd.DataFrame, today: pd.Timestamp | No
         page = _page(c["mpr_url"])
         p = parse_projection(page) if page else None
         if not p:
-            say(f"MPR {c['date']:%b %Y}: projection table not found; left to manual/mpr.csv")
+            say(f"MPR {c['date']:%b %Y}: projection table not found; left to manual/uk/mpr.csv")
             continue
         row = {"mpr_date": c["date"], **p, "source_url": c["mpr_url"],
                "notes": "Read automatically from the MPR central-projection table"}

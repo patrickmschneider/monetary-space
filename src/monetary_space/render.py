@@ -221,21 +221,23 @@ def verdict_strip(cfg: Config, blocks: dict[str, Block], stance, verdict, data: 
     pcls = direction_of(verdict.pressure, thr)
     half = (stance.band[1] - stance.band[0]) / 2
     drv = verdict.driver
-    facts = []
-    if "D7G7" in data:
-        cpi = data["D7G7"].dropna()
-        facts.append(f"CPI inflation <strong>{num(cpi.iloc[-1])}%</strong> in {cpi.index[-1].strftime('%B')} (target 2%)")
-    if "IUDBEDR" in data:
-        facts.append(f"Bank Rate <strong>{data['IUDBEDR'].dropna().iloc[-1]:.2f}%</strong>")
+    facts, ctry = [], cfg.country
+    headline, target = ctry["headline_series"], ctry["target"]
+    if headline in data:
+        cpi = data[headline].dropna()
+        facts.append(f"{target['measure']} inflation <strong>{num(cpi.iloc[-1])}%</strong> in {cpi.index[-1].strftime('%B')} (target {target['point']:g}%)")
+    rate_series = cfg.weights["stance"]["policy_rate_series"]
+    if rate_series in data:
+        facts.append(f"{cfg.weights['stance']['policy_rate_name']} <strong>{data[rate_series].dropna().iloc[-1]:.2f}%</strong>")
     mpc = cfg.manual["mpc_dates"].copy()
     mpc["date"] = pd.to_datetime(mpc["date"])
     past = mpc[(mpc["date"] <= now.tz_localize(None)) & mpc["vote"].notna()]
     future = mpc[mpc["date"] > now.tz_localize(None)]
     if not past.empty:
         last = past.iloc[-1]
-        facts.append(f"Last MPC {last['date']:%-d %b}: {escape(str(last['vote']).split(':')[0])}")
+        facts.append(f"Last {ctry['committee_short']} {last['date']:%-d %b}: {escape(str(last['vote']).split(':')[0])}")
     if not future.empty:
-        facts.append(f"Next MPC <strong>{future.iloc[0]['date']:%-d %B}</strong>")
+        facts.append(f"Next {ctry['committee_short']} <strong>{future.iloc[0]['date']:%-d %B}</strong>")
     return f"""
 <section class="verdict" aria-label="Verdict">
   <div class="verdict-main">
@@ -372,7 +374,7 @@ def block_section(b: Block, cfg: Config, number: int, now) -> str:
 
 def stance_rows(stance) -> str:
     rows = [
-        (stance.rate_name, f"{num(stance.rate, 2)}%", f"{stance.rate_date:%-d %b %Y}", "Bank of England"),
+        (stance.rate_name, f"{num(stance.rate, 2)}%", f"{stance.rate_date:%-d %b %Y}", stance.rate_source),
         ("− Expected inflation", f"{num(stance.expected_inflation)}%", "", stance.expectation_source),
         ("= Real rate", f"{num(stance.real_rate, 2)}%", "", ""),
         ("r*, suite headline", f"{num(stance.r_star, 2)}%", "", "Weighted suite of estimators, rounded to 0.25pp"),
@@ -416,7 +418,7 @@ def stance_workings_section(stance, estimates: dict, cfg: Config, number: int) -
         return ""
     suite = estimates["rstar"]
     rows = [
-        (stance.rate_name, f"{num(stance.rate, 2)}%", f"{stance.rate_date:%-d %b %Y}", "Bank of England"),
+        (stance.rate_name, f"{num(stance.rate, 2)}%", f"{stance.rate_date:%-d %b %Y}", stance.rate_source),
         ("− Expected inflation", f"{num(stance.expected_inflation)}%", "", stance.expectation_source),
         ("= Real rate", f"{num(stance.real_rate, 2)}%", "", ""),
         ("r*, suite headline", f"{num(stance.r_star, 2)}%", "", "Weighted estimators below, rounded to 0.25pp"),
@@ -452,7 +454,7 @@ def stance_workings_section(stance, estimates: dict, cfg: Config, number: int) -
     pub_html = (f'<details class="disclosure-plain"><summary>Published estimates of r* for comparison (real, %)</summary>'
                 f'<div class="table-wrap"><table><thead><tr><th scope="col">Who</th><th scope="col" class="num">r*</th>'
                 f'<th scope="col">Date</th><th scope="col">Source</th></tr></thead><tbody>{pub_rows}</tbody></table></div>'
-                f'<p class="chart-note">Hand-maintained in manual/rstar.csv. Nominal figures are converted to real by subtracting 2.</p></details>'
+                f'<p class="chart-note">Hand-maintained in manual/{cfg.country["id"]}/rstar.csv. Nominal figures are converted to real by subtracting 2.</p></details>'
                 if pub_rows else "")
     return f"""
 <section class="story-section" id="rstar" aria-labelledby="h-rstar">
@@ -626,30 +628,46 @@ open();window.addEventListener('hashchange',open);})();
 
 
 TABS = [("index.html", "Overview"), ("drivers.html", "Inflation drivers"), ("stance.html", "Stance working")]
+SITE_URL = "https://patrickmschneider.github.io/monetary-space/"
 
 
-def shell(title: str, active: str, body: str, now, script: bool = True, new: tuple[int, int] | None = None) -> str:
+def edition_switch(country: dict, editions: list[dict], active: str) -> str:
+    """Pills linking to the same page in each published edition (as in Fiscal Space). Hidden with one edition."""
+    if len(editions) < 2:
+        return ""
+    up = "../" * country["path"].count("/")
+    links = "".join(f'<a href="{up}{e["path"]}{active}"{" aria-current=\"page\"" if e["id"] == country["id"] else ""}>'
+                    f'{escape(e["name"])}</a>' for e in editions)
+    return f'<div class="edition-switch" role="group" aria-label="Country edition">{links}</div>'
+
+
+def shell(title: str, active: str, body: str, now, country: dict, editions: list[dict] | None = None,
+          new: tuple[int, int] | None = None) -> str:
+    c = country
+    switch = edition_switch(c, editions or [], active)
     fresh = ""
     if new is not None:
         count, days = new
         fresh = (f'<a class="fresh-link" href="index.html#releases">{count} new release{"s" if count != 1 else ""} in {days} days</a>'
                  if count else f'<a class="fresh-link" href="index.html#releases">Release log</a>')
+    brand = (f'<a class="brand" href="index.html"><span><strong>Monetary Space</strong>'
+             f'<small>{escape(c["tagline"])}</small></span></a>')
     nav = "".join(f'<a href="{f}"{" aria-current=\"page\" class=\"active\"" if f == active else ""}>{escape(n)}</a>' for f, n in TABS)
     return f"""<!doctype html>
-<html lang="en-GB">
+<html lang="{c['lang']}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#153f46">
-<meta name="description" content="Monetary Space: a guide to UK monetary policy">
+<meta name="description" content="{escape(c['description'])}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Monetary Space">
 <meta property="og:title" content="{escape(title)}">
-<meta property="og:description" content="Monetary Space: a guide to UK monetary policy">
-<meta property="og:url" content="https://patrickmschneider.github.io/monetary-space/{active if active != 'index.html' else ''}">
+<meta property="og:description" content="{escape(c['description'])}">
+<meta property="og:url" content="{SITE_URL}{c['path']}{active if active != 'index.html' else ''}">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="{escape(title)}">
-<meta name="twitter:description" content="Monetary Space: a guide to UK monetary policy">
+<meta name="twitter:description" content="{escape(c['description'])}">
 <title>{escape(title)}</title>
 <style>{CSS}{charts.CSS}{policy_path.CSS}{decomposition.CSS}</style>
 </head>
@@ -657,7 +675,7 @@ def shell(title: str, active: str, body: str, now, script: bool = True, new: tup
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="site-header">
   <div class="header-inner">
-    <a class="brand" href="index.html"><span><strong>Monetary Space</strong><small>A GUIDE TO UK MONETARY POLICY</small></span></a>
+    {brand if not switch else f'<div class="brand-block">{brand}{switch}</div>'}
     <nav class="tabs" aria-label="Pages">{nav}</nav>
     <p class="release-stamp"><span class="status-dot" aria-hidden="true"></span>Data as of <strong>{now:%-d %B %Y}</strong>{fresh}</p>
   </div>
@@ -666,7 +684,7 @@ def shell(title: str, active: str, body: str, now, script: bool = True, new: tup
 {body}
   <footer>
     <div><strong>Monetary Space</strong><p>AI augmented by Patrick Schneider</p></div>
-    <div><p>Built {now:%-d %B %Y, %H:%M} UK time</p></div>
+    <div><p>Built {now:%-d %B %Y, %H:%M} {c['time_label']}</p></div>
   </footer>
 </main>
 <div id="term-tip" class="term-tip" role="tooltip" hidden></div>
@@ -678,7 +696,8 @@ def shell(title: str, active: str, body: str, now, script: bool = True, new: tup
 
 def pages(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems: list[str], now,
           failed: list[str], context: list | None = None, stance=None, verdict=None,
-          estimates: dict | None = None, data: dict | None = None) -> dict[str, str]:
+          estimates: dict | None = None, data: dict | None = None,
+          editions: list[dict] | None = None) -> dict[str, str]:
     """Overview (index.html), Inflation drivers (drivers.html) and Stance working (stance.html)."""
     thr = cfg.weights["direction_threshold"]
     estimates, data = estimates or {}, data or {}
@@ -699,7 +718,7 @@ def pages(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems
         policy_path.prepare(cfg, data, estimates, stance, now.tz_localize(None).normalize()), n, stance)
     overview = f"""
   <section class="briefing-lead">
-    <p class="eyebrow">UK MONETARY POLICY · {now:%B %Y}</p>
+    <p class="eyebrow">{escape(cfg.country["eyebrow"])} · {now:%B %Y}</p>
     {verdict_strip(cfg, blocks, stance, verdict, data, now)}
     <h1 class="lead-sentence">{lead_sentence(blocks, thr, stance, verdict)}</h1>
     <nav class="reading-guide" aria-label="Sections"><span>On this page</span>
@@ -738,9 +757,10 @@ def pages(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems
   {stance_workings_section(stance, estimates, cfg, 1)}"""
 
     return {
-        "index.html": shell("Monetary Space", "index.html", overview, now, new=new),
-        "drivers.html": shell("Inflation drivers · Monetary Space", "drivers.html", drivers, now, new=new),
-        "stance.html": shell("Stance working · Monetary Space", "stance.html", workings, now, new=new),
+        name: shell(title, name, body, now, new=new, country=cfg.country, editions=editions)
+        for name, title, body in (("index.html", "Monetary Space", overview),
+                                  ("drivers.html", "Inflation drivers · Monetary Space", drivers),
+                                  ("stance.html", "Stance working · Monetary Space", workings))
     }
 
 
@@ -770,6 +790,11 @@ h1,h2,h3,p{margin-top:0}
 .brand{text-decoration:none;color:var(--ink);font-family:Georgia,'Times New Roman',serif;font-size:26px;letter-spacing:-.9px;white-space:nowrap}
 .brand strong{font-weight:600}
 .brand small{display:block;font-family:system-ui,sans-serif;font-size:8px;letter-spacing:1.5px;font-weight:500;margin-top:9px;color:var(--muted)}
+.brand-block{display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+.edition-switch{display:inline-flex;border:1px solid var(--border);border-radius:999px;padding:2px;background:var(--bg)}
+.edition-switch a{font-size:11px;font-weight:600;letter-spacing:.2px;color:var(--muted);text-decoration:none;padding:3px 10px;border-radius:999px;line-height:1.4}
+.edition-switch a:hover{color:var(--ink)}
+.edition-switch a[aria-current=page]{background:var(--accent);color:var(--bg)}
 .release-stamp{font-size:11px;color:var(--muted);border:1px solid var(--border);border-radius:30px;padding:10px 14px;display:flex;align-items:center;gap:7px;white-space:nowrap;margin:0}
 .release-stamp strong{color:var(--fg);font-weight:500}
 .status-dot{width:6px;height:6px;background:#4b9270;border-radius:50%}

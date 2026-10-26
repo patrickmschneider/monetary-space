@@ -1,11 +1,12 @@
 """Decide whether this workflow run should build. Writes run=true|false to $GITHUB_OUTPUT.
 
-Cron runs in UTC, so each UK slot is scheduled twice (for GMT and BST). A scheduled
-run proceeds only if its cron time equals the UK slot under today's UK offset. The
-check uses the cron string, not the clock, so a run that starts late still counts.
+Cron runs in UTC, so each local slot is scheduled for every UTC offset its country uses
+(GMT and BST for the UK). A scheduled run proceeds only if its cron time equals a slot
+under that country's offset today. The check uses the cron string, not the clock, so a
+run that starts late still counts. Every run builds every edition.
 
-  07:10 UK daily           cron "10 6 * * *" (BST) and "10 7 * * *" (GMT)
-  12:15 UK on MPC days     cron "15 11 * * *" (BST) and "15 12 * * *" (GMT)
+  uk  07:10 daily           cron "10 6 * * *" (BST) and "10 7 * * *" (GMT)
+  uk  12:15 on MPC days     cron "15 11 * * *" (BST) and "15 12 * * *" (GMT)
 
 Usage: python scripts/gate.py <event_name> [<cron>]
 """
@@ -16,11 +17,24 @@ import datetime as dt
 import os
 import sys
 from pathlib import Path
+from typing import NamedTuple
 from zoneinfo import ZoneInfo
 
-UK = ZoneInfo("Europe/London")
-DAILY, MPC = (7, 10), (12, 15)
-MPC_DATES = Path(__file__).resolve().parents[1] / "manual" / "mpc_dates.csv"
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class Slot(NamedTuple):
+    country: str
+    tz: str
+    time: tuple[int, int]      # local hour, minute
+    decision_days: bool        # only on the country's policy announcement days
+    label: str
+
+
+SLOTS = [
+    Slot("uk", "Europe/London", (7, 10), False, "07:10 UK daily build"),
+    Slot("uk", "Europe/London", (12, 15), True, "12:15 UK MPC-day build"),
+]
 
 
 def calendar_dates() -> set[str]:
@@ -40,30 +54,41 @@ def calendar_dates() -> set[str]:
     return out
 
 
-def mpc_dates() -> set[str]:
-    with MPC_DATES.open() as f:
-        manual = {row["date"] for row in csv.DictReader(line for line in f if not line.startswith("#"))}
-    return manual | calendar_dates()
+def manual_dates(country: str) -> set[str]:
+    path = ROOT / "manual" / country / "mpc_dates.csv"
+    if not path.exists():
+        return set()
+    with path.open() as f:
+        return {row["date"] for row in csv.DictReader(line for line in f if not line.startswith("#"))}
 
 
-def should_run(event: str, cron: str, now_utc: dt.datetime, mpc: set[str]) -> tuple[bool, str]:
+def decision_dates() -> dict[str, set[str]]:
+    """Policy announcement dates by country: the manual CSV plus the live calendar where there is one."""
+    out = {c: manual_dates(c) for c in {s.country for s in SLOTS}}
+    out["uk"] |= calendar_dates()
+    return out
+
+
+def should_run(event: str, cron: str, now_utc: dt.datetime, decisions: dict[str, set[str]]) -> tuple[bool, str]:
     if event != "schedule":
         return True, f"{event} trigger"
     minute, hour = (int(v) for v in cron.split()[:2])
-    today_uk = now_utc.astimezone(UK).date()
-    offset = dt.datetime.combine(today_uk, dt.time(12), UK).utcoffset() // dt.timedelta(hours=1)
-    slot = ((hour + offset) % 24, minute)
-    if slot == DAILY:
-        return True, "07:10 UK daily build"
-    if slot == MPC:
-        on = today_uk.isoformat() in mpc
-        return on, "12:15 UK MPC-day build" if on else "12:15 UK slot, not an MPC day"
-    return False, f"cron {cron!r} is {slot[0]:02d}:{slot[1]:02d} UK today, not a build slot"
+    skipped = []
+    for s in SLOTS:
+        tz = ZoneInfo(s.tz)
+        today = now_utc.astimezone(tz).date()
+        offset = dt.datetime.combine(today, dt.time(12), tz).utcoffset() // dt.timedelta(hours=1)
+        if ((hour + offset) % 24, minute) != s.time:
+            continue
+        if not s.decision_days or today.isoformat() in decisions.get(s.country, set()):
+            return True, s.label
+        skipped.append(f"{s.time[0]:02d}:{s.time[1]:02d} {s.country.upper()} slot, not a decision day")
+    return False, "; ".join(skipped) or f"cron {cron!r} matches no build slot today"
 
 
 def main() -> None:
     event, cron = sys.argv[1], (sys.argv[2] if len(sys.argv) > 2 else "")
-    run, why = should_run(event, cron, dt.datetime.now(dt.timezone.utc), mpc_dates())
+    run, why = should_run(event, cron, dt.datetime.now(dt.timezone.utc), decision_dates())
     print(f"run={str(run).lower()}: {why}")
     if out := os.environ.get("GITHUB_OUTPUT"):
         with open(out, "a") as f:

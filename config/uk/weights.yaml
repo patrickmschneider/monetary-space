@@ -11,13 +11,13 @@ pressure:                  # step 6, restructured around the Phillips curve
   weights: {E: 0.35, D: 0.25, S: 0.25, C: 0.15}
   # Estimated: each block's effect on CPI inflation 2–3 years out in the UK
   # Bernanke–Blanchard model (analysis/bb_uk.py), normalised to sum to one.
-  estimated_from: analysis/results/bb_uk.json
+  estimated_from: analysis/results/uk/bb_uk.json
   estimated_map: {E: expectations, D: slack_demand, S: slack_supply, C: cost_push}
   threshold: 0.5
   cost_push_state:           # multiplier on the C weight: second-round effects are larger when inflation is high
     cpi_threshold: 3.1       # % CPI inflation (BoE staff threshold, Greene 2026)
     width: 0.25              # logistic transition, pp
-    ratio_from: analysis/results/passthrough_lp.json   # high/low-state headline CPI response at 12 months
+    ratio_from: analysis/results/uk/passthrough_lp.json   # high/low-state headline CPI response at 12 months
     ratio_default: 2.0
     cap: 2.5
 
@@ -27,11 +27,11 @@ stance:                    # step 7
   # path is shown in the policy path chart but does not drive the stance.
   policy_rate_series: IUDBEDR         # Bank Rate
   policy_rate_name: Bank Rate
-  # Expected inflation over the next year (MPR year-ahead CPI projection, manual/mpr.csv). The same
+  # Expected inflation over the next year (MPR year-ahead CPI projection, manual/uk/mpr.csv). The same
   # measure converts nominal neutral-rate estimates (the Market Participants Survey) to real, so
   # the real gap equals the nominal gap.
   expected_inflation_fields: [cpi_1y]
-  rstar_band_min_half_width: 0.5      # pp; r* and its band come from the model in config/rstar.yaml
+  rstar_band_min_half_width: 0.5      # pp; r* and its band come from the model in config/uk/rstar.yaml
 
 freshness:
   stale_grace_days: 14     # stale if the next release is more than this overdue

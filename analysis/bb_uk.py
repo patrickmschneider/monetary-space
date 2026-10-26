@@ -14,7 +14,7 @@ vacancies/unemployed (ONS), household 1-year expectations (BoE IAS), 5y5y inflat
 forward from BoE spot inflation curves, trend productivity (5-year mean of output per hour).
 The shortage index BB use is omitted: the UK application found it small.
 
-Outputs analysis/results/bb_uk.json: coefficients, long-run multipliers, contributions to
+Outputs analysis/results/uk/bb_uk.json: coefficients, long-run multipliers, contributions to
 CPI inflation since 2019Q4 (energy, food, labour-market tightness, expectations, other),
 and 'estimated weights' for the dashboard's Phillips-curve blocks.
 Run after releases:  python analysis/bb_uk.py
@@ -34,7 +34,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from monetary_space.fetch import boe, ons  # noqa: E402
 from monetary_space.rstar import quarterly_mean, seasonally_adjust  # noqa: E402
 
-OUT = ROOT / "analysis" / "results"
+OUT = ROOT / "analysis" / "results" / "uk"
 P = 4
 DUMMIES = ["2020Q2", "2020Q3", "2020Q4", "2021Q1", "2021Q2"]
 T = lambda cdid, ds="mm23", topic="economy/inflationandpriceindices": f"/{topic}/timeseries/{cdid}/{ds}"

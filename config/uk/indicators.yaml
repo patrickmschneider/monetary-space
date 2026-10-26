@@ -6,7 +6,7 @@
 # lag_days: usual days from the end of a period to its publication. An indicator is
 # stale when its next release is more than freshness.stale_grace_days overdue.
 #
-# benchmark.method: value (cited constant) | pre2020_mean | manual (column of manual/mpr.csv)
+# benchmark.method: value (cited constant) | pre2020_mean | manual (column of manual/uk/mpr.csv)
 # sigma.method:     pre2020_sd (needs ≥10 years before 2020) | value (with a rationale)
 
 sources:
@@ -303,7 +303,7 @@ indicators:
     lag_days: 45
     benchmark:
       method: nairu
-      label: u*, estimated NAIRU (config/nairu.yaml)
+      label: u*, estimated NAIRU (config/uk/nairu.yaml)
       compare_manual: u_star
     sigma:
       method: pre2020_sd
@@ -368,7 +368,7 @@ indicators:
     lag_days: 42
     benchmark:
       method: potential_growth
-      label: potential growth, estimated (config/rstar.yaml)
+      label: potential growth, estimated (config/uk/rstar.yaml)
     sigma:
       method: pre2020_sd
     sign: 1

@@ -32,20 +32,23 @@ Local runs store vintages in `store/` (ignored by git). Put `FRED_API_KEY=...` i
 
 | Path | What it holds |
 | --- | --- |
-| `config/indicators.yaml` | Every series and scored indicator: source, code, transform, benchmark, σ, sign, lag, attribution |
-| `config/weights.yaml` | Pressure weights, thresholds, z clip, r\* range, rule coefficients |
-| `manual/` | Hand-maintained CSVs: MPR projections and u\*, MPC dates and votes, r\* estimates, fiscal events |
+| `config/uk/indicators.yaml` | Every series and scored indicator: source, code, transform, benchmark, σ, sign, lag, attribution |
+| `config/uk/weights.yaml` | Pressure weights, thresholds, z clip, r\* range, rule coefficients |
+| `config/uk/country.yaml` | The edition's names and wording: central bank, committee, target, time zone, site path |
+| `manual/uk/` | Hand-maintained CSVs: MPR projections and u\*, MPC dates and votes, r\* estimates, fiscal events |
 | `src/monetary_space/fetch/` | One module per publisher (ONS, Bank of England) |
 | `src/monetary_space/transform.py`, `score.py` | Pure functions for transforms, benchmarks and the scoring rules |
-| `src/monetary_space/store.py` | Dated vintages, one Parquet file per build day, on the `data` branch |
+| `src/monetary_space/store.py` | Dated vintages, one Parquet file per build day, on the `data` branch under `<country>/` |
 | `src/monetary_space/render.py` | The static page |
-| `scripts/gate.py` | Lets the right UTC cron run through for 07:10 and 12:15 UK time |
+| `scripts/gate.py` | Lets the right UTC cron run through for each country's local build slots (07:10 and 12:15 UK time) |
 
 Changing a benchmark, weight or threshold in `config/` changes the page with no code edits.
 
+**Country editions.** Everything country-specific lives in `config/<country>/`, `manual/<country>/` and `analysis/results/<country>/`; the code is shared. Each edition builds into its own folder of the site: the UK at the root, others at `au/` and `us/` (`path` in `country.yaml`). `python -m monetary_space build` builds every edition; `--country uk` builds one. An edition whose build fails is rebuilt from its last stored vintage; if that fails too, the other editions still build, then the run fails so the live site keeps its last good pages. Editions with `published: true` appear in the country switch under the wordmark, which is hidden while there is only one. Plan for Australia and the US: `docs/PLAN_countries.md`.
+
 ## Estimated u\* (NAIRU)
 
-The unemployment indicator is scored against our own estimate of u\*, not the MPC's. It comes from a multivariate filter (`src/monetary_space/nairu.py`, settings in `config/nairu.yaml`), estimated by maximum likelihood with a Kalman filter and smoother:
+The unemployment indicator is scored against our own estimate of u\*, not the MPC's. It comes from a multivariate filter (`src/monetary_space/nairu.py`, settings in `config/uk/nairu.yaml`), estimated by maximum likelihood with a Kalman filter and smoother:
 
 - Unemployment is a slow-moving trend u\* (a random walk) plus a gap that mean-reverts (AR(2)): uₜ = u\*ₜ + gₜ.
 - A wage Phillips curve says where the trend is: yₜ = c + a·yₜ₋₁ − β·gₜ + εₜ, where y is private-sector regular pay growth (q/q annualised) minus expected inflation minus trend productivity growth.
@@ -93,7 +96,7 @@ Inflation pressure is read as the terms of a hybrid New Keynesian Phillips curve
 
 Not scored, shown as momentum and context: services CPI, core CPI, private pay, 5y5y implied inflation, trading partners' leading indicators.
 
-**Pressure weights.** Two weightings are computed; `pressure.method` in `config/weights.yaml` picks the one that drives the verdict, and the page shows both.
+**Pressure weights.** Two weightings are computed; `pressure.method` in `config/uk/weights.yaml` picks the one that drives the verdict, and the page shows both.
 - *Config (literature-based):* Expectations 0.35, Demand 0.25, Supply 0.25, Cost-push 0.15. Look through first-round cost-push, respond fully to second-round channels ([reports/UK cost push pass through.md](reports/UK%20cost%20push%20pass%20through.md)).
 - *Estimated:* each block's effect on CPI inflation 2–3 years out in a UK Bernanke–Blanchard wage–price model (`analysis/bb_uk.py`): Expectations 0.18, Demand 0.30, Supply 0.36, Cost-push 0.16. Energy adds 0.9pp to inflation in year one of a 1-SD shock but only about 0.2pp at the policy horizon: look-through, estimated rather than assumed.
 - *State multiplier on cost-push:* 1 + (ratio − 1)·logistic((CPI − 3.1)/0.25), capped at 2.5. The ratio is the estimated high/low-inflation pass-through (headline CPI response to an oil supply shock when CPI is above vs below 3%, `analysis/passthrough_lp.py`): about 1.9.
@@ -121,16 +124,16 @@ Not scored, shown as momentum and context: services CPI, core CPI, private pay, 
 | --- | --- |
 | Daily, 07:10 UK, and on every push | All data re-fetched; indicators, u*, pressure, stance, verdict and all three tabs rebuilt. MPC dates, decisions and MPR projections are read from the Bank of England website |
 | 12:15 UK on MPC days (dates from the Bank's calendar page) | The same, so a decision and a new MPR projection show the same afternoon |
-| Mondays 05:00 UTC (`estimate.yml`) | The r* suite, estimated weights, cost-push multiplier and decompositions re-estimated; the MPC calendar, decisions and MPR projections written into `manual/mpc_dates.csv` and `manual/mpr.csv`; all committed, which triggers a rebuild |
+| Mondays 05:00 UTC (`estimate.yml`) | The r* suite, estimated weights, cost-push multiplier and decompositions re-estimated; the MPC calendar, decisions and MPR projections written into `manual/uk/mpc_dates.csv` and `manual/uk/mpr.csv`; all committed, which triggers a rebuild |
 
-Still manual: the Känzig oil-shock vintage in `analysis/passthrough_lp.py` (about twice a year) and the published r* comparison table (`manual/rstar.csv`). If the Bank changes a page layout, the build falls back to the CSV files and logs a warning.
+Still manual: the Känzig oil-shock vintage in `analysis/passthrough_lp.py` (about twice a year) and the published r* comparison table (`manual/uk/rstar.csv`). If the Bank changes a page layout, the build falls back to the CSV files and logs a warning.
 
 ## How new is each number
 
 Each build logs every series' latest period in `fetch_log.csv` on the `data` branch (`src/monetary_space/releases.py`). The page shows the **release date** as the first successful build that logged a period: the release day itself for 07:00 ONS releases (builds run at 07:10), and usually no more than a day late otherwise.
 
 - Each indicator row shows its period and "released 21 Oct". An indicator is as new as its most recently updated input.
-- Anything released in the last 7 days (`freshness.new_days` in `config/weights.yaml`) has its release date in bold. The header counts them and links to the release log.
+- Anything released in the last 7 days (`freshness.new_days` in `config/uk/weights.yaml`) has its release date in bold. The header counts them and links to the release log.
 - The **release log** on the Overview lists every indicator, newest first: period, release date, latest and previous value, change in z, and when the next release is expected.
 - Periods already out when the log began (24 Sep 2026) read "released by 24 Sep". Series built from daily market data read "daily, to 23 Oct" and are never highlighted.
 - A failed fetch and an overdue release are reported separately. A failed fetch often still shows the latest release, and the notice says so.
@@ -138,10 +141,10 @@ Each build logs every series' latest period in `fetch_log.csv` on the `data` bra
 
 ## Scheduled builds
 
-`.github/workflows/build.yml` runs at 07:10 UK time every day (after the 07:00 ONS releases) and at 12:15 UK on MPC announcement days listed in `manual/mpc_dates.csv`. It also runs on every push to `main` and from **Actions → build → Run workflow**. Each run saves the day's raw data to the `data` branch, then deploys the page.
+`.github/workflows/build.yml` runs at 07:10 UK time every day (after the 07:00 ONS releases) and at 12:15 UK on MPC announcement days listed in `manual/uk/mpc_dates.csv`. It also runs on every push to `main` and from **Actions → build → Run workflow**. Each run saves the day's raw data to the `data` branch, then deploys the page.
 
 - **Late starts.** GitHub can start scheduled runs late when busy. On release days, use the manual trigger.
-- **Failed sources.** If a source fails, the last good value is kept, marked on the page, and logged in `fetch_log.csv` on the `data` branch. The page still builds. GitHub emails the repository owner if a whole run fails.
+- **Failed sources.** If a source fails, the last good value is kept, marked on the page, and logged in `uk/fetch_log.csv` on the `data` branch. The page still builds. GitHub emails the repository owner if a whole run fails.
 - **Schedules switched off.** GitHub disables scheduled workflows in public repositories after 60 days without activity. To re-enable: **Actions → build → Enable workflow**. Whether the daily data commits count as activity is still to be confirmed.
 - **Secret.** `FRED_API_KEY` is a repository secret (Settings → Secrets and variables → Actions).
 

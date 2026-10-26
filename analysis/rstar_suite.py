@@ -13,7 +13,7 @@ Combination: weighted mean of the available core estimators (1–3), excluding a
 outward to 0.25pp and at least 0.5pp wide. Also writes a potential-growth series for the
 GDP benchmark (MaPS long-run potential growth, spliced onto a 10-year trailing average).
 
-Output: analysis/results/rstar_suite.json.  Run after releases:  python analysis/rstar_suite.py
+Output: analysis/results/uk/rstar_suite.json.  Run after releases:  python analysis/rstar_suite.py
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ from monetary_space import rstar, trend_cycle  # noqa: E402
 from monetary_space.fetch import boe, ons  # noqa: E402
 from monetary_space.fetch.http import session  # noqa: E402
 
-OUT = ROOT / "analysis" / "results"
+OUT = ROOT / "analysis" / "results" / "uk"
 WEIGHTS = {"trend_cycle": 0.40, "hlw": 0.25, "maps": 0.35}
 MAPS_PAGE = "https://www.bankofengland.co.uk/markets/market-intelligence/survey-results/{y}market-participants-survey-results-{m}-{yy}"
 MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september",
@@ -145,12 +145,12 @@ def potential_growth(d: dict, maps: pd.DataFrame | None) -> pd.Series:
 
 
 def expected_inflation_at(dates: pd.PeriodIndex) -> pd.Series:
-    """Expected inflation at each date, as the Stance block measures it (config/weights.yaml
+    """Expected inflation at each date, as the Stance block measures it (config/uk/weights.yaml
     stance.expected_inflation_fields: MPR projections in force, else the 2% target). The same
     measure deflates the policy rate, so real and nominal gaps agree."""
     import yaml
-    fields = yaml.safe_load((ROOT / "config" / "weights.yaml").read_text())["stance"]["expected_inflation_fields"]
-    m = pd.read_csv(ROOT / "manual" / "mpr.csv", comment="#").dropna(subset=fields)
+    fields = yaml.safe_load((ROOT / "config" / "uk" / "weights.yaml").read_text())["stance"]["expected_inflation_fields"]
+    m = pd.read_csv(ROOT / "manual" / "uk" / "mpr.csv", comment="#").dropna(subset=fields)
     m["mpr_date"] = pd.to_datetime(m["mpr_date"])
     path = m.set_index("mpr_date")[fields].mean(axis=1).sort_index()
     out = []
