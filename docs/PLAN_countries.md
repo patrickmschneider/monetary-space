@@ -18,7 +18,7 @@ Fiscal Space (`../uk-fiscal`) builds a **separate edition for each country** fro
 
 **We copy:** one edition per country, UK at the root with `au/` and `us/` beneath it, a country settings file that the code reads, and a pill switch in the same place with the same behaviour. This dashboard has separate HTML files rather than query parameters, so "keep the current page" means linking to the same file name in the other edition (`drivers.html` → `au/drivers.html`).
 
-**We change:** the pill uses colour tokens, not a hard-coded `#fff`, so it works in dark mode (Fiscal Space has no dark mode). Its active colour is teal, because the pill is chrome. Tab order: **UK · Australia · US**.
+**We change:** the pill uses colour tokens, not a hard-coded `#fff`, so it works in dark mode (Fiscal Space has no dark mode). Its active colour is teal, because the pill is chrome. Tab order: **UK · AUS · US**.
 
 ## 3. Architecture changes
 
@@ -160,7 +160,7 @@ Each of the steps below is a separate commit, in this order:
 |---|---|---|
 | 0 ✓ | Restructure so the UK runs through the country layer: `country.yaml`, folders, store migration, `--country`, gate table, switch helper (hidden) | Done 2026-10-26. UK pages identical to the previous build from the same vintage apart from the build time, the switch CSS and three file paths in notes (`config/uk/…`, `manual/uk/…`); 92 tests pass |
 | 1 (in progress) | US edition, steps 1–8 | Built and published 2026-10-26 at `us/` (switch shows UK · US): fetchers, indicators, SEP/FOMC scraper, r* suite, policy path, wording, tests (105 pass). US u*: the UK filter is not identified on US data, so the FOMC longer-run median is used (owner, 2026-10-26). Open: Bernanke–Blanchard weights, cost-push LPs, decompositions, review of `confirm` items. Then switch shows UK · US |
-| 2 (in progress) | Australia edition, steps 1–8 | Built 2026-10-26, published 2026-10-27 at `au/` (switch shows UK · Australia · US): RBA tables, ABS API, AEMO electricity, Board/SMP scraper, u* (filter identified), r* suite with the RBA survey of market economists, F17 policy path. Open as for the US: BB weights, cost-push LPs, decompositions. Then switch shows UK · Australia · US |
+| 2 (in progress) | Australia edition, steps 1–8 | Built 2026-10-26, published 2026-10-27 at `au/` (switch shows UK · AUS · US): RBA tables, ABS API, AEMO electricity, Board/SMP scraper, u* (filter identified), r* suite with the RBA survey of market economists, F17 policy path. Open as for the US: BB weights, cost-push LPs, decompositions. Then switch shows UK · AUS · US |
 | 3 | Shared polish: dark-mode pill, scheduling check over a full week of releases, README and SPEC update, CLAUDE.md status | One week of scheduled builds with no edition falling back |
 
 Phase 0 has no visible effect on the site and carries most of the risk, so it ships and runs for a few days before phase 1 starts.

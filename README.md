@@ -152,7 +152,7 @@ Built 2026-10-26 at `us/`, in the UK · US country switch under the wordmark. Sa
 
 ## Australian edition
 
-Built 2026-10-26 at `au/`, in the UK · Australia · US country switch. Same method as the UK, with Australian data, almost all from RBA statistical tables:
+Built 2026-10-26 at `au/`, in the UK · AUS · US country switch. Same method as the UK, with Australian data, almost all from RBA statistical tables:
 
 - **Target and stance.** Scored against what the RBA targets: headline CPI, 2–3%, using the 2.5% midpoint. Headline CPI is monthly from April 2025 (RBA G4) and quarterly before (G1). Expected inflation is the SMP headline CPI forecast for the quarter a year ahead, interpolated between its half-year forecasts (`src/monetary_space/fetch/rba.py`).
 - **Indicators** (`config/au/indicators.yaml`). NAB firms' price expectations, market economists' 2-year expectations, the 10-year breakeven; unemployment against u\*, vacancies to labour force, employment, GDP, NAB business conditions; non-farm unit labour costs and productivity; Brent, the NEM wholesale electricity price (AEMO, demand-weighted across regions), the trade-weighted index and import prices. Household expectations are shown but not scored: the RBA's consumer series starts in 2022.

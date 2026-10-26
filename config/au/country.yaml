@@ -1,7 +1,7 @@
 # Country edition: institutional names and page wording (see config/uk/country.yaml).
 
 id: au
-name: Australia
+name: AUS                        # edition switch label
 order: 2
 published: true                  # shown in the edition switch (owner, 2026-10-27)
 path: au/
