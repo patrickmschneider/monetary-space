@@ -320,9 +320,9 @@ def _flags(i: Indicator, saturation_share: float) -> str:
 
 def date_cell(i: Indicator, now, days: int) -> str:
     new = releases.is_new(i.seen, now.tz_localize(None).normalize(), days)
-    badge = f'<span class="new-badge" title="Released in the last {days} days">New</span>' if new else ""
-    seen = f'<span class="seen">{escape(seen_label(i))}</span>' if i.seen is not None else ""
-    return f"<td>{period_label(i.period)}{badge}{seen}</td>"
+    cls, title = ("seen recent", f' title="Released in the last {days} days"') if new else ("seen", "")
+    seen = f'<span class="{cls}"{title}>{escape(seen_label(i))}</span>' if i.seen is not None else ""
+    return f"<td>{period_label(i.period)}{seen}</td>"
 
 
 def block_section(b: Block, cfg: Config, number: int, now) -> str:
@@ -550,7 +550,6 @@ def release_log(inds: list[Indicator], cfg: Config, now) -> str:
     rows = []
     for i in order:
         is_new = releases.is_new(i.seen, as_of, days)
-        badge = '<span class="new-badge">New</span>' if is_new else ""
         if i.prev is not None:
             pp, px, pz = i.prev
             prev = f'{num(px)}<span class="unit"> ({period_label(pp)})</span>'
@@ -561,9 +560,9 @@ def release_log(inds: list[Indicator], cfg: Config, now) -> str:
         status = f' <span class="flag-inline">{status}</span>' if status else ""
         rows.append(
             f'<tr class="{"stale" if i.stale else ""}">'
-            f'<th scope="row">{escape(i.name)}{badge}</th>'
+            f'<th scope="row">{escape(i.name)}</th>'
             f"<td>{period_label(i.period)}</td>"
-            f"<td>{escape(seen_label(i)) or '–'}</td>"
+            f'<td{" class=\"recent\"" if is_new else ""}>{escape(seen_label(i)) or "–"}</td>'
             f'<td class="num">{num(i.latest.x)}<span class="unit"> {escape(i.unit)}</span></td>'
             f'<td class="num">{prev}</td>'
             f'<td class="num">{dz}</td>'
@@ -893,7 +892,7 @@ tr:last-child th,tr:last-child td{border-bottom:0}
 .flag{display:block;font-size:10px;color:var(--muted);margin-top:3px}
 .stale td,.stale th{color:var(--muted)}
 .seen{display:block;font-size:10px;color:var(--muted);margin-top:2px;white-space:nowrap}
-.new-badge{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:9px;background:var(--accent);color:var(--bg);font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;vertical-align:1px}
+.recent,.seen.recent{color:var(--accent);font-weight:700}
 .flag-inline{font-size:10px;color:var(--muted)}
 .fresh-link{color:var(--accent);font-weight:600;text-decoration:none;margin-left:6px;padding-left:9px;border-left:1px solid var(--border)}
 .fresh-link:hover{text-decoration:underline}

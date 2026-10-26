@@ -130,9 +130,9 @@ Still manual: the Känzig oil-shock vintage in `analysis/passthrough_lp.py` (abo
 Each build logs every series' latest period in `fetch_log.csv` on the `data` branch (`src/monetary_space/releases.py`). The page shows the **release date** as the first successful build that logged a period: the release day itself for 07:00 ONS releases (builds run at 07:10), and usually no more than a day late otherwise.
 
 - Each indicator row shows its period and "released 21 Oct". An indicator is as new as its most recently updated input.
-- Anything released in the last 7 days (`freshness.new_days` in `config/weights.yaml`) carries a **New** badge. The header counts them and links to the release log.
+- Anything released in the last 7 days (`freshness.new_days` in `config/weights.yaml`) has its release date in bold. The header counts them and links to the release log.
 - The **release log** on the Overview lists every indicator, newest first: period, release date, latest and previous value, change in z, and when the next release is expected.
-- Periods already out when the log began (24 Sep 2026) read "released by 24 Sep". Series built from daily market data read "daily, to 23 Oct" and are never marked New.
+- Periods already out when the log began (24 Sep 2026) read "released by 24 Sep". Series built from daily market data read "daily, to 23 Oct" and are never highlighted.
 - A failed fetch and an overdue release are reported separately. A failed fetch often still shows the latest release, and the notice says so.
 - "Next expected" uses each indicator's usual publication lag (`lag_days`), not the official release calendar. Revisions to an already-seen period are not flagged.
 
