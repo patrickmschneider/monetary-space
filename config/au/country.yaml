@@ -3,7 +3,7 @@
 id: au
 name: Australia
 order: 2
-published: false                 # shown in the edition switch once reviewed
+published: true                  # shown in the edition switch (owner, 2026-10-27)
 path: au/
 lang: en-AU
 time_zone: Australia/Sydney
