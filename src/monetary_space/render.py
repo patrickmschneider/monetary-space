@@ -183,11 +183,12 @@ def in_sentence(name: str) -> str:
     return name if first.isupper() else f"{first.lower()} {rest}".strip()
 
 
-def lead_sentence(blocks: dict[str, Block], threshold: float, stance=None, verdict=None) -> str:
+def lead_sentence(blocks: dict[str, Block], threshold: float, stance=None, verdict=None, target: float = 2.0) -> str:
     """Plain-language reading of the four Phillips-curve terms and the stance."""
+    t = f"{target:g}%"
     phrases = {
-        "E": {UP: "inflation expectations are above 2%-consistent levels", DOWN: "inflation expectations are below 2%-consistent levels",
-              "neutral": "inflation expectations are close to 2%-consistent levels"},
+        "E": {UP: f"inflation expectations are above {t}-consistent levels", DOWN: f"inflation expectations are below {t}-consistent levels",
+              "neutral": f"inflation expectations are close to {t}-consistent levels"},
         "D": {UP: "demand is running ahead of capacity", DOWN: "demand is running below capacity",
               "neutral": "demand is close to capacity"},
         "S": {UP: "supply capacity is weakening", DOWN: "supply capacity is strengthening", "neutral": "supply capacity is growing normally"},
@@ -442,7 +443,7 @@ def stance_workings_section(stance, estimates: dict, cfg: Config, number: int) -
                 continue
             w = v.get("weight", 0)
             est_rows += (f"<tr class=\"{'' if w else 'muted-row'}\"><th scope=\"row\">{escape(v['name'])}</th>"
-                         f"<td class=\"num\">{num(v['value'], 2)}%</td><td class=\"num\">{num(v['value'] + 2, 2)}%</td>"
+                         f"<td class=\"num\">{num(v['value'], 2)}%</td><td class=\"num\">{num(v['value'] + cfg.country['target']['point'], 2)}%</td>"
                          f"<td>{escape(v['date'])}</td><td>{escape(v['role'])}</td><td class=\"num\">{w:.2f}</td>"
                          f"<td>{escape(v['basis'])}. <em>{escape(v['status'])}</em></td></tr>")
     est_table = (f'<h3 class="sub-h">The r* suite</h3><div class="table-wrap"><table><thead><tr><th scope="col">Estimator</th>'
@@ -462,7 +463,7 @@ def stance_workings_section(stance, estimates: dict, cfg: Config, number: int) -
     pub_html = (f'<details class="disclosure-plain"><summary>Published estimates of r* for comparison (real, %)</summary>'
                 f'<div class="table-wrap"><table><thead><tr><th scope="col">Who</th><th scope="col" class="num">r*</th>'
                 f'<th scope="col">Date</th><th scope="col">Source</th></tr></thead><tbody>{pub_rows}</tbody></table></div>'
-                f'<p class="chart-note">Hand-maintained in manual/{cfg.country["id"]}/rstar.csv. Nominal figures are converted to real by subtracting 2.</p></details>'
+                f'<p class="chart-note">Hand-maintained in manual/{cfg.country["id"]}/rstar.csv. Nominal figures are converted to real by subtracting {cfg.country["target"]["point"]:g}.</p></details>'
                 if pub_rows else "")
     return f"""
 <section class="story-section" id="rstar" aria-labelledby="h-rstar">
@@ -722,7 +723,7 @@ def pages(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems
   <section class="briefing-lead">
     <p class="eyebrow">{escape(cfg.country["eyebrow"])} · {now:%B %Y}</p>
     {verdict_strip(cfg, blocks, stance, verdict, data, now)}
-    <h1 class="lead-sentence">{lead_sentence(blocks, thr, stance, verdict)}</h1>
+    <h1 class="lead-sentence">{lead_sentence(blocks, thr, stance, verdict, cfg.country["target"]["point"])}</h1>
     <nav class="reading-guide" aria-label="Sections"><span>On this page</span>
       <a href="#part-1">1. Where the economy is</a><a href="#part-2">2. Inflation pressure ahead</a>
       <a href="#part-3">3. Monetary policy</a></nav>

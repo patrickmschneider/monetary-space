@@ -185,7 +185,7 @@ def build_inputs(pay_level: pd.Series, unemp: pd.Series, household_exp: pd.Serie
     y = y[y.index >= pd.Period(spec["start"], "Q")]
     for lo, hi in spec.get("exclude", []):
         y[(y.index >= pd.Period(lo, "Q")) & (y.index <= pd.Period(hi, "Q"))] = np.nan
-    u = quarterly(unemp)
+    u = quarterly_mean(unemp) if spec.get("unemployment_quarterly") == "mean" else quarterly(unemp)
     u = u[(u.index >= y.index[0]) & (u.index <= y.index[-1])]
     return y.reindex(u.index), u
 

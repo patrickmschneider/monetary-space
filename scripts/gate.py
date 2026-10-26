@@ -9,6 +9,8 @@ run that starts late still counts. Every run builds every edition.
   uk  12:15 on MPC days     cron "15 11 * * *" (BST) and "15 12 * * *" (GMT)
   us  08:45 daily           cron "45 12 * * *" (EDT) and "45 13 * * *" (EST)   after the 08:30 releases
   us  14:15 on FOMC days    cron "15 18 * * *" (EDT) and "15 19 * * *" (EST)   after the 14:00 statement
+  au  11:45 daily           cron "45 0 * * *" (AEDT) and "45 1 * * *" (AEST)    after the 11:30 ABS releases
+  au  14:45 on Board days   cron "45 3 * * *" (AEDT) and "45 4 * * *" (AEST)    after the 14:30 decision
 
 Usage: python scripts/gate.py <event_name> [<cron>]
 """
@@ -38,6 +40,8 @@ SLOTS = [
     Slot("uk", "Europe/London", (12, 15), True, "12:15 UK MPC-day build"),
     Slot("us", "America/New_York", (8, 45), False, "08:45 New York daily build"),
     Slot("us", "America/New_York", (14, 15), True, "14:15 New York FOMC-day build"),
+    Slot("au", "Australia/Sydney", (11, 45), False, "11:45 Sydney daily build"),
+    Slot("au", "Australia/Sydney", (14, 45), True, "14:45 Sydney Board-day build"),
 ]
 
 

@@ -187,13 +187,13 @@ def quarterly_mean(x: pd.Series) -> pd.Series:
     return g.mean()[months == 3]
 
 
-def expected_inflation(pi_qq: pd.Series, household_1y: pd.Series | None) -> pd.Series:
-    """Households' 1-year expectations re-centred to a 2% pre-2020 mean; before the survey
-    (or if absent), core inflation over the past four quarters."""
+def expected_inflation(pi_qq: pd.Series, household_1y: pd.Series | None, target: float = 2.0) -> pd.Series:
+    """Households' 1-year expectations re-centred to the target as their pre-2020 mean; before the
+    survey (or if absent), core inflation over the past four quarters."""
     backward = pi_qq.rolling(4).mean()
     if household_1y is None or household_1y.empty:
         return backward
-    hh = household_1y - (household_1y[household_1y.index.year < 2020].mean() - 2.0)
+    hh = household_1y - (household_1y[household_1y.index.year < 2020].mean() - target)
     return hh.reindex(backward.index).combine_first(backward)
 
 
@@ -203,7 +203,8 @@ def build_inputs(gdp: pd.Series, core_cpi_index: pd.Series, bank_rate: pd.Series
     y = 100 * np.log(gdp.astype(float))
     q = quarterly_mean(seasonally_adjust(core_cpi_index))
     pi = ((q / q.shift(1)) ** 4 - 1) * 100
-    e = expected_inflation(pi, household_1y) if spec.get("deflator", "household") == "household" else pi.rolling(4).mean()
+    e = (expected_inflation(pi, household_1y, spec.get("target", 2.0)) if spec.get("deflator", "household") == "household"
+         else pi.rolling(4).mean())
     r = quarterly_mean(bank_rate) - e
     start, end = pd.Period(spec["start"], "Q"), y.index[-1]
     full = pd.period_range(start - 5, end, freq="Q")

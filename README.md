@@ -125,6 +125,7 @@ Not scored, shown as momentum and context: services CPI, core CPI, private pay, 
 | Daily, 07:10 UK, and on every push | All data re-fetched; indicators, u*, pressure, stance, verdict and all three tabs rebuilt. MPC dates, decisions and MPR projections are read from the Bank of England website |
 | 12:15 UK on MPC days (dates from the Bank's calendar page) | The same, so a decision and a new MPR projection show the same afternoon |
 | Daily, 08:45 New York, and 14:15 on FOMC days | The same for every edition, timed for US releases (08:30) and FOMC statements (14:00). FOMC dates, decisions and SEP projections are read from federalreserve.gov |
+| Daily, 11:45 Sydney, and 14:45 on Board days | The same, timed for ABS releases (11:30) and RBA decisions (14:30). Board dates, decisions and SMP forecasts are read from rba.gov.au |
 | Mondays 05:00 UTC (`estimate.yml`) | The r* suite, estimated weights, cost-push multiplier and decompositions re-estimated; the MPC calendar, decisions and MPR projections written into `manual/uk/mpc_dates.csv` and `manual/uk/mpr.csv`; all committed, which triggers a rebuild |
 
 Still manual: the Känzig oil-shock vintage in `analysis/passthrough_lp.py` (about twice a year) and the published r* comparison table (`manual/uk/rstar.csv`). If the Bank changes a page layout, the build falls back to the CSV files and logs a warning.
@@ -148,6 +149,18 @@ Built 2026-10-26 at `us/`, in the UK · US country switch under the wordmark. Sa
 
   Most settings put u\* near the sample mean of unemployment, above actual unemployment in 2019 (3.6%). Owner's decision (26 Oct 2026): the unemployment indicator uses the FOMC's longer-run median (4.2% in the September SEP, updated automatically), unless a better-identified estimate is found.
 - **Not yet built for the US:** estimated Bernanke–Blanchard weights (only the literature weighting is shown), the state-dependent cost-push ratio (the default 2.0 is used and labelled as such) and the three decompositions on the Inflation drivers tab.
+
+## Australian edition
+
+Built 2026-10-26 at `au/`; not yet in the country switch (`published: false` in `config/au/country.yaml`). Same method as the UK, with Australian data, almost all from RBA statistical tables:
+
+- **Target and stance.** Scored against what the RBA targets: headline CPI, 2–3%, using the 2.5% midpoint. Headline CPI is monthly from April 2025 (RBA G4) and quarterly before (G1). Expected inflation is the SMP headline CPI forecast for the quarter a year ahead, interpolated between its half-year forecasts (`src/monetary_space/fetch/rba.py`).
+- **Indicators** (`config/au/indicators.yaml`). NAB firms' price expectations, market economists' 2-year expectations, the 10-year breakeven; unemployment against u\*, vacancies to labour force, employment, GDP, NAB business conditions; non-farm unit labour costs and productivity; Brent, the NEM wholesale electricity price (AEMO, demand-weighted across regions), the trade-weighted index and import prices. Household expectations are shown but not scored: the RBA's consumer series starts in 2022.
+- **u\*** is estimated with the UK filter, which is identified on Australian data: 4.5% in 2026Q2 (±0.7), about 5.1–5.5% in 2005–2019. The market economists' median NAIRU from the RBA survey (4.5%) is shown for comparison.
+- **r\* suite** (`python analysis/rstar_suite.py --country au`). Trend-cycle 1.41%, repaired HLW 1.69%, the RBA survey of market economists' neutral rate (3.8% nominal) deflated by the SMP forecast 1.10%: headline 1.25%, range 1.00–1.75% (26 Oct 2026).
+- **Policy path.** The RBA stopped publishing OIS rates in 2022. The path uses ASX 30-day interbank cash rate futures (the RBA Rate Tracker's implied yields, daily, about 18 months; licence confirmed by the owner, 2026-10-27), then forwards from the RBA's fitted zero-coupon government curve (F17, published monthly, includes term premia). The chart marks the join.
+- **Electricity history.** AEMO publishes one file per region per month; `python analysis/nem_history.py` builds the monthly history once (from May 2005, when Tasmania joined the NEM) into `analysis/results/au/nem_monthly.csv`, and each build re-reads the latest 14 months.
+- **Not yet built for Australia:** estimated Bernanke–Blanchard weights, the state-dependent cost-push ratio (the default 2.0 is used, with a 3.5% threshold: the UK's 3.1% shifted by the gap between the targets) and the decompositions.
 
 ## How new is each number
 

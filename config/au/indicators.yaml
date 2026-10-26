@@ -1,0 +1,500 @@
+# Scored indicators for the Australian edition (see config/uk/indicators.yaml for the schema). Cap: 14.
+#
+# Chosen for what drives Australian inflation: headline CPI is the target measure (2–3%, scored
+# against the 2.5% midpoint); oil and wholesale electricity are the energy channels; the
+# trade-weighted index replaces sterling. Samples start in 1993, when inflation targeting began.
+# Household inflation expectations are shown but not scored: the RBA's consumer series starts in
+# 2022, too late for a pre-2020 benchmark.
+
+sources:
+  rba:
+    name: Reserve Bank of Australia
+    attribution: "Source: Reserve Bank of Australia statistical tables, licensed under CC BY 4.0."
+  rba_abs:
+    name: Australian Bureau of Statistics, via the Reserve Bank of Australia
+    attribution: "Source: Australian Bureau of Statistics, published in Reserve Bank of Australia statistical tables (CC BY 4.0)."
+  rba_nab:
+    name: NAB Business Survey, via the Reserve Bank of Australia
+    attribution: "Source: National Australia Bank Business Survey, published in Reserve Bank of Australia statistical tables."
+  rba_survey:
+    name: RBA survey of market economists
+    attribution: "Source: Reserve Bank of Australia, survey of market economists (statistical tables G3 and J1, CC BY 4.0)."
+  abs:
+    name: Australian Bureau of Statistics
+    attribution: "Source: Australian Bureau of Statistics, licensed under CC BY 4.0."
+  asx:
+    name: ASX
+    attribution: "Source: ASX, RBA Rate Tracker (30 Day Interbank Cash Rate Futures implied yields)."
+  aemo:
+    name: Australian Energy Market Operator
+    attribution: "Source: Australian Energy Market Operator, aggregated price and demand data."
+  eia:
+    name: U.S. Energy Information Administration, via FRED
+    attribution: "Source: U.S. Energy Information Administration via FRED, Federal Reserve Bank of St. Louis."
+  oecd_fred:
+    name: OECD, via FRED
+    attribution: "Source: OECD Main Economic Indicators via FRED, Federal Reserve Bank of St. Louis."
+
+series:
+  AU_CPI_YY:
+    fetcher: rba_headline_cpi
+    source: rba_abs
+    title: "CPI, all groups, year-ended %, monthly from April 2025 (G4), quarterly before (G1, carried across the quarter)"
+    freq: M
+  GCPIAGYP:
+    fetcher: rba
+    source: rba_abs
+    title: "CPI, year-ended inflation, quarterly, % (G1)"
+    table: g1-data
+    code: GCPIAGYP
+    freq: Q
+  GCPIOCPMTMYP:
+    fetcher: rba
+    source: rba_abs
+    title: "Trimmed mean inflation, year-ended, quarterly, % (G1)"
+    table: g1-data
+    code: GCPIOCPMTMYP
+    freq: Q
+  AU_CASH_RATE:
+    fetcher: rba
+    source: rba
+    title: "Cash rate target, %, daily (F1)"
+    table: f1-data
+    code: FIRMMCRTD
+    freq: D
+  AU_FUT:
+    fetcher: asx_cash_futures
+    source: asx
+    title: "ASX 30-day interbank cash rate futures, implied cash rate by contract month, %, by maturity in years"
+    freq: D
+  AU_FWD:
+    fetcher: rba_f17_forwards
+    source: rba
+    title: "Australian Government forward curve from the fitted zero-coupon curve, %, daily, by maturity in years (F17)"
+    maturities: [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0]
+    since: "2024-01-01"
+    freq: D
+  GBUSEXP:
+    fetcher: rba
+    source: rba_nab
+    title: "Business inflation expectations, 3 months ahead, % (NAB, G3)"
+    table: g3-data
+    code: GBUSEXP
+    freq: Q
+  GMAREXPY:
+    fetcher: rba
+    source: rba_survey
+    title: "Market economists' inflation expectations, 1 year ahead, % (G3; u* estimate)"
+    table: g3-data
+    code: GMAREXPY
+    freq: Q
+  GMAREXPYY:
+    fetcher: rba
+    source: rba_survey
+    title: "Market economists' inflation expectations, 2 years ahead, % (G3)"
+    table: g3-data
+    code: GMAREXPYY
+    freq: Q
+  GBONYLD:
+    fetcher: rba
+    source: rba
+    title: "Break-even 10-year inflation rate, quarterly, % (G3)"
+    table: g3-data
+    code: GBONYLD
+    freq: Q
+  GCONEXP:
+    fetcher: rba
+    source: rba
+    title: "Consumer inflation expectations, 1 year ahead, % (G3, from 2022; context)"
+    table: g3-data
+    code: GCONEXP
+    freq: Q
+  JSVIEXPMED:
+    fetcher: rba
+    source: rba_survey
+    title: "Market economists' inflation expectations, 5–10 years, median, % (J1; context)"
+    table: j1-star-variables
+    code: JSVIEXPMED
+    freq: M
+  JSVNEMED:
+    fetcher: rba
+    source: rba_survey
+    title: "Market economists' NAIRU, median, % (J1; comparison for u*)"
+    table: j1-star-variables
+    code: JSVNEMED
+    freq: M
+  GLFSURSA:
+    fetcher: rba
+    source: rba_abs
+    title: "Unemployment rate, SA, % (Labour Force, H5)"
+    table: h5-data
+    code: GLFSURSA
+    freq: M
+  GLFSEPTSA:
+    fetcher: rba
+    source: rba_abs
+    title: "Employment, SA, '000 (Labour Force, H5)"
+    table: h5-data
+    code: GLFSEPTSA
+    freq: M
+  GLFOSVTLF:
+    fetcher: rba
+    source: rba_abs
+    title: "Job vacancies to labour force ratio, % (H5), quarterly, surveyed in the middle month"
+    table: h5-data
+    code: GLFOSVTLF
+    freq: Q
+  GGDPCVGDP:
+    fetcher: rba
+    source: rba_abs
+    title: "Real GDP, chain volume, $m, SA, quarterly (H1)"
+    table: h1-data
+    code: GGDPCVGDP
+    freq: Q
+  GICNBC:
+    fetcher: rba
+    source: rba_nab
+    title: "NAB business conditions, net balance, monthly (H3)"
+    table: h3-data
+    code: GICNBC
+    freq: M
+  GNFULCYP:
+    fetcher: rba
+    source: rba_abs
+    title: "Non-farm unit labour costs, year-ended growth, % (H4)"
+    table: h4-data
+    code: GNFULCYP
+    freq: Q
+  GNFPROSQP:
+    fetcher: rba
+    source: rba_abs
+    title: "Non-farm labour productivity per hour, year-ended growth, % (H4)"
+    table: h4-data
+    code: GNFPROSQP
+    freq: Q
+  GNFPROSQI:
+    fetcher: rba
+    source: rba_abs
+    title: "Non-farm labour productivity per hour, index (H4; u* estimate)"
+    table: h4-data
+    code: GNFPROSQI
+    freq: Q
+  WPI_INDEX:
+    fetcher: rba_index_from_growth
+    source: rba_abs
+    title: "Wage Price Index, index built from quarterly growth (H4 GWPIQP; u* estimate)"
+    table: h4-data
+    code: GWPIQP
+    freq: Q
+  GWPIYP:
+    fetcher: rba
+    source: rba_abs
+    title: "Wage Price Index, year-ended growth, % (H4; context)"
+    table: h4-data
+    code: GWPIYP
+    freq: Q
+  DCOILBRENTEU:
+    fetcher: fred
+    source: eia
+    title: "Brent crude oil, US$ per barrel, daily"
+    code: DCOILBRENTEU
+    freq: D
+  NEM_PRICE:
+    fetcher: aemo_nem
+    source: aemo
+    title: "NEM wholesale electricity price, $/MWh, monthly, demand-weighted across the five regions"
+    freq: M
+  FXRTWI:
+    fetcher: rba
+    source: rba
+    title: "Trade-weighted index of the Australian dollar, May 1970 = 100, monthly (F11)"
+    table: f11-data
+    code: FXRTWI
+    freq: M
+  ITPI_IMP:
+    fetcher: abs
+    source: abs
+    title: "Import Price Index, all groups, index, quarterly (ABS 6457)"
+    flow: "ABS,ITPI_IMP,1.0.0"
+    key: "1.6011001.Q"
+    code: ITPI_IMP
+    freq: Q
+
+indicators:
+  # ------------------------------------------------------------------------
+  # E. Expectations: are inflation expectations anchored at 2–3%?
+  - id: firm_expectations
+    name: Firms' expected price growth
+    explain: >-
+      What businesses in the NAB survey expect to happen to their own final prices over the next three months. Pricing intentions feed straight into inflation, so this is the most direct forward-looking signal from firms. Above its average since 1993, firms plan to raise prices faster than usual.
+    phrase: firms' price expectations
+    block: E
+    series: [GBUSEXP]
+    transform: level
+    unit: '%'
+    freq: Q
+    lag_days: 20
+    benchmark: {method: pre2020_mean, since: '1993-01'}
+    sigma: {method: pre2020_sd, since: '1993-01'}
+    sign: 1
+    smoothing: Quarterly survey
+    note: NAB quarterly business survey, expected change in final product prices over the next 3 months.
+
+  - id: economist_expectations
+    name: Economists' inflation expectations, 2 years
+    explain: >-
+      What market economists surveyed by the RBA expect CPI inflation to be two years ahead. At that horizon forecasts mostly reflect whether economists believe inflation will return to the 2–3% target, so it is a gauge of anchoring. Compared with its pre-2020 average (about 2.7%).
+    phrase: economists' inflation expectations
+    block: E
+    series: [GMAREXPYY]
+    transform: level
+    unit: '%'
+    freq: Q
+    lag_days: 20
+    benchmark: {method: pre2020_mean}
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: Quarterly survey median
+    note: Stands in for households, whose RBA series starts in 2022 (shown unscored on the Inflation drivers tab).
+
+  - id: market_inflation
+    name: Market-implied inflation, 10 years
+    explain: >-
+      Inflation over the next ten years implied by government bond prices: the gap between conventional and indexed bond yields. It reflects investors' money at stake but also includes premia for inflation risk and the indexed market's poor liquidity, which usually push it below expectations. Compared with its 2015–2019 average.
+    phrase: market-implied inflation
+    block: E
+    series: [GBONYLD]
+    transform: level
+    unit: '%'
+    freq: Q
+    lag_days: 5
+    benchmark: {method: pre2020_mean}
+    sigma:
+      method: value
+      value: 0.34
+      rationale: The RBA's breakeven series starts in 2015, too short for a pre-2020 SD. 0.34pp = SD excluding the
+        2020–2023 shock years, the same rule as the UK Decision Maker Panel (confirm).
+    sign: 1
+    smoothing: Quarterly average
+    note: Nominal minus indexed 10-year government bond yield; includes inflation risk and liquidity premia.
+
+  # ------------------------------------------------------------------------
+  # D. Demand: is spending running ahead of the economy's capacity?
+  - id: unemployment
+    name: Unemployment rate vs u*
+    explain: >-
+      The share of the labour force looking for work, against our estimate of the lowest rate consistent with stable inflation (u*). Unemployment below u* means a tight labour market that pushes up wages and prices; above u* means slack. The sign is reversed, so a positive score means tight and inflationary.
+    block: D
+    series: [GLFSURSA]
+    transform: level
+    unit: '%'
+    freq: M
+    lag_days: 18
+    benchmark:
+      method: nairu
+      label: u*, estimated NAIRU (config/au/nairu.yaml)
+      compare_series: JSVNEMED
+      compare_label: market economists' median (RBA survey)
+    sigma: {method: pre2020_sd, since: '1993-01'}
+    sign: -1
+    smoothing: none (monthly Labour Force survey, seasonally adjusted)
+    note: The market economists' median NAIRU from the RBA survey is shown in the tooltip for comparison.
+
+  - id: vacancies
+    name: Job vacancies to labour force
+    explain: >-
+      Job vacancies as a share of the labour force: a measure of labour-market tightness. More vacancies relative to the workforce means firms compete harder for workers and wages rise faster. Compared with its average since 1993.
+    block: D
+    series: [GLFOSVTLF]
+    transform: level
+    unit: '%'
+    freq: Q
+    lag_days: 10
+    benchmark: {method: pre2020_mean, since: '1993-01'}
+    sigma: {method: pre2020_sd, since: '1993-01'}
+    sign: 1
+    smoothing: none (quarterly survey, middle month of the quarter)
+    note: The ABS Job Vacancies survey was suspended in 2008–09; that gap is left empty.
+
+  - id: employment
+    name: Employment growth
+    explain: >-
+      Growth in the number of people employed over the latest three months at an annual rate. Growth faster than the pre-2020 norm means strong demand for labour. Population growth has been unusually fast since 2022, so strong employment growth is partly supply as well as demand (confirm).
+    phrase: employment growth
+    block: D
+    series: [GLFSEPTSA]
+    transform: annualised_3m3m
+    unit: '% ann.'
+    freq: M
+    lag_days: 18
+    benchmark: {method: pre2020_mean, since: '1993-01'}
+    sigma: {method: pre2020_sd, since: '1993-01'}
+    sign: 1
+    smoothing: 3 months on previous 3 months, annualised
+    note: Labour Force survey, seasonally adjusted.
+
+  - id: gdp
+    name: Real GDP growth vs potential
+    explain: >-
+      Real GDP growth in the latest quarter at an annual rate, against the economy's potential growth rate. Growth above potential uses up spare capacity and adds to inflation pressure; growth below it creates slack. It shows the change in the output gap, not its level.
+    block: D
+    series: [GGDPCVGDP]
+    transform: annualised_qq
+    unit: '% ann.'
+    freq: Q
+    lag_days: 65
+    benchmark:
+      method: potential_growth
+      label: potential growth (market economists' median, RBA survey, else 10-year trailing average)
+    sigma: {method: pre2020_sd, since: '1993-01'}
+    sign: 1
+    smoothing: Quarter on previous quarter, annualised
+    note: GDP growth above potential closes spare capacity.
+
+  - id: business_conditions
+    name: Business conditions (NAB)
+    explain: >-
+      The NAB survey's measure of business conditions: trading, profitability and employment, as a net balance of firms. Strong conditions mean firms are busy and better able to raise prices. A free measure of capacity utilisation is not available, so this is the closest timely gauge of how stretched firms are.
+    phrase: business conditions
+    block: D
+    series: [GICNBC]
+    transform: level
+    unit: net bal.
+    freq: M
+    lag_days: 12
+    benchmark: {method: pre2020_mean}
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: none (monthly survey)
+    note: Net balance of firms; starts 1997.
+
+  # ------------------------------------------------------------------------
+  # S. Supply: is the economy's capacity growing more slowly than normal?
+  - id: ulc
+    name: Unit labour cost growth
+    explain: >-
+      Non-farm unit labour costs: pay per unit of output, or average earnings growth minus productivity growth. They are the main cost firms pass on to prices. Growth of about 2.5% is consistent with the inflation target at a constant labour share; faster growth pushes inflation up unless firms absorb it in their margins.
+    phrase: unit labour costs
+    block: S
+    series: [GNFULCYP]
+    transform: level
+    unit: '% y/y'
+    freq: Q
+    lag_days: 65
+    benchmark:
+      method: value
+      value: 2.5
+      label: '2.5%: consistent with the target midpoint at a constant labour share'
+    sigma: {method: pre2020_sd, since: '1993-01'}
+    sign: 1
+    smoothing: Year-ended growth (published)
+    note: Non-farm sector, from the national accounts.
+
+  - id: productivity
+    name: Productivity growth vs trend
+    explain: >-
+      Growth in non-farm output per hour worked, against its own five-year trend. Weaker productivity means the economy produces less for the same effort, so for a given level of demand there is less spare capacity and more inflation pressure. The sign is reversed, so productivity below trend scores as inflationary.
+    phrase: weak productivity
+    block: S
+    series: [GNFPROSQP]
+    transform: level
+    unit: '% y/y'
+    freq: Q
+    lag_days: 65
+    benchmark:
+      method: trailing_mean
+      years: 5
+      label: its own 5-year trailing average
+    sigma: {method: pre2020_sd, since: '1993-01'}
+    sign: -1
+    smoothing: Year-ended growth (published)
+    note: Productivity below trend lowers the economy's capacity, which is inflationary for a given level of demand.
+
+  # ------------------------------------------------------------------------
+  # C. Cost-push: are external costs pushing up prices?
+  - id: brent
+    name: Brent crude oil price
+    explain: >-
+      The world price of crude oil in US dollars, change on a year earlier. Oil reaches petrol prices within weeks and freight costs more slowly. It is measured in dollars so the exchange rate is not counted twice. Most of its effect on inflation is direct and temporary; it matters for policy mainly if it spills into wages and expectations.
+    phrase: oil prices
+    block: C
+    series: [DCOILBRENTEU]
+    transform: [monthly_mean, pct_change_12m]
+    unit: '% y/y'
+    freq: M
+    lag_days: 5
+    benchmark:
+      method: value
+      value: 0
+      label: '0: no change on a year earlier'
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: Monthly average of daily prices, 12-month % change
+    note: In US dollars, so the exchange rate is not counted twice.
+
+  - id: electricity
+    name: Wholesale electricity price
+    explain: >-
+      The National Electricity Market wholesale price, change on a year earlier. Wholesale costs reach household bills mainly through the regulated default offers reset each July, so they lead retail electricity prices by up to a year. Government bill rebates in 2023–26 lowered measured electricity prices without changing these costs.
+    phrase: electricity prices
+    block: C
+    series: [NEM_PRICE]
+    transform: pct_change_12m
+    unit: '% y/y'
+    freq: M
+    lag_days: 3
+    benchmark:
+      method: value
+      value: 0
+      label: '0: no change on a year earlier'
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: Monthly demand-weighted average across regions, 12-month % change
+    note: East-coast gas prices feed into it. Wholesale prices swing far more than retail prices, so σ is large.
+
+  - id: exchange_rate
+    name: Trade-weighted index
+    explain: >-
+      The Australian dollar against a basket of trading partners, change on a year earlier. A weaker dollar raises import prices, and imports are a large share of the consumer basket. The sign is reversed, so a depreciation scores as inflationary.
+    block: C
+    series: [FXRTWI]
+    transform: pct_change_12m
+    unit: '% y/y'
+    freq: M
+    lag_days: 3
+    benchmark:
+      method: value
+      value: 0
+      label: '0: no change on a year earlier'
+    sigma:
+      method: value
+      value: 8.8
+      rationale: The RBA's monthly index in its CSV table starts in 2010, too short for a pre-2020 SD. 8.8pp = SD of
+        12-month changes in the BIS nominal broad effective exchange rate for Australia, 1995–2019 (FRED NBAUBIS),
+        which moves closely with the TWI (correlation 0.95; SDs 6.3 and 6.5 over 2011–2019).
+    sign: -1
+    smoothing: 12-month % change of the monthly index
+    note: 'A rise is an appreciation, which lowers import prices: the sign is negative.'
+
+  - id: import_prices
+    name: Import prices
+    explain: >-
+      Prices of goods imported into Australia in Australian dollars, change on a year earlier. They are the pipeline through which global prices and the exchange rate reach shop prices, typically over several quarters. Rising import prices signal cost pressure still to come through.
+    phrase: import prices
+    block: C
+    series: [ITPI_IMP]
+    transform: pct_change_12m
+    unit: '% y/y'
+    freq: Q
+    lag_days: 40
+    benchmark:
+      method: value
+      value: 0
+      label: '0: no change on a year earlier'
+    sigma: {method: pre2020_sd, since: '1993-01'}
+    sign: 1
+    smoothing: 4-quarter % change
+    note: All groups, including fuels, so oil partly overlaps (as in the UK edition's import prices).
+
+# Not scored (momentum and context): trimmed mean CPI, Wage Price Index, economists' 5–10-year
+# expectations, consumer expectations (charts.yaml momentum).

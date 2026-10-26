@@ -1,0 +1,40 @@
+# Country edition: institutional names and page wording (see config/uk/country.yaml).
+
+id: au
+name: Australia
+order: 2
+published: false                 # shown in the edition switch once reviewed
+path: au/
+lang: en-AU
+time_zone: Australia/Sydney
+time_label: Sydney time
+tagline: A GUIDE TO AUSTRALIAN MONETARY POLICY
+description: "Monetary Space: a guide to Australian monetary policy"
+eyebrow: AUSTRALIAN MONETARY POLICY
+
+central_bank: Reserve Bank of Australia
+committee_short: Board            # the Monetary Policy Board ("Last Board …", "Next Board …")
+forecast_short: SMP               # Statement on Monetary Policy ("SMP August 2026")
+
+target:                           # what the RBA targets: CPI inflation of 2–3%, scored against the midpoint
+  measure: CPI
+  point: 2.5
+headline_series: AU_CPI_YY
+
+release_note: "Release dates are the day a scheduled build (11:45 Sydney time daily, and 14:45 on Board decision days) first picked the data up: the release day itself for 11:30 ABS releases, and usually no more than a day late otherwise."
+
+policy_path:
+  forward_series: AU_FUT           # ASX 30-day interbank cash rate futures, about 18 months
+  forward_series_long: AU_FWD      # beyond the futures: forwards from the RBA's fitted government curve
+  priced_in: priced in ASX 30-day interbank cash rate futures
+  long_in: then Australian Government bond forwards from the RBA's fitted curve of
+  join_label: bond forwards
+  note: "The futures settle on the RBA's overnight cash rate, so like overnight index swaps they price the expected cash rate; each contract is the month's average, plotted mid-month. They run about 18 months; beyond that the path uses forwards from the RBA's fitted government curve, which is published monthly and includes term premia. The neutral zone uses expected inflation over the next year; further ahead it is only indicative."
+  sources: "ASX (RBA Rate Tracker, 30 Day Interbank Cash Rate Futures); Reserve Bank of Australia (F17 zero-coupon yields, F1 cash rate); Monetary Space estimates of r*"
+
+rstar_page:
+  note: "The suite is re-estimated weekly. The RBA's survey of market economists reports the neutral cash rate in nominal terms; it is converted to real with the same year-ahead expected inflation as the cash rate. Australia has no index-linked forward curve, so the market measure is the 10-year indexed bond yield, which includes term and liquidity premia and is shown only."
+  sources: "Reserve Bank of Australia (market economists' survey, statistical tables F1, F2, G1, G3, H1); OECD via FRED; Monetary Space estimates"
+  chart_title: "r*: the trend-cycle estimate and the indexed bond market"
+  chart_subtitle: "Real, %. Line: 10-year indexed government bond yield (includes term premia). Dashed with band: trend-cycle r̄ ± 1 s.e."
+  chart_source: "Reserve Bank of Australia; Monetary Space estimates"

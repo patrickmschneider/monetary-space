@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from . import boe, fed, fred, oecd, ons
+from . import abs as abs_
+from . import aemo, boe, fed, fred, oecd, ons, rba
 
 
 def _fred(s: dict) -> pd.Series:
@@ -25,6 +26,13 @@ FETCHERS = {
     "fed_funds_target": lambda s: fred.fed_funds_target(),
     "treasury_forwards": lambda s: fed.treasury_forwards(s["maturities"], s.get("since", "2024-01-01")),
     "atlanta_bie": lambda s: fed.bie(),
+    "rba": lambda s: rba.series(s["table"], s["code"], s["freq"]),
+    "rba_index_from_growth": lambda s: rba.index_from_growth(s["table"], s["code"], s["freq"]),
+    "rba_headline_cpi": lambda s: rba.headline_cpi(),
+    "asx_cash_futures": lambda s: rba.asx_cash_futures(),
+    "rba_f17_forwards": lambda s: rba.f17_forwards(s["maturities"], s.get("since", "2024-01-01")),
+    "abs": lambda s: abs_.series(s["flow"], s["key"], s["freq"], s.get("code", "")),
+    "aemo_nem": lambda s: aemo.nem_price(),
     "gsw_yield": lambda s: fed.gsw_yields([s["column"]], real=s.get("real", False))[s["column"]],
     "boe_ois_spot": lambda s: boe.ois_spot(s["maturity"]),
     "boe_ois_forwards": lambda s: boe.ois_forwards(s["maturities"], s.get("since", "2024-01-01")),

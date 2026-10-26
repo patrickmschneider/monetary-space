@@ -1,0 +1,35 @@
+# Monetary Policy Board (RBA Board before March 2025) decision dates, the cash rate target decided (bank_rate column)
+# and the unattributed vote (published from mid-2025). Read from rba.gov.au by src/monetary_space/fetch/rba.py; mpr = Y with an SMP.
+date,bank_rate,vote,mpr,source_url
+2024-02-06,4.35,,Y,https://www.rba.gov.au/media-releases/2024/mr-24-01.html
+2024-03-19,4.35,,N,https://www.rba.gov.au/media-releases/2024/mr-24-05.html
+2024-05-07,4.35,,Y,https://www.rba.gov.au/media-releases/2024/mr-24-08.html
+2024-06-18,4.35,,N,https://www.rba.gov.au/media-releases/2024/mr-24-12.html
+2024-08-06,4.35,,Y,https://www.rba.gov.au/media-releases/2024/mr-24-15.html
+2024-09-24,4.35,,N,https://www.rba.gov.au/media-releases/2024/mr-24-18.html
+2024-11-05,4.35,,Y,https://www.rba.gov.au/media-releases/2024/mr-24-24.html
+2024-12-10,4.35,,N,https://www.rba.gov.au/media-releases/2024/mr-24-27.html
+2025-02-18,4.1,,Y,https://www.rba.gov.au/media-releases/2025/mr-25-03.html
+2025-04-01,4.1,,N,https://www.rba.gov.au/media-releases/2025/mr-25-10.html
+2025-05-20,3.85,,Y,https://www.rba.gov.au/media-releases/2025/mr-25-13.html
+2025-07-08,3.85,6-3: 6 hold; 3 against,N,https://www.rba.gov.au/media-releases/2025/mr-25-17.html
+2025-08-12,3.6,unanimous: cut,Y,https://www.rba.gov.au/media-releases/2025/mr-25-22.html
+2025-09-30,3.6,unanimous: hold,N,https://www.rba.gov.au/media-releases/2025/mr-25-27.html
+2025-11-04,3.6,unanimous: hold,Y,https://www.rba.gov.au/media-releases/2025/mr-25-31.html
+2025-12-09,3.6,unanimous: hold,N,https://www.rba.gov.au/media-releases/2025/mr-25-33.html
+2026-02-03,3.85,unanimous: raise,Y,https://www.rba.gov.au/media-releases/2026/mr-26-03.html
+2026-03-17,4.1,5-4: 5 raise; 4 hold,N,https://www.rba.gov.au/media-releases/2026/mr-26-08.html
+2026-05-05,4.35,8-1: 8 raise; 1 hold,Y,https://www.rba.gov.au/media-releases/2026/mr-26-12.html
+2026-06-16,4.35,unanimous: hold,N,https://www.rba.gov.au/media-releases/2026/mr-26-15.html
+2026-08-11,4.35,unanimous: hold,Y,https://www.rba.gov.au/media-releases/2026/mr-26-19.html
+2026-09-29,4.6,unanimous: raise,N,https://www.rba.gov.au/media-releases/2026/mr-26-27.html
+2026-11-03,,,Y,
+2026-12-08,,,N,
+2027-02-09,,,Y,
+2027-03-23,,,N,
+2027-05-04,,,Y,
+2027-06-22,,,N,
+2027-08-10,,,Y,
+2027-09-28,,,N,
+2027-11-02,,,Y,
+2027-12-14,,,N,

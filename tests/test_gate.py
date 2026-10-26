@@ -50,3 +50,14 @@ def test_us_fomc_slot_only_on_fomc_days():
     now = dt.datetime(2026, 10, 28, 18, 20, tzinfo=UTC)
     assert gate.should_run("schedule", "15 18 * * *", now, {"us": {"2026-10-28"}})[0]
     assert not gate.should_run("schedule", "15 18 * * *", now, {"uk": {"2026-10-28"}})[0]
+
+
+def test_au_slots_follow_sydney_time():
+    oct_aedt = dt.datetime(2026, 10, 27, 1, 0, tzinfo=UTC)            # Sydney on AEDT (UTC+11)
+    assert gate.should_run("schedule", "45 0 * * *", oct_aedt, {})[0]
+    assert not gate.should_run("schedule", "45 1 * * *", oct_aedt, {})[0]
+    jul_aest = dt.datetime(2026, 7, 1, 2, 0, tzinfo=UTC)
+    assert gate.should_run("schedule", "45 1 * * *", jul_aest, {})[0]
+    board = dt.datetime(2026, 11, 3, 3, 50, tzinfo=UTC)               # 14:50 AEDT on a Board day
+    assert gate.should_run("schedule", "45 3 * * *", board, {"au": {"2026-11-03"}})[0]
+    assert not gate.should_run("schedule", "45 3 * * *", board, {})[0]

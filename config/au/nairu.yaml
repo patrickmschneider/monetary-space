@@ -1,0 +1,28 @@
+# u* (NAIRU) for the Australian edition: the same multivariate filter as the UK (config/uk/nairu.yaml).
+#
+#   u_t  = u*_t + g_t (+ small noise)        g_t = ρ1·g_{t−1} + ρ2·g_{t−2} + ν_t
+#   y_t  = c + a·y_{t−1} − β·g_t + ε_t       u*_t = u*_{t−1} + η_t
+#   y    = Wage Price Index growth (q/q annualised) − expected inflation − trend productivity growth
+#
+# Identified on Australian data, unlike the US (2026-10-26): u* 2026Q2 4.6% ±0.7 (90%), about
+# 5.1–5.5% in 2005–2019; 4.5–4.9% across household weights 0–1 and σ_η 0.10–0.15. The market
+# economists' median NAIRU (RBA survey, 4.5% in Aug 2026) is shown for comparison.
+
+series:
+  pay_level: WPI_INDEX          # Wage Price Index (composition-fixed), from quarterly growth
+  unemployment: GLFSURSA
+  household_expectations: GMAREXPY   # market economists' 1-year expectations: no long household series
+  cpi: AU_CPI_YY
+  productivity: GNFPROSQI       # non-farm output per hour
+
+household_weight: 0.5           # expected inflation = 0.5·economists + 0.5·last quarter's CPI inflation
+cpi_lag_quarters: 1
+recentre_expectations_to: 2.5   # the target midpoint
+productivity_trend_quarters: 20 # 5-year backward average of y/y productivity growth
+sigma_eta: 0.15                 # pp per quarter: how fast u* may move (fixed, as for the UK)
+sigma_u: 0.05                   # Labour Force sampling noise, quarterly average, pp (confirm)
+max_gap_persistence: 0.9        # cap on ρ1 + ρ2
+start: "1999Q1"                 # WPI growth begins in 1998
+unemployment_quarterly: mean    # monthly rate averaged over the quarter (the UK series is already a 3-month average)
+exclude: [["2020Q1", "2021Q4"]] # pandemic swings in pay and unemployment
+band_z: 1.645                   # 90% band shown on the chart

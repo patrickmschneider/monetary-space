@@ -32,6 +32,8 @@ class PathData:
     text: dict | None = None      # country.yaml policy_path
     committee: str = "MPC"
     rate_phrase: str = "Bank Rate"   # mid-sentence with its article: "the fed funds rate"
+    join: pd.Timestamp | None = None    # where a second, longer curve takes over (policy_path.forward_series_long)
+    long_date: pd.Timestamp | None = None
 
 
 def prepare(cfg: Config, data: dict, estimates: dict, stance, as_of: pd.Timestamp) -> PathData | None:
@@ -42,13 +44,17 @@ def prepare(cfg: Config, data: dict, estimates: dict, stance, as_of: pd.Timestam
     start = as_of - pd.DateOffset(years=2)
     br = data[rate_series]
     br = br[(br.index.to_timestamp() >= start)]
-    fwd = {float(k.split(":")[1]): v for k, v in data.items() if k.startswith(f"{text['forward_series']}:")}
     path, priced = pd.Series(dtype=float), as_of
-    if fwd:
-        day = min(v.index[-1] for v in fwd.values())
-        priced = day.to_timestamp()
-        path = pd.Series({priced: float(data[rate_series].dropna().iloc[-1])} | {
-            priced + pd.Timedelta(days=round(m * 365.25)): float(v[day]) for m, v in sorted(fwd.items())})
+    join = long_date = None
+    priced_short, short = _curve(data, text["forward_series"])
+    if len(short):
+        priced = priced_short
+        path = pd.concat([pd.Series({priced: float(data[rate_series].dropna().iloc[-1])}), short])
+        if text.get("forward_series_long"):
+            long_date, long = _curve(data, text["forward_series_long"])
+            long = long[long.index > path.index[-1]]
+            if len(long):
+                join, path = path.index[-1], pd.concat([path, long])
     mpc = pd.to_datetime(cfg.manual["mpc_dates"]["date"])
     end = as_of + pd.DateOffset(years=3)
     return PathData(
@@ -57,7 +63,20 @@ def prepare(cfg: Config, data: dict, estimates: dict, stance, as_of: pd.Timestam
         mpc_dates=[d for d in mpc if start <= d <= end], start=start, end=end,
         rate_name=cfg.weights["stance"]["policy_rate_name"], text=text, committee=cfg.country["committee_short"],
         rate_phrase=cfg.weights["stance"].get("policy_rate_phrase", cfg.weights["stance"]["policy_rate_name"]),
+        join=join, long_date=long_date,
     )
+
+
+def _curve(data: dict, prefix: str) -> tuple[pd.Timestamp | None, pd.Series]:
+    """A forward curve stored as <prefix>:<maturity in years>, read on its latest common day and
+    dated by maturity from that day."""
+    fwd = {float(k.split(":")[1]): v for k, v in data.items() if k.startswith(f"{prefix}:")}
+    if not fwd:
+        return None, pd.Series(dtype=float)
+    day = min(v.index[-1] for v in fwd.values())
+    priced = day.to_timestamp()
+    return priced, pd.Series({priced + pd.Timedelta(days=round(m * 365.25)): float(v[day])
+                              for m, v in sorted(fwd.items()) if day in v.index})
 
 
 def svg(p: PathData) -> str:
@@ -96,6 +115,10 @@ def svg(p: PathData) -> str:
     if len(p.ois_path):
         op = "M" + "L".join(f"{px(t):.1f},{py(v):.1f}" for t, v in p.ois_path.items())
         out.append(f'<path d="{op}" class="ois"/>')
+    if p.join is not None:                       # where the longer curve takes over
+        jx, jy = px(p.join), py(float(p.ois_path[p.join]))
+        out.append(f'<line x1="{jx:.1f}" x2="{jx:.1f}" y1="{jy - 7:.1f}" y2="{jy + 7:.1f}" class="join"/>'
+                   f'<text x="{jx + 4:.1f}" y="{jy - 9:.1f}" class="note">{escape(p.text.get("join_label", "bond forwards"))} →</text>')
     # direct labels at the right edge
     labels = []
     if len(p.ois_path):
@@ -126,7 +149,7 @@ def section(p: PathData | None, number: int, stance) -> str:
     <div>
       <p class="eyebrow">POLICY PATH</p>
       <h2 id="h-path">Where markets expect {escape(p.rate_phrase)} to go</h2>
-      <p class="takeaway">{escape(p.rate_name)} over the past two years and the path {escape(p.text["priced_in"])} on {p.ois_date:%-d %B %Y}, against the nominal neutral zone: the r* zone plus year-ahead expected inflation ({stance.expected_inflation:.1f}%), as in the stance above. Ticks mark {escape(p.committee)} decisions.</p>
+      <p class="takeaway">{escape(p.rate_name)} over the past two years and the path {escape(p.text["priced_in"])} on {p.ois_date:%-d %B %Y}{f" ({escape(p.text.get('long_in', 'beyond'))} {p.long_date:%-d %B %Y})" if p.long_date is not None and p.join is not None else ""}, against the nominal neutral zone: the r* zone plus year-ahead expected inflation ({stance.expected_inflation:.1f}%), as in the stance above. Ticks mark {escape(p.committee)} decisions.</p>
     </div>
   </div>
   <figure class="path-frame">{svg(p)}</figure>
@@ -146,5 +169,6 @@ CSS = """
 .path-chart .mpc{stroke:var(--muted)}
 .path-chart .bank-rate{fill:none;stroke:var(--ink);stroke-width:2}
 .path-chart .ois{fill:none;stroke:var(--ink);stroke-width:1.4}
+.path-chart .join{stroke:var(--muted);stroke-width:1}
 .path-chart .label{font-size:10.5px;fill:var(--fg)}
 """

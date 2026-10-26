@@ -1,0 +1,65 @@
+# Context charts (not scored): the economy at a glance. Series come from indicators.yaml.
+
+since: "2016-01"
+
+charts:
+  - id: cpi
+    title: CPI inflation
+    subtitle: "Consumer prices, % change on a year earlier (monthly from April 2025)"
+    series: AU_CPI_YY
+    transform: level
+    unit: "%"
+    reference: {value: 2.5, label: "2.5% target midpoint"}
+
+  - id: gdp
+    title: GDP growth
+    subtitle: "Real GDP, % change on a year earlier"
+    series: GGDPCVGDP
+    transform: pct_change_12m
+    unit: "%"
+    reference: {value: 0}
+    ylim: [-8, 12]
+
+  - id: unemployment
+    title: Unemployment rate
+    subtitle: "% of the labour force, seasonally adjusted"
+    series: GLFSURSA
+    transform: level
+    unit: "%"
+    reference: {nairu: true, label: "u*"}
+
+  - id: cash_rate
+    title: Cash rate
+    subtitle: "RBA cash rate target, %, end of month"
+    series: AU_CASH_RATE
+    transform: monthly_last
+    unit: "%"
+    decimals: 2
+    step: true
+
+  - id: twi
+    title: Trade-weighted index
+    subtitle: "Australian dollar against trading partners, May 1970 = 100, monthly"
+    series: FXRTWI
+    transform: level
+    unit: ""
+    decimals: 1
+
+# Momentum and context table on the Inflation drivers tab (not scored).
+momentum:
+  - name: Trimmed mean inflation
+    series: [GCPIOCPMTMYP]
+    unit: "%"
+    note: The RBA's main gauge of underlying inflation; year-ended, quarterly
+  - name: Wage Price Index growth
+    series: [GWPIYP]
+    unit: "%"
+    note: Year-ended; about 3½% is consistent with 2.5% inflation at 1% trend productivity growth
+  - name: Economists' 5–10-year inflation expectations
+    series: [JSVIEXPMED]
+    unit: "%"
+    note: Median of the RBA's survey of market economists; the long-run anchor
+  - name: Consumer inflation expectations
+    series: [GCONEXP]
+    unit: "%"
+    note: Year ahead; starts 2022, so not scored (no pre-2020 benchmark)

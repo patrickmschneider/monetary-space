@@ -10,7 +10,7 @@ from pathlib import Path
 import pandas as pd
 
 from . import charts, config, indicators, nairu, releases, render, rstar_suite, stance, store
-from .fetch import fed, fetch, mpc
+from .fetch import fed, fetch, mpc, rba
 
 log = logging.getLogger("monetary_space")
 
@@ -104,7 +104,7 @@ def score_all(cfg: config.Config, data: dict[str, pd.Series], as_of: pd.Timestam
     return inds, blocks, problems
 
 
-CALENDARS = {"uk": mpc, "us": fed}   # country → scraper of meeting dates, decisions and projections
+CALENDARS = {"uk": mpc, "us": fed, "au": rba}   # country → scraper of meeting dates, decisions and projections
 
 
 def refresh_calendar(cfg: config.Config, now: pd.Timestamp) -> None:

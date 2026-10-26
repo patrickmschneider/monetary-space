@@ -42,7 +42,7 @@ class Indicator:
 
 
 def _benchmark(spec: dict, x: pd.Series, cfg: Config, as_of: pd.Timestamp,
-               estimates: dict) -> tuple[float | pd.Series, str]:
+               estimates: dict, data: dict | None = None) -> tuple[float | pd.Series, str]:
     """A constant, or a time-varying series (the estimated u*), with a label for the tooltip."""
     m = spec["method"]
     if m == "potential_growth":
@@ -68,6 +68,9 @@ def _benchmark(spec: dict, x: pd.Series, cfg: Config, as_of: pd.Timestamp,
                 label += f"; {cite}: {v:.2f}"
             except (KeyError, ValueError):
                 pass
+        if (c := (data or {}).get(spec.get("compare_series", ""))) is not None and not c.dropna().empty:
+            c = c.dropna()
+            label += f"; {spec.get('compare_label', spec['compare_series'])} {c.index[-1]}: {c.iloc[-1]:.2f}"
         return est.u_star, label
     if m == "value":
         return float(spec["value"]), spec.get("label", "config value")
@@ -114,7 +117,7 @@ def compute(spec: dict, data: dict[str, pd.Series], cfg: Config, as_of: pd.Times
     x = transform.apply(spec["transform"], inputs, drop_last=spec.get("drop_last", 0), weights=spec.get("weights"),
                         params=spec.get("params"))
     x = x[x.index.to_timestamp(how="start") <= as_of]
-    b, b_label = _benchmark(spec["benchmark"], x, cfg, as_of, estimates or {})
+    b, b_label = _benchmark(spec["benchmark"], x, cfg, as_of, estimates or {}, data)
     b_path = _align(b, x) if isinstance(b, pd.Series) else None
     gap = (x - b_path).dropna() if b_path is not None else x - b
     b = float(b_path.iloc[-1]) if b_path is not None else b

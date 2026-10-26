@@ -35,7 +35,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from monetary_space import rstar, trend_cycle  # noqa: E402
-from monetary_space.fetch import boe, fed, fred, ons  # noqa: E402
+from monetary_space.fetch import boe, fed, fred, ons, rba  # noqa: E402
 from monetary_space.fetch.http import session  # noqa: E402
 
 WEIGHTS = {"trend_cycle": 0.40, "hlw": 0.25, "survey": 0.35}
@@ -62,6 +62,18 @@ COUNTRY = {
         ma_name="10-year average real fed funds rate",
         ma_basis="Fed funds target minus households' 1-year expectations (Michigan, re-centred), trailing 40 quarters",
         method="Suite of r* estimators, weighted (trend-cycle 0.40, HLW 0.25, Survey of Market Expectations 0.35) over "
+               "those that pass diagnostics; range spans the core estimates. Same method as the UK edition."),
+    "au": dict(
+        start="1993Q1", elb=[("2020Q2", "2022Q1")], post_from=None, survey="economists", rate="the cash rate",
+        tc_basis="Del Negro et al.-style: common trends in the cash rate, CPI inflation and 10-year nominal and indexed government bond yields",
+        hlw_bound="excluded: IS slope at its bound, so r* is not identified",
+        survey_name="RBA survey of market economists", forecast="SMP",
+        fwd_name="10-year indexed bond yield",
+        fwd_basis="Australian Government indexed bond, 10 years (RBA F2); includes term and liquidity premia",
+        ma_name="10-year average real cash rate",
+        ma_basis="Cash rate target minus market economists' 1-year expectations (re-centred), trailing 40 quarters",
+        target=2.5,
+        method="Suite of r* estimators, weighted (trend-cycle 0.40, HLW 0.25, market economists' survey 0.35) over "
                "those that pass diagnostics; range spans the core estimates. Same method as the UK edition."),
 }
 MAPS_PAGE = "https://www.bankofengland.co.uk/markets/market-intelligence/survey-results/{y}market-participants-survey-results-{m}-{yy}"
@@ -140,8 +152,33 @@ def load_us() -> dict:
     }
 
 
+def load_au() -> dict:
+    """GDP, trimmed mean, CPI inflation, the cash rate, 10-year nominal (OECD) and indexed (RBA) yields,
+    market economists' 1-year expectations."""
+    q = rstar.quarterly_mean
+    cash = rba.series("f1.1-data", "FIRMMCRT", "M")
+    return {
+        "gdp": rba.series("h1-data", "GGDPCVGDP", "Q"),
+        "core_idx": rba.index_from_growth("g1-data", "GCPIOCPMTMQP"),
+        "cpi_yy": rba.series("g1-data", "GCPIAGYP", "Q"),
+        "bank": cash,
+        "yn10": fred.series("IRLTLT01AUM156N", "M"), "yr10": rba.series("f2.1-data", "FCMYGBAGI", "M"),
+        "ias": rba.series("g3-data", "GMAREXPY", "Q"),
+        "q": q,
+    }
+
+
+def economists_history() -> pd.DataFrame:
+    """The RBA survey of market economists (table J1): median nominal neutral rate and potential growth."""
+    df = pd.DataFrame({"neutral": rba.series("j1-star-variables", "JSVNNIREMED", "M"),
+                       "neutral_p25": rba.series("j1-star-variables", "JSVNNIRELO", "M"),
+                       "neutral_p75": rba.series("j1-star-variables", "JSVNNIREHI", "M"),
+                       "potential": rba.series("j1-star-variables", "JSVPGDPEMED", "M")})
+    return df.dropna(subset=["neutral"])
+
+
 def survey_history(country: str) -> pd.DataFrame:
-    return maps_history() if country == "uk" else fed.sme_history()
+    return {"uk": maps_history, "us": fed.sme_history, "au": economists_history}[country]()
 
 
 # ------------------------------------------------------------------ estimators
@@ -155,24 +192,25 @@ def run_trend_cycle(d: dict, c: dict, sd_r: float = 0.05, sd_pi: float = 0.0707)
 
 
 def run_hlw(d: dict, c: dict) -> rstar.Estimate:
-    spec = {"start": c["start"], "exclude": [], "deflator": "household"}
+    spec = {"start": c["start"], "exclude": [], "deflator": "household", "target": c.get("target", 2.0)}
     y, pi, r, idx = rstar.build_inputs(d["gdp"], d["core_idx"], d["bank"], spec, d["ias"])
     est = rstar.estimate(y, pi, r, lam_g=0.05, lam_z=0.0, ar=None, elb=c["elb"])
     return est
 
 
 def market_forward(d: dict) -> pd.Series:
-    """Real 5y5y forward from index-linked gilt spot rates (continuous compounding)."""
-    f = (10 * d["yr10"] - 5 * d["yr5"]) / 5
+    """Real 5y5y forward from index-linked spot rates (continuous compounding); where there is no
+    5-year real yield (Australia), the 10-year real yield itself."""
+    f = (10 * d["yr10"] - 5 * d["yr5"]) / 5 if "yr5" in d else d["yr10"]
     return d["q"](f)
 
 
-def real_rate_ma(d: dict) -> pd.Series:
-    """10-year trailing average of Bank Rate minus households' re-centred 1-year expectations."""
+def real_rate_ma(d: dict, target: float = 2.0) -> pd.Series:
+    """10-year trailing average of the policy rate minus households' re-centred 1-year expectations."""
     q = d["q"]
     core = rstar.quarterly_mean(rstar.seasonally_adjust(d["core_idx"]))
     pi = ((core / core.shift(1)) ** 4 - 1) * 100
-    real = q(d["bank"]) - rstar.expected_inflation(pi, d["ias"])
+    real = q(d["bank"]) - rstar.expected_inflation(pi, d["ias"], target)
     return real.rolling(40).mean().dropna()
 
 
@@ -203,7 +241,7 @@ def expected_inflation_at(dates: pd.PeriodIndex, country: str) -> pd.Series:
     out = []
     for p in dates:
         prior = path[path.index <= p.end_time]
-        out.append(float(prior.iloc[-1]) if len(prior) else 2.0)
+        out.append(float(prior.iloc[-1]) if len(prior) else COUNTRY[country].get("target", 2.0))
     return pd.Series(out, index=dates)
 
 
@@ -212,7 +250,7 @@ def main(country: str = "uk") -> None:
     c = COUNTRY[country]
     key = c["survey"]
     weights = {"trend_cycle": WEIGHTS["trend_cycle"], "hlw": WEIGHTS["hlw"], key: WEIGHTS["survey"]}
-    d = load_uk() if country == "uk" else load_us()
+    d = {"uk": load_uk, "us": load_us, "au": load_au}[country]()
     tc = run_trend_cycle(d, c)
     tc_loose = run_trend_cycle(d, c, 0.10, 0.1414)
     hlw = run_hlw(d, c)
@@ -222,7 +260,7 @@ def main(country: str = "uk") -> None:
         print(f"{c['survey_name']} unavailable:", e)
         maps = None
     fwd = market_forward(d)
-    ma = real_rate_ma(d)
+    ma = real_rate_ma(d, c.get("target", 2.0))
 
     est = {
         "trend_cycle": {"name": "Trend-cycle model", "role": "long-run", "value": float(tc.r_bar.iloc[-1]),

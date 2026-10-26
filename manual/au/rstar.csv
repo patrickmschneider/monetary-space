@@ -1,0 +1,5 @@
+source,author,date,low,high,basis,url,notes
+RBA survey of market economists Aug 2026,Market economists (median),2026-08-01,1.3,1.3,real (converted from nominal 3.8%),https://www.rba.gov.au/statistics/tables/csv/j1-star-variables.csv,"Median nominal neutral interest rate 3.8% (mean 3.7, low 2.5, high 4.3, n=31; table J1, JSVNNIREMED). Real = nominal - 2.5 (the target midpoint) here; the suite deflates with the SMP year-ahead forecast instead"
+SMP Aug 2026 Financial Conditions,RBA staff models,2026-08-11,,,nominal (range shown in Graph 1.2 only),https://www.rba.gov.au/publications/smp/2026/aug/financial-conditions.html,"'The cash rate is at the top of the range of model-based central estimates of neutral' (cash rate then 4.35%). No figures in the text, so not tabulated"
+# Published neutral rate (r*) estimates for comparison, real %. Not used in the headline. Checked by the team: NO (confirm).
+# basis says where a nominal figure was converted to real by subtracting the 2.5% target midpoint. Rows without numbers are kept for reference.
