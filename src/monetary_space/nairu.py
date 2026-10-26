@@ -156,7 +156,9 @@ def quarterly(x: pd.Series) -> pd.Series:
 
 
 def quarterly_mean(x: pd.Series) -> pd.Series:
-    """Monthly → quarterly average, complete quarters only."""
+    """Monthly → quarterly average, complete quarters only. Quarterly series pass through."""
+    if x.index.freqstr.startswith("Q"):
+        return x
     g = x.groupby(x.index.asfreq("Q"))
     return g.mean()[g.size() == 3]
 
@@ -170,6 +172,8 @@ def build_inputs(pay_level: pd.Series, unemp: pd.Series, household_exp: pd.Serie
     """
     wq = quarterly_mean(pay_level)
     w = ((wq / wq.shift(1)) ** 4 - 1) * 100
+    if household_exp.index.freqstr == "M":                     # monthly surveys (Michigan) to quarterly
+        household_exp = quarterly_mean(household_exp)
     hh = household_exp - (household_exp[household_exp.index.year < 2020].mean() - spec["recentre_expectations_to"])
     pie = spec["household_weight"] * hh + (1 - spec["household_weight"]) * quarterly_mean(cpi).shift(spec["cpi_lag_quarters"])
     growth = (productivity / productivity.shift(4) - 1) * 100

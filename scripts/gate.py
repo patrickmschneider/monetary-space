@@ -7,6 +7,8 @@ run that starts late still counts. Every run builds every edition.
 
   uk  07:10 daily           cron "10 6 * * *" (BST) and "10 7 * * *" (GMT)
   uk  12:15 on MPC days     cron "15 11 * * *" (BST) and "15 12 * * *" (GMT)
+  us  08:45 daily           cron "45 12 * * *" (EDT) and "45 13 * * *" (EST)   after the 08:30 releases
+  us  14:15 on FOMC days    cron "15 18 * * *" (EDT) and "15 19 * * *" (EST)   after the 14:00 statement
 
 Usage: python scripts/gate.py <event_name> [<cron>]
 """
@@ -34,6 +36,8 @@ class Slot(NamedTuple):
 SLOTS = [
     Slot("uk", "Europe/London", (7, 10), False, "07:10 UK daily build"),
     Slot("uk", "Europe/London", (12, 15), True, "12:15 UK MPC-day build"),
+    Slot("us", "America/New_York", (8, 45), False, "08:45 New York daily build"),
+    Slot("us", "America/New_York", (14, 15), True, "14:15 New York FOMC-day build"),
 ]
 
 

@@ -1,4 +1,5 @@
 """Country editions: config per country, store layout, edition switch, build isolation."""
+import re
 import shutil
 from pathlib import Path
 
@@ -85,3 +86,21 @@ def test_an_edition_that_cannot_build_stops_the_deploy_after_the_others(monkeypa
     with pytest.raises(SystemExit, match="au"):
         build.run_all(ROOT, tmp_path, tmp_path, True, ["uk", "au", "us"])
     assert built == ["uk", "us"]
+
+
+UK_WORDS = ("Bank Rate", "Bank of England", "MPC", "MPR", "gilt", "ONS", "sterling", "SONIA", "Ofgem", "£", "LFS", "PAYE")
+
+
+def test_us_edition_loads_and_has_no_uk_wording():
+    cfg = config.load(ROOT, "us")
+    assert cfg.country["path"] == "us/" and len(cfg.indicators) <= config.MAX_SCORED
+    text = " ".join(str(v) for v in [cfg.country, cfg.indicators, cfg.charts, cfg.weights["stance"], cfg.series])
+    text = text.replace("UK edition", "")                     # deliberate cross-references
+    assert [w for w in UK_WORDS if re.search(rf"(?<!\w){re.escape(w)}(?!\w)", text)] == []
+
+
+def test_every_edition_builds_its_switch_entry():
+    ids = [c["id"] for c in config.countries(ROOT)]
+    assert ids[0] == "uk" and "us" in ids
+    for c in config.countries(ROOT):
+        assert c["path"] == ("" if c["id"] == "uk" else f"{c['id']}/")

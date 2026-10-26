@@ -21,6 +21,7 @@ def session() -> requests.Session:
 
 
 def get(url: str, **kwargs) -> requests.Response:
-    r = session().get(url, timeout=TIMEOUT, **kwargs)
+    kwargs.setdefault("timeout", TIMEOUT)
+    r = session().get(url, **kwargs)
     r.raise_for_status()
     return r

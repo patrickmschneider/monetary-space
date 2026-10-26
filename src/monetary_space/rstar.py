@@ -32,6 +32,7 @@ from scipy.optimize import minimize
 from .nairu import kalman, smooth
 
 AR_MAX, BY_MIN = -0.0025, 0.025
+UK_ELB = [("2009Q1", "2021Q4")]   # quarters with the policy rate at its effective lower bound
 
 
 @dataclass
@@ -50,7 +51,7 @@ class Params:
     k_elb: float = 1.0
 
 
-def _scales(idx: pd.PeriodIndex, p: Params) -> tuple[np.ndarray, np.ndarray]:
+def _scales(idx: pd.PeriodIndex, p: Params, elb=UK_ELB) -> tuple[np.ndarray, np.ndarray]:
     """Per-quarter multipliers on the IS (y) and Phillips-curve (π) shock s.d."""
     ky, kp = np.ones(len(idx)), np.ones(len(idx))
     for i, q in enumerate(idx):
@@ -60,13 +61,13 @@ def _scales(idx: pd.PeriodIndex, p: Params) -> tuple[np.ndarray, np.ndarray]:
             ky[i] = kp[i] = p.k2021
         elif q.year == 2022:
             ky[i] = kp[i] = p.k2022
-        if pd.Period("2009Q1", "Q") <= q <= pd.Period("2021Q4", "Q"):
+        if any(pd.Period(lo, "Q") <= q <= pd.Period(hi, "Q") for lo, hi in elb):
             ky[i] *= p.k_elb
     return ky, kp
 
 
 def system(y, pi, r, p: Params, lam_g: float, lam_z: float, c: float, x0: np.ndarray, p0: np.ndarray,
-           idx: pd.PeriodIndex | None = None):
+           idx: pd.PeriodIndex | None = None, elb=UK_ELB):
     n = len(y)
     ylag1, ylag2 = np.r_[np.nan, y[:-1]], np.r_[np.nan, np.nan, y[:-2]]
     rlag1, rlag2 = np.r_[np.nan, r[:-1]], np.r_[np.nan, np.nan, r[:-2]]
@@ -93,7 +94,7 @@ def system(y, pi, r, p: Params, lam_g: float, lam_z: float, c: float, x0: np.nda
     if idx is None:
         H = np.diag([p.sig1 ** 2, p.sig2 ** 2])
     else:
-        ky, kp = _scales(idx, p)
+        ky, kp = _scales(idx, p, elb)
         H = np.zeros((n, 2, 2))
         H[:, 0, 0], H[:, 1, 1] = (p.sig1 * ky) ** 2, (p.sig2 * kp) ** 2
     return Y, Z, d, T, RQR, H, x0, p0
@@ -125,7 +126,7 @@ class Estimate:
 
 
 def estimate(y: pd.Series, pi: pd.Series, r: pd.Series, lam_g: float, lam_z: float,
-             ar: float | None = None, c: float = 4.0) -> Estimate:
+             ar: float | None = None, c: float = 4.0, elb=UK_ELB) -> Estimate:
     idx = y.index
     yv, pv, rv = y.to_numpy(float), pi.reindex(idx).to_numpy(float), r.reindex(idx).to_numpy(float)
     first = np.flatnonzero(np.isfinite(yv))[:20]
@@ -137,7 +138,7 @@ def estimate(y: pd.Series, pi: pd.Series, r: pd.Series, lam_g: float, lam_z: flo
         p = _unpack(th, ar)
         if not (p.a1 + p.a2 < 0.98 and abs(p.a2) < 1) or max(p.k2020, p.k2021, p.k2022, p.k_elb) > 50:
             return 1e10
-        return -kalman(*system(yv, pv, rv, p, lam_g, lam_z, c, x0, p0, idx)).loglik
+        return -kalman(*system(yv, pv, rv, p, lam_g, lam_z, c, x0, p0, idx, elb)).loglik
 
     base = [np.log(3.0), np.log(1.0), np.log(0.5), np.log(0.5)]
     starts = ([1.3, -0.4, 0.5, np.log(0.05), np.log(0.5), np.log(1.0), np.log(0.5), np.log(0.05)] + base,
@@ -147,7 +148,7 @@ def estimate(y: pd.Series, pi: pd.Series, r: pd.Series, lam_g: float, lam_z: flo
                          options={"maxiter": 40000, "xatol": 1e-7, "fatol": 1e-9}) for s in starts),
                key=lambda res: res.fun)
     p = _unpack(best.x, ar)
-    Y, Z, d, T, RQR, H, _, _ = system(yv, pv, rv, p, lam_g, lam_z, c, x0, p0, idx)
+    Y, Z, d, T, RQR, H, _, _ = system(yv, pv, rv, p, lam_g, lam_z, c, x0, p0, idx, elb)
     k = kalman(Y, Z, d, T, RQR, H, x0, p0)
     s, Ps = smooth(k, T)
     w = np.zeros(7)

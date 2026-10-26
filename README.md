@@ -26,7 +26,7 @@ python -m monetary_space build --no-fetch   # rebuild from the latest stored vin
 open site/index.html
 ```
 
-Local runs store vintages in `store/` (ignored by git). Put `FRED_API_KEY=...` in a `.env` file for sources that need it (from Phase 2).
+Local runs store vintages in `store/` (ignored by git). FRED series use the API when `FRED_API_KEY` is set (in `.env` locally, a repository secret on GitHub) and FRED's public CSV download otherwise.
 
 ## How it fits together
 
@@ -124,9 +124,30 @@ Not scored, shown as momentum and context: services CPI, core CPI, private pay, 
 | --- | --- |
 | Daily, 07:10 UK, and on every push | All data re-fetched; indicators, u*, pressure, stance, verdict and all three tabs rebuilt. MPC dates, decisions and MPR projections are read from the Bank of England website |
 | 12:15 UK on MPC days (dates from the Bank's calendar page) | The same, so a decision and a new MPR projection show the same afternoon |
+| Daily, 08:45 New York, and 14:15 on FOMC days | The same for every edition, timed for US releases (08:30) and FOMC statements (14:00). FOMC dates, decisions and SEP projections are read from federalreserve.gov |
 | Mondays 05:00 UTC (`estimate.yml`) | The r* suite, estimated weights, cost-push multiplier and decompositions re-estimated; the MPC calendar, decisions and MPR projections written into `manual/uk/mpc_dates.csv` and `manual/uk/mpr.csv`; all committed, which triggers a rebuild |
 
 Still manual: the Känzig oil-shock vintage in `analysis/passthrough_lp.py` (about twice a year) and the published r* comparison table (`manual/uk/rstar.csv`). If the Bank changes a page layout, the build falls back to the CSV files and logs a warning.
+
+## US edition
+
+Built 2026-10-26 at `us/`; not yet in the country switch (`published: false` in `config/us/country.yaml`) until the team has reviewed it. Same method as the UK, with US data:
+
+- **Target and stance.** Scored against what the Fed targets: 2% headline PCE. The policy rate is the midpoint of the FOMC's target range; expected inflation is the SEP median PCE projection for the quarter a year ahead, interpolated between the Q4/Q4 calendar-year medians (`src/monetary_space/fetch/fed.py`).
+- **Indicators** (`config/us/indicators.yaml`). Firms' expected unit-cost growth (Atlanta Fed), Michigan year-ahead expectations, the 5-year TIPS breakeven; unemployment, job openings per unemployed, payrolls, GDP, capacity utilization; unit labor costs and productivity; Brent, Henry Hub natural gas, the broad dollar and non-fuel import prices. Series that start before 1990 are measured from 1990.
+- **r\* suite** (`python analysis/rstar_suite.py --country us`). Trend-cycle 0.53%, repaired HLW 1.17% (identified for the US, unlike the UK), NY Fed Survey of Market Expectations longer-run rate deflated by the SEP projection 0.48%: headline 0.75%, range 0.25–1.25% (26 Oct 2026). The NY Fed's own HLW (1.01%) and the SEP longer-run rate are listed for comparison only.
+- **Policy path.** No free daily OIS curve: Treasury bill forwards to one year, then instantaneous forwards from the Fed staff (Gürkaynak–Sack–Wright) curve. They include term premia.
+- **u\* is the FOMC's, not estimated.** The UK filter does not identify u\* on US data: the wage Phillips curve is flat (β 0.00–0.24).
+
+  | Setting | u\* 2026Q2 | 2019Q4 | 90% band |
+  | --- | --- | --- | --- |
+  | ECI wages, end-of-quarter unemployment | 3.39 | 4.01 | ±1.12 |
+  | ECI wages, quarterly-average unemployment | 5.31 | 5.56 | ±1.54 |
+  | Average hourly earnings from 1990 | 5.08 (2026Q3) | 5.40 | ±1.51 |
+  | Average hourly earnings from 1985 | 5.14 (2026Q3) | 5.52 | ±1.42 |
+
+  Most settings put u\* near the sample mean of unemployment, above actual unemployment in 2019 (3.6%). Owner's decision (26 Oct 2026): the unemployment indicator uses the FOMC's longer-run median (4.2% in the September SEP, updated automatically), unless a better-identified estimate is found.
+- **Not yet built for the US:** estimated Bernanke–Blanchard weights (only the literature weighting is shown), the state-dependent cost-push ratio (the default 2.0 is used and labelled as such) and the three decompositions on the Inflation drivers tab.
 
 ## How new is each number
 

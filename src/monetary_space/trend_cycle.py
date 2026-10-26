@@ -63,15 +63,17 @@ def system(Y: np.ndarray, post: np.ndarray, th: np.ndarray, sd_r: float, sd_pi: 
     return Y, Z, d, T, RQR, H, a0, P0
 
 
-def estimate(df: pd.DataFrame, sd_r: float = 0.05, sd_pi: float = 0.0707, elb=("2009Q1", "2021Q4"),
-             rho_max: float = 0.9) -> Estimate:
+def estimate(df: pd.DataFrame, sd_r: float = 0.05, sd_pi: float = 0.0707, elb=(("2009Q1", "2021Q4"),),
+             rho_max: float = 0.9, post_from: str | None = "2020Q4") -> Estimate:
     """rho_max caps cycle persistence: uncapped, ML pushes the cycles to a unit root and they
-    absorb the low-frequency movement that the trend should capture (the pile-up problem)."""
+    absorb the low-frequency movement that the trend should capture (the pile-up problem).
+    elb: quarters with the policy rate at its lower bound (treated as missing). post_from: the
+    quarter the real-yield wedge shifts (the UK RPI reform); None for no shift."""
     d = df[OBS].copy()
-    lo, hi = pd.Period(elb[0], "Q"), pd.Period(elb[1], "Q")
-    d.loc[(d.index >= lo) & (d.index <= hi), "R"] = np.nan
+    for lo, hi in elb:
+        d.loc[(d.index >= pd.Period(lo, "Q")) & (d.index <= pd.Period(hi, "Q")), "R"] = np.nan
     Y = d.to_numpy(float)
-    post = (d.index >= pd.Period("2020Q4", "Q")).astype(float)
+    post = (d.index >= pd.Period(post_from, "Q")).astype(float) if post_from else np.zeros(len(d))
 
     def nll(th):
         return -kalman(*system(Y, post, th, sd_r, sd_pi, rho_max)).loglik

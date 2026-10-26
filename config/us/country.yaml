@@ -1,0 +1,37 @@
+# Country edition: institutional names and page wording (see config/uk/country.yaml).
+
+id: us
+name: US
+order: 3
+published: false                 # appears in the edition switch once it passes acceptance (docs/PLAN_countries.md §6)
+path: us/
+lang: en-US
+time_zone: America/New_York
+time_label: New York time
+tagline: A GUIDE TO US MONETARY POLICY
+description: "Monetary Space: a guide to US monetary policy"
+eyebrow: US MONETARY POLICY
+
+central_bank: Federal Reserve
+committee_short: FOMC
+forecast_short: SEP              # Summary of Economic Projections ("SEP September 2026")
+
+target:                          # what the Fed targets: 2% PCE inflation
+  measure: PCE
+  point: 2.0
+headline_series: PCE_YY
+
+release_note: "Release dates are the day a scheduled build (08:45 New York time daily, and 14:15 on FOMC days) first picked the data up: the release day itself for 08:30 releases, and usually no more than a day late otherwise."
+
+policy_path:
+  forward_series: UST_FWD
+  priced_in: implied by Treasury forward rates (bills to one year, the Fed staff fitted curve beyond)
+  note: "There is no free daily OIS curve for the United States, so the path uses Treasury forwards. They include term premia, and bill yields can sit below the federal funds rate (a convenience yield), so the path is indicative. The neutral zone uses expected inflation over the next year; further ahead it is only indicative."
+  sources: "Federal Reserve Board (Gürkaynak, Sack and Wright fitted Treasury curve); U.S. Treasury via FRED; Monetary Space estimates of r*"
+
+rstar_page:
+  note: "The suite is re-estimated weekly. The Survey of Market Expectations reports the longer-run federal funds rate in nominal terms; it is converted to real with the same year-ahead expected inflation as the policy rate. The TIPS forward includes term and liquidity premia and is shown only. The New York Fed's own Holston–Laubach–Williams estimate is listed below for comparison, not used."
+  sources: "Federal Reserve Board (fitted Treasury and TIPS curves, SEP); Federal Reserve Bank of New York (Survey of Market Expectations); BEA and BLS via FRED; Monetary Space estimates"
+  chart_title: "r*: the trend-cycle estimate and the TIPS market"
+  chart_subtitle: "Real, %. Line: TIPS 5y5y real forward (includes term premia). Dashed with band: trend-cycle r̄ ± 1 s.e."
+  chart_source: "Federal Reserve Board; Monetary Space estimates"

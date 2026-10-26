@@ -1,0 +1,35 @@
+# FOMC announcement dates (the second day), the target range midpoint decided (bank_rate column) and the vote.
+# Read from the FOMC calendar and statements by src/monetary_space/fetch/fed.py; mpr = Y at SEP meetings.
+date,bank_rate,vote,mpr,source_url
+2024-01-31,5.375,12-0: 12 hold,N,https://www.federalreserve.gov/newsevents/pressreleases/monetary20240131a.htm
+2024-03-20,5.375,12-0: 12 hold,Y,https://www.federalreserve.gov/newsevents/pressreleases/monetary20240320a.htm
+2024-05-01,5.375,12-0: 12 hold,N,https://www.federalreserve.gov/newsevents/pressreleases/monetary20240501a.htm
+2024-06-12,5.375,12-0: 12 hold,Y,https://www.federalreserve.gov/newsevents/pressreleases/monetary20240612a.htm
+2024-07-31,5.375,12-0: 12 hold,N,https://www.federalreserve.gov/newsevents/pressreleases/monetary20240731a.htm
+2024-09-18,4.875,11-1: 11 cut; 1 preferred to lower the range by 0.25pp (Bowman),Y,https://www.federalreserve.gov/newsevents/pressreleases/monetary20240918a.htm
+2024-11-07,4.625,12-0: 12 cut,N,https://www.federalreserve.gov/newsevents/pressreleases/monetary20241107a.htm
+2024-12-18,4.375,11-1: 11 cut; 1 preferred to maintain the range at 4.5 to 4.75 percent (Hammack),Y,https://www.federalreserve.gov/newsevents/pressreleases/monetary20241218a.htm
+2025-01-29,4.375,12-0: 12 hold,N,https://www.federalreserve.gov/newsevents/pressreleases/monetary20250129a.htm
+2025-03-19,4.375,11-0: 11 hold,Y,https://www.federalreserve.gov/newsevents/pressreleases/monetary20250319a.htm
+2025-05-07,4.375,12-0: 12 hold,N,https://www.federalreserve.gov/newsevents/pressreleases/monetary20250507a.htm
+2025-06-18,4.375,12-0: 12 hold,Y,https://www.federalreserve.gov/newsevents/pressreleases/monetary20250618a.htm
+2025-07-30,4.375,"9-2: 9 hold; 2 preferred to lower the range by 0.25pp (Bowman, Waller)",N,https://www.federalreserve.gov/newsevents/pressreleases/monetary20250730a.htm
+2025-09-17,4.125,11-1: 11 cut; 1 preferred to lower the range by 0.5pp (Miran),Y,https://www.federalreserve.gov/newsevents/pressreleases/monetary20250917a.htm
+2025-10-29,3.875,10-2: 10 cut; 1 preferred to lower the range by 0.5pp (Miran); 1 preferred no change to the range (Schmid),N,https://www.federalreserve.gov/newsevents/pressreleases/monetary20251029a.htm
+2025-12-10,3.625,"9-3: 9 cut; 1 preferred to lower the range by 0.5pp (Miran); 2 preferred no change to the range (Goolsbee, Schmid)",Y,https://www.federalreserve.gov/newsevents/pressreleases/monetary20251210a.htm
+2026-01-28,3.625,"10-2: 10 hold; 2 preferred to lower the range by 0.25pp (Miran, Waller)",N,https://www.federalreserve.gov/newsevents/pressreleases/monetary20260128a.htm
+2026-03-18,3.625,11-1: 11 hold; 1 preferred to lower the range by 0.25pp (Miran),Y,https://www.federalreserve.gov/newsevents/pressreleases/monetary20260318a.htm
+2026-04-29,3.625,"8-4: 8 hold; 1 preferred to lower the range by 0.25pp (Miran); 3 supported maintaining the range but did not support inclusion of an easing bias in the statement at this time (Hammack, Kashkari, Logan)",N,https://www.federalreserve.gov/newsevents/pressreleases/monetary20260429a.htm
+2026-06-17,3.625,12-0: 12 hold,Y,https://www.federalreserve.gov/newsevents/pressreleases/monetary20260617a.htm
+2026-07-29,3.625,"9-3: 9 hold; 3 preferred to raise the range by 0.25pp (Hammack, Kashkari, Logan)",N,https://www.federalreserve.gov/newsevents/pressreleases/monetary20260729a.htm
+2026-09-16,3.875,12-0: 12 raise,Y,https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm
+2026-10-28,,,N,
+2026-12-09,,,Y,
+2027-01-27,,,N,
+2027-03-17,,,Y,
+2027-04-28,,,N,
+2027-06-09,,,Y,
+2027-07-28,,,N,
+2027-09-15,,,Y,
+2027-10-27,,,N,
+2027-12-08,,,Y,

@@ -12,7 +12,7 @@ MAX_SCORED = 14
 DEFAULT_COUNTRY = "uk"
 COUNTRY_FIELDS = ("id", "name", "order", "published", "path", "lang", "time_zone", "time_label", "tagline",
                   "description", "eyebrow", "central_bank", "committee_short", "forecast_short", "target",
-                  "headline_series")
+                  "headline_series", "release_note", "policy_path", "rstar_page")
 # Phillips-curve terms: π = expectations + slack (demand, supply) + cost-push. P is policy stance.
 BLOCKS = ("E", "D", "S", "C")
 BLOCK_TITLES = {

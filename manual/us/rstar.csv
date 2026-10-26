@@ -1,0 +1,6 @@
+source,author,date,low,high,basis,url,notes
+NY Fed HLW estimate (2026Q2),Holston-Laubach-Williams (FRBNY),2026-04-01,1.01,1.01,real (one-sided estimate),https://www.newyorkfed.org/research/policy/rstar,"US natural rate r* for 2026Q2 from Holston_Laubach_Williams_current_estimates.xlsx (1.0086). Dated by the quarter estimated, not the release"
+SEP Sep 2026 longer-run fed funds rate,FOMC participants (median),2026-09-16,1.2,1.2,real (converted from nominal 3.2%),https://www.federalreserve.gov/monetarypolicy/fomcprojtabl20260916.htm,"Longer-run federal funds rate median 3.2%; longer-run PCE inflation 2.0%. Real = 3.2 - 2"
+Survey of Market Expectations Sep 2026,Market participants (median),2026-09-02,1.13,1.13,real (converted from nominal 3.13%),https://www.newyorkfed.org/markets/market-intelligence/survey-of-market-expectations,"Longer-run federal funds rate, combined panel median 3.13% (n=62; 25th-75th 3.10-3.50). Real = nominal - 2 here; the suite deflates with the SEP year-ahead projection instead"
+# Published real neutral rate (r*) estimates for comparison, %. Not used in the headline. Rows checked by the team: NO (confirm).
+# basis says where a nominal figure was converted to real by subtracting 2 (the longer-run inflation goal).

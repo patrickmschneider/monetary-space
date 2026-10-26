@@ -10,7 +10,7 @@ from pathlib import Path
 import pandas as pd
 
 from . import charts, config, indicators, nairu, releases, render, rstar_suite, stance, store
-from .fetch import fetch, mpc
+from .fetch import fed, fetch, mpc
 
 log = logging.getLogger("monetary_space")
 
@@ -50,7 +50,7 @@ def fetch_all(cfg: config.Config, previous: dict[str, pd.Series], run_at: str) -
 def estimate_all(cfg: config.Config, data: dict[str, pd.Series]) -> tuple[dict, list[str]]:
     """Model-based benchmarks. A failure disables only the indicators that use them."""
     estimates, problems = {}, []
-    if cfg.nairu:
+    if cfg.nairu and cfg.nairu.get("enabled", True):
         try:
             est = nairu.from_config(data, cfg.nairu)
             estimates["nairu"] = est
@@ -104,7 +104,7 @@ def score_all(cfg: config.Config, data: dict[str, pd.Series], as_of: pd.Timestam
     return inds, blocks, problems
 
 
-CALENDARS = {"uk": mpc}   # country → scraper of meeting dates, decisions and projections
+CALENDARS = {"uk": mpc, "us": fed}   # country → scraper of meeting dates, decisions and projections
 
 
 def refresh_calendar(cfg: config.Config, now: pd.Timestamp) -> None:

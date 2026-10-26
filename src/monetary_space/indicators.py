@@ -72,8 +72,8 @@ def _benchmark(spec: dict, x: pd.Series, cfg: Config, as_of: pd.Timestamp,
     if m == "value":
         return float(spec["value"]), spec.get("label", "config value")
     if m == "pre2020_mean":
-        sample = transform.pre2020(x)
-        return transform.pre2020_mean(x), f"mean {sample.index[0]}–{sample.index[-1]}"
+        sample = transform.pre2020(x, spec.get("since"))
+        return transform.pre2020_mean(x, spec.get("since")), f"mean {sample.index[0]}–{sample.index[-1]}"
     if m == "manual":
         v, cite = manual_value(cfg, spec["field"], as_of)
         return v, f"{spec.get('label', spec['field'])} ({cite})"

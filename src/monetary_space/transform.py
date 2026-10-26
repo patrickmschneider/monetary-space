@@ -39,6 +39,22 @@ def annualised_3m3m(inputs: list[pd.Series]) -> pd.Series:
     return ((s3 / s3.shift(3)) ** 4 - 1).mul(100).dropna()
 
 
+def annualised_qq(inputs: list[pd.Series]) -> pd.Series:
+    """Quarter-on-quarter growth, annualised, in % (for quarterly-only series such as US GDP)."""
+    x = _one(inputs)
+    if not x.index.freqstr.startswith("Q"):
+        raise ValueError("q/q growth needs a quarterly series")
+    return ((x / x.shift(1)) ** 4 - 1).mul(100).dropna()
+
+
+def forward_5y5y(inputs: list[pd.Series]) -> pd.Series:
+    """5-year rate 5 years ahead from [10-year, 5-year] spot rates (continuous compounding)."""
+    if len(inputs) != 2:
+        raise ValueError("forward_5y5y expects [10-year, 5-year]")
+    y10, y5 = inputs
+    return ((10 * y10 - 5 * y5) / 5).dropna()
+
+
 def pct_change_12m(inputs: list[pd.Series]) -> pd.Series:
     x = _one(inputs)
     periods = 12 if x.index.freqstr == "M" else 4
@@ -92,6 +108,8 @@ TRANSFORMS = {
     "level": level,
     "ratio": ratio,
     "annualised_3m3m": annualised_3m3m,
+    "annualised_qq": annualised_qq,
+    "forward_5y5y": forward_5y5y,
     "pct_change_12m": pct_change_12m,
     "growth_3m_yoy": growth_3m_yoy,
     "diff_12m": diff_12m,
@@ -134,8 +152,8 @@ def sample_years(x: pd.Series) -> float:
     return len(x) / per_year
 
 
-def pre2020_mean(x: pd.Series) -> float:
-    sample = pre2020(x)
+def pre2020_mean(x: pd.Series, since: str | None = None) -> float:
+    sample = pre2020(x, since)
     if sample.empty:
         raise ValueError("no pre-2020 observations for a pre-2020 mean")
     return float(sample.mean())

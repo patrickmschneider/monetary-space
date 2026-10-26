@@ -3,7 +3,14 @@ from __future__ import annotations
 
 import pandas as pd
 
-from . import boe, fred, oecd, ons
+from . import boe, fed, fred, oecd, ons
+
+
+def _fred(s: dict) -> pd.Series:
+    x = fred.series(s["code"], s.get("freq", "D"))
+    if s.get("yoy"):                                   # annual rate of an index, % (monthly or quarterly)
+        x = (x / x.shift(12 if s.get("freq") == "M" else 4) - 1).dropna() * 100
+    return x
 
 FETCHERS = {
     "ons_timeseries": lambda s: ons.timeseries(s["uri"], s["freq"]),
@@ -14,7 +21,11 @@ FETCHERS = {
     "boe_iadb": lambda s: boe.iadb(s["code"], s.get("start", "01/Jan/1990")),
     "ons_sap_gas": lambda s: ons.sap_gas(s["uri"]),
     "oecd_cli": lambda s: oecd.cli(s["areas"], s.get("start", "1985-01")),
-    "fred": lambda s: fred.series(s["code"], s.get("freq", "D")),
+    "fred": _fred,
+    "fed_funds_target": lambda s: fred.fed_funds_target(),
+    "treasury_forwards": lambda s: fed.treasury_forwards(s["maturities"], s.get("since", "2024-01-01")),
+    "atlanta_bie": lambda s: fed.bie(),
+    "gsw_yield": lambda s: fed.gsw_yields([s["column"]], real=s.get("real", False))[s["column"]],
     "boe_ois_spot": lambda s: boe.ois_spot(s["maturity"]),
     "boe_ois_forwards": lambda s: boe.ois_forwards(s["maturities"], s.get("since", "2024-01-01")),
 }

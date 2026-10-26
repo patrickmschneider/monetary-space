@@ -1,6 +1,8 @@
-"""Policy path chart: Bank Rate for the past two years, the market path implied by the OIS
-forward curve, the nominal neutral zone (the r* zone plus year-ahead expected inflation, as in
-the Stance block) and MPC dates as ticks. Greyscale: stance is never coloured.
+"""Policy path chart: the policy rate for the past two years, the market path implied by a
+forward curve (OIS for the UK, government bonds where there is no free OIS curve), the nominal
+neutral zone (the r* zone plus year-ahead expected inflation, as in the Stance block) and
+decision dates as ticks. Wording per edition: country.yaml policy_path. Greyscale: stance is
+never coloured.
 """
 from __future__ import annotations
 
@@ -26,20 +28,26 @@ class PathData:
     mpc_dates: list[pd.Timestamp]
     start: pd.Timestamp
     end: pd.Timestamp
+    rate_name: str = "Bank Rate"
+    text: dict | None = None      # country.yaml policy_path
+    committee: str = "MPC"
+    rate_phrase: str = "Bank Rate"   # mid-sentence with its article: "the fed funds rate"
 
 
 def prepare(cfg: Config, data: dict, estimates: dict, stance, as_of: pd.Timestamp) -> PathData | None:
-    if stance is None or "IUDBEDR" not in data:
+    rate_series = cfg.weights["stance"]["policy_rate_series"]
+    text = cfg.country["policy_path"]
+    if stance is None or rate_series not in data:
         return None
     start = as_of - pd.DateOffset(years=2)
-    br = data["IUDBEDR"]
+    br = data[rate_series]
     br = br[(br.index.to_timestamp() >= start)]
-    fwd = {float(k.split(":")[1]): v for k, v in data.items() if k.startswith("OIS_FWD:")}
+    fwd = {float(k.split(":")[1]): v for k, v in data.items() if k.startswith(f"{text['forward_series']}:")}
     path, priced = pd.Series(dtype=float), as_of
     if fwd:
         day = min(v.index[-1] for v in fwd.values())
         priced = day.to_timestamp()
-        path = pd.Series({priced: float(data["IUDBEDR"].dropna().iloc[-1])} | {
+        path = pd.Series({priced: float(data[rate_series].dropna().iloc[-1])} | {
             priced + pd.Timedelta(days=round(m * 365.25)): float(v[day]) for m, v in sorted(fwd.items())})
     mpc = pd.to_datetime(cfg.manual["mpc_dates"]["date"])
     end = as_of + pd.DateOffset(years=3)
@@ -47,6 +55,8 @@ def prepare(cfg: Config, data: dict, estimates: dict, stance, as_of: pd.Timestam
         bank_rate=br, ois_path=path, ois_date=priced,
         band=(stance.band[0] + stance.expected_inflation, stance.band[1] + stance.expected_inflation),
         mpc_dates=[d for d in mpc if start <= d <= end], start=start, end=end,
+        rate_name=cfg.weights["stance"]["policy_rate_name"], text=text, committee=cfg.country["committee_short"],
+        rate_phrase=cfg.weights["stance"].get("policy_rate_phrase", cfg.weights["stance"]["policy_rate_name"]),
     )
 
 
@@ -91,7 +101,7 @@ def svg(p: PathData) -> str:
     if len(p.ois_path):
         labels.append((py(p.ois_path.iloc[-1]), f"Market path {p.ois_path.iloc[-1]:.2f}%"))
     if pts:
-        labels.append((pts[-1][1], f"Bank Rate {br.iloc[-1]:.2f}%"))
+        labels.append((pts[-1][1], f"{p.rate_name} {br.iloc[-1]:.2f}%"))
     labels.append(((py(b0) + py(b1)) / 2, f"Neutral {b0:.1f}–{b1:.1f}%"))
     labels.sort()
     last = -99.0
@@ -99,7 +109,7 @@ def svg(p: PathData) -> str:
         y = max(y, last + 12)
         last = y
         out.append(f'<text x="{W - MR + 6}" y="{y + 3:.1f}" class="label">{escape(text)}</text>')
-    desc = (f"Bank Rate {br.iloc[-1]:.2f}%; market path reaches {p.ois_path.max():.2f}% "
+    desc = (f"{p.rate_name} {br.iloc[-1]:.2f}%; market path reaches {p.ois_path.max():.2f}% "
             f"and ends at {p.ois_path.iloc[-1]:.2f}% in three years; nominal neutral band {b0:.1f}–{b1:.1f}%."
             if len(p.ois_path) and len(br) else "Policy path")
     return (f'<svg viewBox="0 0 {W} {H}" class="path-chart" role="img" aria-label="{escape(desc)}">'
@@ -115,12 +125,12 @@ def section(p: PathData | None, number: int, stance) -> str:
     <span class="section-number">{number:02d}</span>
     <div>
       <p class="eyebrow">POLICY PATH</p>
-      <h2 id="h-path">Where markets expect Bank Rate to go</h2>
-      <p class="takeaway">Bank Rate over the past two years and the path priced in sterling overnight index swaps (OIS) on {p.ois_date:%-d %B %Y}, against the nominal neutral zone: the r* zone plus year-ahead expected inflation ({stance.expected_inflation:.1f}%), as in the stance above. Ticks mark MPC decisions.</p>
+      <h2 id="h-path">Where markets expect {escape(p.rate_phrase)} to go</h2>
+      <p class="takeaway">{escape(p.rate_name)} over the past two years and the path {escape(p.text["priced_in"])} on {p.ois_date:%-d %B %Y}, against the nominal neutral zone: the r* zone plus year-ahead expected inflation ({stance.expected_inflation:.1f}%), as in the stance above. Ticks mark {escape(p.committee)} decisions.</p>
     </div>
   </div>
   <figure class="path-frame">{svg(p)}</figure>
-  {fig_note("OIS forwards are SONIA rates, which run a few basis points below Bank Rate, and include term premia. The neutral zone uses expected inflation over the next year; further ahead it is only indicative.", "Bank of England; Monetary Space estimates of r*")}
+  {fig_note(p.text["note"], p.text["sources"])}
 </section>"""
 
 

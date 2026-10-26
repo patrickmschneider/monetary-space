@@ -31,6 +31,7 @@ class Stance:
     history: pd.Series            # monthly gap, pp
     nominal_neutral: float = float("nan")     # r* + expected inflation: the same gap in nominal terms
     rate_source: str = ""                     # the central bank that sets the rate
+    rate_noun: str = ""                       # mid-sentence, after "a real …" ("fed funds rate"; "Bank Rate")
 
 
 def mpr_path(cfg: Config, field: str) -> pd.Series:
@@ -85,8 +86,16 @@ def compute(cfg: Config, data: dict[str, pd.Series], rstar_est, as_of_day: pd.Ti
                             if len(fields) == 2 else f"{doc} {mpr_date:%B %Y} year-ahead {measure} projection"),
         real_rate=real, r_star=rs, r_star_se=se, r_star_quarter=rstar_est.r_star.index[-1],
         band=band, gap=real - rs, cls=score.stance(real, band), history=hist, nominal_neutral=rs + e,
-        rate_source=cfg.country["central_bank"],
+        rate_source=cfg.country["central_bank"] + (
+            f": midpoint of the {rate_range(float(ois.iloc[-1]), st)} target range" if st.get("policy_rate_half_range") else ""),
+        rate_noun=st.get("policy_rate_noun", st.get("policy_rate_name", "policy rate")),
     )
+
+
+def rate_range(mid: float, st: dict) -> str:
+    """'3.75–4.00%' for a policy rate set as a range (stance.policy_rate_half_range)."""
+    h = st["policy_rate_half_range"]
+    return f"{mid - h:.2f}–{mid + h:.2f}%"
 
 
 @dataclass

@@ -6,6 +6,7 @@ disinflationary, grey = neutral. The teal ink is chrome only (brand, links, labe
 from __future__ import annotations
 
 from html import escape
+from pathlib import Path
 
 import pandas as pd
 
@@ -13,6 +14,7 @@ from . import charts, decomposition, policy_path, releases
 from .config import BLOCK_EXPLAIN, BLOCK_NAMES, BLOCK_TITLES, Config
 from .indicators import Block, Indicator
 from .score import DOWN, EASE, HAWKISH, UP
+from .stance import rate_range
 
 ARROW = {"up": "▲", "down": "▼", "neutral": "●"}
 WORD = {"up": "inflationary", "down": "disinflationary", "neutral": "neutral"}
@@ -208,7 +210,7 @@ def lead_sentence(blocks: dict[str, Block], threshold: float, stance=None, verdi
     text = text[0].upper() + text[1:] + "."
     if stance is not None:
         s = {"tight": "tight", "loose": "loose", "neutral": "close to neutral"}[stance.cls]
-        text += (f" Policy is {s}: a real {stance.rate_name} of {num(stance.real_rate)}% against an estimated "
+        text += (f" Policy is {s}: a real {stance.rate_noun or stance.rate_name} of {num(stance.real_rate)}% against an estimated "
                  f"neutral rate of {num(stance.r_star, 2)}%.")
     return text
 
@@ -226,9 +228,12 @@ def verdict_strip(cfg: Config, blocks: dict[str, Block], stance, verdict, data: 
     if headline in data:
         cpi = data[headline].dropna()
         facts.append(f"{target['measure']} inflation <strong>{num(cpi.iloc[-1])}%</strong> in {cpi.index[-1].strftime('%B')} (target {target['point']:g}%)")
-    rate_series = cfg.weights["stance"]["policy_rate_series"]
+    st = cfg.weights["stance"]
+    rate_series = st["policy_rate_series"]
     if rate_series in data:
-        facts.append(f"{cfg.weights['stance']['policy_rate_name']} <strong>{data[rate_series].dropna().iloc[-1]:.2f}%</strong>")
+        rate = data[rate_series].dropna().iloc[-1]
+        shown = rate_range(rate, st) if st.get("policy_rate_half_range") else f"{rate:.2f}%"
+        facts.append(f"{st['policy_rate_name']} <strong>{shown}</strong>")
     mpc = cfg.manual["mpc_dates"].copy()
     mpc["date"] = pd.to_datetime(mpc["date"])
     past = mpc[(mpc["date"] <= now.tz_localize(None)) & mpc["vote"].notna()]
@@ -269,9 +274,12 @@ def pressure_note(cfg: Config, verdict) -> str:
             f"({', '.join(f'{BLOCK_NAMES[k].lower()} {w:.2f}' for k, w in verdict.weights.items())}). ")
     if alt:
         text += f"With {alt['method']} weights it is {fmt(alt['pressure'], 2)} and the verdict {alt['verdict']}. "
-    text += (f"The cost-push weight is multiplied by {verdict.multiplier:.2f}, because second-round effects are about "
-             f"{verdict.multiplier_ratio:.1f}× larger when CPI inflation is above "
-             f"{cfg.weights['pressure']['cost_push_state']['cpi_threshold']:g}%.")
+    st = cfg.weights["pressure"]["cost_push_state"]
+    estimated = Path(st["ratio_from"]).stem in cfg.analysis
+    text += (f"The cost-push weight is multiplied by {verdict.multiplier:.2f}, because second-round effects are "
+             f"{'about' if estimated else 'assumed to be'} {verdict.multiplier_ratio:.1f}× larger when "
+             f"{cfg.country['target']['measure']} inflation is above {st['cpi_threshold']:g}%"
+             f"{'' if estimated else ' (a default until the state-dependent pass-through is estimated for this edition)'}.")
     return f'<div class="pressure-note">{charts.fig_note(text)}</div>'
 
 
@@ -378,7 +386,7 @@ def stance_rows(stance) -> str:
         ("− Expected inflation", f"{num(stance.expected_inflation)}%", "", stance.expectation_source),
         ("= Real rate", f"{num(stance.real_rate, 2)}%", "", ""),
         ("r*, suite headline", f"{num(stance.r_star, 2)}%", "", "Weighted suite of estimators, rounded to 0.25pp"),
-        ("Neutral zone", f"{num(stance.band[0])} to {num(stance.band[1])}%", "", "Range of the weighted estimators, at least 0.5pp wide"),
+        ("Neutral zone", f"{num(stance.band[0], 2)} to {num(stance.band[1], 2)}%", "", "Range of the weighted estimators, at least 0.5pp wide"),
         ("Gap: real rate − r*", f"{fmt(stance.gap, 2)}pp", "", f"{STANCE_WORD[stance.cls]}"),
     ]
     body = "".join(f"<tr><th scope=\"row\">{escape(a)}</th><td class=\"num\">{b}</td><td>{escape(c)}</td><td>{escape(d)}</td></tr>"
@@ -422,7 +430,7 @@ def stance_workings_section(stance, estimates: dict, cfg: Config, number: int) -
         ("− Expected inflation", f"{num(stance.expected_inflation)}%", "", stance.expectation_source),
         ("= Real rate", f"{num(stance.real_rate, 2)}%", "", ""),
         ("r*, suite headline", f"{num(stance.r_star, 2)}%", "", "Weighted estimators below, rounded to 0.25pp"),
-        ("Neutral zone", f"{num(stance.band[0])} to {num(stance.band[1])}%", "", "Range of the weighted estimators, at least 0.5pp wide"),
+        ("Neutral zone", f"{num(stance.band[0], 2)} to {num(stance.band[1], 2)}%", "", "Range of the weighted estimators, at least 0.5pp wide"),
         ("Gap: real rate − r*", f"{fmt(stance.gap, 2)}pp", "", f"{STANCE_WORD[stance.cls]}"),
     ]
     body = "".join(f"<tr><th scope=\"row\">{escape(a)}</th><td class=\"num\">{b}</td><td>{escape(c)}</td><td>{escape(d)}</td></tr>"
@@ -470,12 +478,13 @@ def stance_workings_section(stance, estimates: dict, cfg: Config, number: int) -
   {est_table}
   {chart}
   {pub_html}
-  {charts.fig_note("The suite is re-estimated weekly; method and evidence are in reports/UK neutral rate estimation methods.md. The Market Participants Survey reports the neutral Bank Rate in nominal terms; it is converted to real with the same year-ahead expected inflation as Bank Rate. The gilt forward includes term and liquidity premia and is shown only.", "Bank of England (yield curves, Market Participants Survey, Inflation Attitudes Survey); Office for National Statistics; Monetary Space estimates")}
+  {charts.fig_note(cfg.country["rstar_page"]["note"], cfg.country["rstar_page"]["sources"])}
 </section>"""
 
 
-def momentum_section(data: dict, number: int) -> str:
-    """Unscored: where inflation already is, and slower-moving context."""
+def momentum_section(data: dict, number: int, cfg: Config) -> str:
+    """Unscored: where inflation already is, and slower-moving context (charts.yaml momentum)."""
+    from . import transform
     rows = []
 
     def add(name, s, unit, note, dp=1):
@@ -488,18 +497,11 @@ def momentum_section(data: dict, number: int) -> str:
         rows.append(f"<tr><th scope=\"row\">{escape(name)}</th><td class=\"num\">{num(s.iloc[-1], dp)}{unit}</td>"
                     f"<td>{period_label(p)}</td><td class=\"num\">{prev}</td><td>{escape(note)}</td></tr>")
 
-    add("Services CPI inflation", data.get("D7NN"), "%", "Mostly domestic costs; about 3¼% is consistent with 2% overall")
-    add("Core CPI inflation", data.get("DKO8"), "%", "Excluding energy, food, alcohol and tobacco")
-    add("Private-sector regular pay growth", data.get("KAJ4"), "%", "3-month average, y/y; about 3¼% is target-consistent")
-    if "IUDSIZC" in data and "IUDMIZC" in data:
-        f = (10 * data["IUDMIZC"] - 5 * data["IUDSIZC"]) / 5
-        f = f.groupby(f.index.asfreq("M")).mean()
-        add("5y5y implied inflation", f, "%", "Market-implied, 5–10 years ahead. RPI basis until 2030, CPIH after: not comparable with history", 2)
-    cli = [data.get(f"OECD_CLI:{c}") for c in ("DEU", "FRA", "ITA", "ESP", "USA")]
-    if all(c is not None for c in cli):
-        w = [0.25, 0.18, 0.13, 0.09, 0.35]
-        comb = sum(wi * ci for wi, ci in zip(w, cli)) / sum(w)
-        add("Trading partners' leading indicator", comb, "", "OECD CLI, 100 = trend; euro area proxy and US weighted by UK exports")
+    for m in cfg.charts.get("momentum", []):
+        if any(s not in data for s in m["series"]):
+            continue
+        x = transform.apply(m.get("transform", "level"), [data[s] for s in m["series"]], weights=m.get("weights"))
+        add(m["name"], x, m.get("unit", ""), m.get("note", ""), m.get("decimals", 1))
     if not rows:
         return ""
     return f"""
@@ -531,12 +533,12 @@ def rstar_chart(suite, cfg: Config) -> str:
     since = pd.Period("2000Q1", "Q")
     tc, se, fwd = tc[tc.index >= since], se[se.index >= since], fwd[fwd.index >= since]
     path = [to_monthly(s) for s in (tc, tc - se, tc + se)]
+    page = cfg.country["rstar_page"]
     c = charts.ChartData(
-        id="rstar", title="r*: the trend-cycle estimate and the gilt market",
-        subtitle="Real, %. Line: index-linked gilt 5y5y real forward (includes term premia). Dashed with band: trend-cycle r̄ ± 1 s.e.",
+        id="rstar", title=page["chart_title"], subtitle=page["chart_subtitle"],
         unit="%", decimals=1, step=False, x=to_monthly(fwd), reference=None,
         ref_path=(path[0], path[1], path[2], f"r̄ {path[0].iloc[-1]:.1f}"), ylim=(-3.0, 5.0),
-        source="Bank of England; Monetary Space estimates", attribution="")
+        source=page["chart_source"], attribution="")
     markup, note = charts.svg(c, width=760)
     return (f'<figure class="chart-panel wide" tabindex="0" aria-describedby="tip-rstar">'
             f'<figcaption class="panel-heading"><h3>{escape(c.title)}</h3><p>{escape(c.subtitle)}</p></figcaption>'
@@ -584,7 +586,7 @@ def release_log(inds: list[Indicator], cfg: Config, now) -> str:
         <th scope="col" class="num">Previous</th><th scope="col" class="num">Change in z</th><th scope="col">Next expected</th></tr></thead>
       <tbody>{"".join(rows)}</tbody>
     </table></div>
-    <p class="basis-note">Release dates are the day the 07:10 daily build first picked the data up: the release day itself for 07:00 ONS releases, and usually no more than a day late otherwise. “Released by” means the data was already out when records began. Previous is the prior period as now revised; change in z is from that period to the latest. Next expected is the usual publication lag, not the official calendar.</p>
+    <p class="basis-note">{escape(cfg.country["release_note"])} “Released by” means the data was already out when records began. Previous is the prior period as now revised; change in z is from that period to the latest. Next expected is the usual publication lag, not the official calendar.</p>
   </details>"""
 
 
@@ -745,7 +747,7 @@ def pages(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems
     <h1 class="tab-title">Where inflation is, and what has driven it</h1>
     <p class="basis-note">Not scored. Outcomes and slow-moving context, then three model-based ways to split inflation into its sources, looking back.</p>
   </section>
-  {momentum_section(data, 1)}
+  {momentum_section(data, 1, cfg)}
   {decomposition.section(cfg.analysis, 2)}"""
 
     workings = f"""

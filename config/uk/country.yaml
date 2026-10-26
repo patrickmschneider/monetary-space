@@ -21,3 +21,19 @@ target:
   measure: CPI
   point: 2.0
 headline_series: D7G7           # headline inflation, y/y % (facts strip, cost-push state)
+
+# Release log: when the daily build picks data up
+release_note: "Release dates are the day the 07:10 daily build first picked the data up: the release day itself for 07:00 ONS releases, and usually no more than a day late otherwise."
+
+policy_path:
+  forward_series: OIS_FWD          # instantaneous forwards by maturity: OIS_FWD:<years>
+  priced_in: priced in sterling overnight index swaps (OIS)
+  note: "OIS forwards are SONIA rates, which run a few basis points below Bank Rate, and include term premia. The neutral zone uses expected inflation over the next year; further ahead it is only indicative."
+  sources: "Bank of England; Monetary Space estimates of r*"
+
+rstar_page:
+  note: "The suite is re-estimated weekly; method and evidence are in reports/UK neutral rate estimation methods.md. The Market Participants Survey reports the neutral Bank Rate in nominal terms; it is converted to real with the same year-ahead expected inflation as Bank Rate. The gilt forward includes term and liquidity premia and is shown only."
+  sources: "Bank of England (yield curves, Market Participants Survey, Inflation Attitudes Survey); Office for National Statistics; Monetary Space estimates"
+  chart_title: "r*: the trend-cycle estimate and the gilt market"
+  chart_subtitle: "Real, %. Line: index-linked gilt 5y5y real forward (includes term premia). Dashed with band: trend-cycle r̄ ± 1 s.e."
+  chart_source: "Bank of England; Monetary Space estimates"

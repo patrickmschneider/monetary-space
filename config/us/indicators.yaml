@@ -1,0 +1,449 @@
+# Scored indicators for the US edition (see config/uk/indicators.yaml for the schema). Cap: 14.
+#
+# Chosen for what drives US inflation, not to mirror the UK list: PCE is the target measure,
+# oil and natural gas are the energy channels, and the dollar replaces sterling.
+#
+# Samples: series that begin before 1990 are measured from 1990 (`since`), so the σ and pre-2020
+# means are not dominated by the Great Inflation and the Volcker disinflation (confirm).
+
+sources:
+  bea:
+    name: U.S. Bureau of Economic Analysis, via FRED
+    attribution: "Source: U.S. Bureau of Economic Analysis via FRED, Federal Reserve Bank of St. Louis."
+  bls:
+    name: U.S. Bureau of Labor Statistics, via FRED
+    attribution: "Source: U.S. Bureau of Labor Statistics via FRED, Federal Reserve Bank of St. Louis."
+  frb:
+    name: Federal Reserve Board
+    attribution: "Source: Board of Governors of the Federal Reserve System (via FRED where noted)."
+  frb_gsw:
+    name: Federal Reserve Board (fitted Treasury curve) and U.S. Treasury
+    attribution: "Source: Gürkaynak, Sack and Wright fitted yield curve, Federal Reserve Board; Treasury bill yields from the U.S. Treasury via FRED."
+  treasury:
+    name: U.S. Treasury, via FRED
+    attribution: "Source: U.S. Department of the Treasury and Federal Reserve Board via FRED, Federal Reserve Bank of St. Louis."
+  michigan:
+    name: University of Michigan Surveys of Consumers, via FRED
+    attribution: "Source: University of Michigan, Surveys of Consumers, via FRED, Federal Reserve Bank of St. Louis."
+  atlanta_bie:
+    name: Federal Reserve Bank of Atlanta Business Inflation Expectations survey
+    attribution: "Source: Federal Reserve Bank of Atlanta, Business Inflation Expectations survey."
+  eia:
+    name: U.S. Energy Information Administration, via FRED
+    attribution: "Source: U.S. Energy Information Administration via FRED, Federal Reserve Bank of St. Louis."
+
+series:
+  PCE_YY:
+    fetcher: fred
+    source: bea
+    title: "PCE price index, % change on a year earlier (headline; the Fed's target measure)"
+    code: PCEPI
+    yoy: true
+    freq: M
+  PCE_CORE_YY:
+    fetcher: fred
+    source: bea
+    title: "PCE price index excluding food and energy, % change on a year earlier"
+    code: PCEPILFE
+    yoy: true
+    freq: M
+  CPI_YY:
+    fetcher: fred
+    source: bls
+    title: "CPI-U, all items, % change on a year earlier (context)"
+    code: CPIAUCSL
+    yoy: true
+    freq: M
+  FEDFUNDS_TARGET:
+    fetcher: fed_funds_target
+    source: frb
+    title: "Federal funds target: the target rate to Dec 2008, then the midpoint of the target range, %, daily"
+    freq: D
+  EFFR:
+    fetcher: fred
+    source: frb
+    title: "Effective federal funds rate, %, daily (context)"
+    code: EFFR
+    freq: D
+  UST_FWD:
+    fetcher: treasury_forwards
+    source: frb_gsw
+    title: "Treasury instantaneous forward curve, %, daily, by maturity in years (bills under 1 year, GSW beyond)"
+    maturities: [0.25, 0.5, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0]
+    since: "2024-01-01"
+    freq: D
+  UNRATE:
+    fetcher: fred
+    source: bls
+    title: "Unemployment rate, 16+, SA, %"
+    code: UNRATE
+    freq: M
+  UNEMPLOY:
+    fetcher: fred
+    source: bls
+    title: "Unemployed persons, 16+, SA, thousands"
+    code: UNEMPLOY
+    freq: M
+  JTSJOL:
+    fetcher: fred
+    source: bls
+    title: "Job openings, total nonfarm, SA, thousands (JOLTS)"
+    code: JTSJOL
+    freq: M
+  PAYEMS:
+    fetcher: fred
+    source: bls
+    title: "All employees, total nonfarm payrolls, SA, thousands"
+    code: PAYEMS
+    freq: M
+  GDPC1:
+    fetcher: fred
+    source: bea
+    title: "Real GDP, chained 2017 dollars, SAAR, quarterly"
+    code: GDPC1
+    freq: Q
+  TCU:
+    fetcher: fred
+    source: frb
+    title: "Capacity utilization, total industry, % of capacity, SA (G.17)"
+    code: TCU
+    freq: M
+  ULCNFB:
+    fetcher: fred
+    source: bls
+    title: "Unit labor costs, nonfarm business sector, index 2017 = 100, SA"
+    code: ULCNFB
+    freq: Q
+  OPHNFB:
+    fetcher: fred
+    source: bls
+    title: "Output per hour, nonfarm business sector, index 2017 = 100, SA"
+    code: OPHNFB
+    freq: Q
+  ECIWAG:
+    fetcher: fred
+    source: bls
+    title: "Employment Cost Index: wages and salaries, private industry, index, SA (u* estimate)"
+    code: ECIWAG
+    freq: Q
+  MICH:
+    fetcher: fred
+    source: michigan
+    title: "University of Michigan: median expected price change, next 12 months, %"
+    code: MICH
+    freq: M
+  BIE_1Y:
+    fetcher: atlanta_bie
+    source: atlanta_bie
+    title: "Atlanta Fed BIE: firms' mean expected unit-cost growth, next 12 months, %"
+    url: https://www.atlantafed.org/research/inflationproject/bie
+    freq: M
+  T5YIE:
+    fetcher: fred
+    source: treasury
+    title: "5-year breakeven inflation rate (Treasury minus TIPS), %, daily"
+    code: T5YIE
+    freq: D
+  T5YIFR:
+    fetcher: fred
+    source: treasury
+    title: "5-year, 5-year forward inflation expectation rate, %, daily (context)"
+    code: T5YIFR
+    freq: D
+  DCOILBRENTEU:
+    fetcher: fred
+    source: eia
+    title: "Brent crude oil, US$ per barrel, daily"
+    code: DCOILBRENTEU
+    freq: D
+  DHHNGSP:
+    fetcher: fred
+    source: eia
+    title: "Henry Hub natural gas spot price, US$ per million Btu, daily"
+    code: DHHNGSP
+    freq: D
+  DTWEXBGS:
+    fetcher: fred
+    source: frb
+    title: "Nominal broad US dollar index, goods and services, Jan 2006 = 100, daily"
+    code: DTWEXBGS
+    freq: D
+  IREXFUELS:
+    fetcher: fred
+    source: bls
+    title: "Import price index, all imports excluding fuels, 2000 = 100, NSA"
+    code: IREXFUELS
+    freq: M
+
+indicators:
+  # ------------------------------------------------------------------------
+  # E. Expectations: are inflation expectations anchored at 2%?
+  - id: firm_expectations
+    name: Firms' expected unit-cost growth
+    explain: >-
+      What firms in the Atlanta Fed's Business Inflation Expectations survey expect their unit costs to rise by over the next year. Costs expected by firms feed into the prices they set, so this is a direct forward-looking signal. Above its pre-2020 average (about 1.9%), firms expect cost growth faster than is consistent with 2% inflation.
+    phrase: firms' cost expectations
+    block: E
+    series: [BIE_1Y]
+    transform: level
+    unit: '%'
+    freq: M
+    lag_days: -10
+    benchmark: {method: pre2020_mean}
+    sigma:
+      method: value
+      value: 0.21
+      rationale: The survey starts in October 2011, too short for a pre-2020 SD, and its 2011–2019 SD (0.14pp) would pin
+        the score at the clip. 0.21pp = SD excluding the 2020–2023 shock years, the same rule as the UK Decision Maker
+        Panel (confirm).
+    sign: 1
+    smoothing: none (monthly survey mean)
+    note: Year-ahead expected change in the firm's unit costs, mean of the probability distribution. Pre-2020 sample is 2011–2019.
+
+  - id: household_expectations
+    name: Household inflation expectations
+    explain: >-
+      Households' expectations of price changes over the next 12 months (University of Michigan). Higher expectations can feed into wage demands and spending, making inflation more persistent. Households' expectations run above actual inflation on average, so the score compares them with their own pre-2020 average rather than with 2%.
+    phrase: households' inflation expectations
+    block: E
+    series: [MICH]
+    transform: level
+    unit: '%'
+    freq: M
+    lag_days: 0
+    benchmark: {method: pre2020_mean, since: '1990-01'}
+    sigma: {method: pre2020_sd, since: '1990-01'}
+    sign: 1
+    smoothing: none
+    note: Median expected change in prices over the next 12 months; the final reading is published at the end of the month.
+
+  - id: market_inflation
+    name: Market-implied inflation, 5 years
+    explain: >-
+      Inflation over the next five years implied by Treasury prices: the gap between conventional and inflation-protected (TIPS) yields. It moves daily and reflects investors' money at stake, but it also includes a premium for inflation risk. TIPS pay CPI, which runs above PCE on average, so the score compares it with its own pre-2020 average.
+    phrase: market-implied inflation
+    block: E
+    series: [T5YIE]
+    transform: monthly_mean
+    unit: '%'
+    freq: M
+    lag_days: 3
+    benchmark: {method: pre2020_mean}
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: Monthly average of the daily 5-year breakeven
+    note: Nominal minus TIPS yield, 5 years. CPI basis, so above PCE on average; includes inflation risk and liquidity premia.
+
+  # ------------------------------------------------------------------------
+  # D. Demand: is spending running ahead of the economy's capacity?
+  - id: unemployment
+    name: Unemployment rate vs u*
+    explain: >-
+      The share of the labor force looking for work, against the lowest rate consistent with stable inflation (u*), here the FOMC's longer-run estimate. Unemployment below u* means a tight labor market that pushes up wages and prices; above u* means slack. The sign is reversed, so a positive score means tight and inflationary.
+    block: D
+    series: [UNRATE]
+    transform: level
+    unit: '%'
+    freq: M
+    lag_days: 7
+    benchmark:
+      method: manual
+      field: u_star
+      label: "u*: FOMC longer-run unemployment rate, SEP median (our u* filter is not identified on US data; config/us/nairu.yaml)"
+    sigma: {method: pre2020_sd, since: '1990-01'}
+    sign: -1
+    smoothing: none (monthly household survey)
+    note: "Benchmark is the FOMC's own estimate of u*: the UK filter does not identify u* on US data. The UK edition uses an estimated u*."
+
+  - id: vacancies_per_unemployed
+    name: Job openings per unemployed
+    explain: >-
+      Job openings per unemployed person: a measure of labor-market tightness that tracked US wage growth closely after 2021. More openings per jobseeker means firms compete harder for workers and pay rises faster. Compared with its 2001–2019 average.
+    block: D
+    series: [JTSJOL, UNEMPLOY]
+    transform: ratio
+    unit: ratio
+    freq: M
+    lag_days: 37
+    benchmark: {method: pre2020_mean}
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: none
+    note: JOLTS starts December 2000; pre-2020 sample is 2001–2019.
+
+  - id: payrolls
+    name: Nonfarm payrolls
+    explain: >-
+      Growth in the number of jobs on nonfarm payrolls over the latest three months at an annual rate. Growth faster than the pre-2020 norm means strong demand for labor. Payroll growth has slowed as immigration fell, so a lower pace than before 2020 may still keep unemployment steady (confirm).
+    phrase: payroll employment
+    block: D
+    series: [PAYEMS]
+    transform: annualised_3m3m
+    unit: '% ann.'
+    freq: M
+    lag_days: 7
+    benchmark: {method: pre2020_mean, since: '1990-01'}
+    sigma: {method: pre2020_sd, since: '1990-01'}
+    sign: 1
+    smoothing: 3 months on previous 3 months, annualised
+    note: The first estimate of each month is revised in the next two releases and in the annual benchmark.
+
+  - id: gdp
+    name: Real GDP growth vs potential
+    explain: >-
+      Real GDP growth in the latest quarter at an annual rate, against the economy's potential growth rate. Growth above potential uses up spare capacity and adds to inflation pressure; growth below it creates slack. It shows the change in the output gap, not its level.
+    block: D
+    series: [GDPC1]
+    transform: annualised_qq
+    unit: '% ann.'
+    freq: Q
+    lag_days: 30
+    benchmark:
+      method: potential_growth
+      label: potential growth (Survey of Market Expectations longer-run GDP growth, else 10-year trailing average)
+    sigma: {method: pre2020_sd, since: '1990-01'}
+    sign: 1
+    smoothing: Quarter on previous quarter, annualised (advance estimate first)
+    note: GDP growth above potential closes spare capacity.
+
+  - id: capacity
+    name: Capacity utilization
+    explain: >-
+      How much of industry's capacity is in use (Federal Reserve G.17). Firms working close to capacity find it easier to raise prices. It covers manufacturing, mining and utilities, about a fifth of the economy, so it is a partial signal.
+    phrase: capacity utilization
+    block: D
+    series: [TCU]
+    transform: level
+    unit: '%'
+    freq: M
+    lag_days: 17
+    benchmark: {method: pre2020_mean, since: '1990-01'}
+    sigma: {method: pre2020_sd, since: '1990-01'}
+    sign: 1
+    smoothing: none
+    note: Total industry; utilization has trended down since the 1990s, so the 1990–2019 mean may overstate normal (confirm).
+
+  # ------------------------------------------------------------------------
+  # S. Supply: is the economy's capacity growing more slowly than normal?
+  - id: ulc
+    name: Unit labor cost growth
+    explain: >-
+      Unit labor costs: pay per unit of output, or compensation growth minus productivity growth, in the nonfarm business sector. They are the main cost firms pass on to prices. Growth of about 2% is consistent with the inflation target at a constant labor share; faster growth pushes inflation up unless firms absorb it in their margins.
+    phrase: unit labor costs
+    block: S
+    series: [ULCNFB]
+    transform: pct_change_12m
+    unit: '% y/y'
+    freq: Q
+    lag_days: 37
+    benchmark:
+      method: value
+      value: 2.0
+      label: '2%: consistent with the inflation target at a constant labor share'
+    sigma: {method: pre2020_sd, since: '1990-01'}
+    sign: 1
+    smoothing: 4-quarter % change
+    note: Nonfarm business sector. Revised substantially with GDP and with the annual benchmark.
+
+  - id: productivity
+    name: Productivity growth vs trend
+    explain: >-
+      Growth in output per hour in the nonfarm business sector, against its own five-year trend. Weaker productivity means the economy produces less for the same effort, so for a given level of demand there is less spare capacity and more inflation pressure. The sign is reversed, so productivity below trend scores as inflationary.
+    phrase: weak productivity
+    block: S
+    series: [OPHNFB]
+    transform: pct_change_12m
+    unit: '% y/y'
+    freq: Q
+    lag_days: 37
+    benchmark:
+      method: trailing_mean
+      years: 5
+      label: its own 5-year trailing average
+    sigma: {method: pre2020_sd, since: '1990-01'}
+    sign: -1
+    smoothing: 4-quarter % change
+    note: Productivity below trend lowers the economy's capacity, which is inflationary for a given level of demand.
+
+  # ------------------------------------------------------------------------
+  # C. Cost-push: are external costs pushing up prices?
+  - id: brent
+    name: Brent crude oil price
+    explain: >-
+      The world price of crude oil, change on a year earlier. Oil reaches gasoline prices within weeks, and gasoline is the largest single energy item in US consumer spending. Most of its effect on inflation is direct and temporary; it matters for policy mainly if it spills into wages and expectations.
+    phrase: oil prices
+    block: C
+    series: [DCOILBRENTEU]
+    transform: [monthly_mean, pct_change_12m]
+    unit: '% y/y'
+    freq: M
+    lag_days: 5
+    benchmark:
+      method: value
+      value: 0
+      label: '0: no change on a year earlier'
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: Monthly average of daily prices, 12-month % change
+    note: In US dollars.
+
+  - id: natural_gas
+    name: Henry Hub natural gas price
+    explain: >-
+      The US benchmark natural gas price, change on a year earlier. Gas is the largest fuel for US power generation, so it feeds into electricity bills as well as utility gas, with a lag of a few months as regulated tariffs reset. Like oil, much of its effect is first-round.
+    phrase: natural gas prices
+    block: C
+    series: [DHHNGSP]
+    transform: [monthly_mean, pct_change_12m]
+    unit: '% y/y'
+    freq: M
+    lag_days: 5
+    benchmark:
+      method: value
+      value: 0
+      label: '0: no change on a year earlier'
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: Monthly average of daily prices, 12-month % change
+    note: Spot prices swing far more than retail energy prices, so σ is large.
+
+  - id: dollar
+    name: US dollar, broad index
+    explain: >-
+      The dollar against a broad basket of trading partners, change on a year earlier. A weaker dollar raises import prices, though by less than in more open economies: imports are a smaller share of US spending and many are priced in dollars. The sign is reversed, so a depreciation scores as inflationary.
+    block: C
+    series: [DTWEXBGS]
+    transform: [monthly_mean, pct_change_12m]
+    unit: '% y/y'
+    freq: M
+    lag_days: 3
+    benchmark:
+      method: value
+      value: 0
+      label: '0: no change on a year earlier'
+    sigma: {method: pre2020_sd}
+    sign: -1
+    smoothing: Monthly average of daily index, 12-month % change
+    note: 'A rise is an appreciation, which lowers import prices: the sign is negative. Index starts 2006.'
+
+  - id: import_prices
+    name: Import prices excluding fuels
+    explain: >-
+      Prices of goods imported into the United States, excluding fuels, change on a year earlier. They are the pipeline through which global prices and the dollar reach US shop prices. Fuels are left out because oil and gas are scored separately.
+    phrase: import prices
+    block: C
+    series: [IREXFUELS]
+    transform: pct_change_12m
+    unit: '% y/y'
+    freq: M
+    lag_days: 16
+    benchmark:
+      method: value
+      value: 0
+      label: '0: no change on a year earlier'
+    sigma: {method: pre2020_sd}
+    sign: 1
+    smoothing: 12-month % change of the NSA index
+    note: BLS import prices exclude duties, so tariffs do not show up here (confirm).
+
+# Not scored (momentum and context): core PCE, CPI, ECI wages, 5y5y breakeven (charts.yaml momentum).

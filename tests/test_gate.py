@@ -36,3 +36,17 @@ def test_late_start_still_runs():
 @pytest.mark.parametrize("event", ["workflow_dispatch", "push"])
 def test_manual_and_push_always_run(event):
     assert gate.should_run(event, "", SUMMER, {})[0]
+
+
+def test_us_slots_follow_new_york_time():
+    oct_edt = dt.datetime(2026, 10, 26, 13, 0, tzinfo=UTC)            # New York still on EDT (UK already GMT)
+    assert gate.should_run("schedule", "45 12 * * *", oct_edt, {})[0]
+    assert not gate.should_run("schedule", "45 13 * * *", oct_edt, {})[0]
+    nov_est = dt.datetime(2026, 11, 10, 14, 0, tzinfo=UTC)
+    assert gate.should_run("schedule", "45 13 * * *", nov_est, {})[0]
+
+
+def test_us_fomc_slot_only_on_fomc_days():
+    now = dt.datetime(2026, 10, 28, 18, 20, tzinfo=UTC)
+    assert gate.should_run("schedule", "15 18 * * *", now, {"us": {"2026-10-28"}})[0]
+    assert not gate.should_run("schedule", "15 18 * * *", now, {"uk": {"2026-10-28"}})[0]

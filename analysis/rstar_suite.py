@@ -1,22 +1,25 @@
-"""The r* suite: several estimators of the UK neutral real rate, combined into a headline and a
-range, following reports/UK neutral rate estimation methods.md.
+"""The r* suite: several estimators of the neutral real rate, combined into a headline and a
+range, following reports/UK neutral rate estimation methods.md. Run per country edition.
 
 Estimators                                       role            headline weight
   1. Trend-cycle model (Del Negro et al.-style)   long-run        0.40  (anchor)
   2. Repaired HLW-style model                     policy horizon  0.25  (dropped if the IS slope is at its bound)
-  3. Market Participants Survey neutral − 2%      policy horizon  0.35
-  4. Index-linked gilt 5y5y real forward          long-run        0     (includes term and liquidity premia)
-  5. 10-year average of the ex-ante real Bank Rate  benchmark     0
+  3. Survey of the neutral policy rate, real      policy horizon  0.35  (UK: Market Participants Survey;
+                                                                         US: NY Fed Survey of Market Expectations)
+  4. Index-linked 5y5y real forward               long-run        0     (includes term and liquidity premia)
+  5. 10-year average of the ex-ante real policy rate  benchmark   0
 
 Combination: weighted mean of the available core estimators (1–3), excluding any more than
 1.5pp from their median, rounded to 0.25pp; the range spans the core estimates, rounded
 outward to 0.25pp and at least 0.5pp wide. Also writes a potential-growth series for the
 GDP benchmark (MaPS long-run potential growth, spliced onto a 10-year trailing average).
 
-Output: analysis/results/uk/rstar_suite.json.  Run after releases:  python analysis/rstar_suite.py
+Output: analysis/results/<country>/rstar_suite.json.
+Run after releases:  python analysis/rstar_suite.py [--country uk|us]
 """
 from __future__ import annotations
 
+import argparse
 import datetime as dt
 import html
 import json
@@ -32,11 +35,35 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from monetary_space import rstar, trend_cycle  # noqa: E402
-from monetary_space.fetch import boe, ons  # noqa: E402
+from monetary_space.fetch import boe, fed, fred, ons  # noqa: E402
 from monetary_space.fetch.http import session  # noqa: E402
 
-OUT = ROOT / "analysis" / "results" / "uk"
-WEIGHTS = {"trend_cycle": 0.40, "hlw": 0.25, "maps": 0.35}
+WEIGHTS = {"trend_cycle": 0.40, "hlw": 0.25, "survey": 0.35}
+COUNTRY = {
+    "uk": dict(
+        start="1993Q1", elb=[("2009Q1", "2021Q4")], post_from="2020Q4", survey="maps", rate="Bank Rate",
+        tc_basis="Del Negro et al.-style: common trends in Bank Rate, CPI inflation and 10-year nominal and real gilt yields",
+        hlw_bound="excluded: IS slope at its bound, so r* is not identified (as the NY Fed found for the UK)",
+        survey_name="Market Participants Survey", forecast="MPR",
+        fwd_name="Index-linked gilt 5y5y real forward",
+        fwd_basis="Bank of England real spot curve; includes term and liquidity premia, CPIH basis after 2030",
+        ma_name="10-year average real Bank Rate",
+        ma_basis="Bank Rate minus households' 1-year expectations (re-centred), trailing 40 quarters",
+        method="Suite of r* estimators, weighted (trend-cycle 0.40, HLW 0.25, MaPS 0.35) over those that pass "
+               "diagnostics; range spans the core estimates. See reports/UK neutral rate estimation methods.md."),
+    "us": dict(
+        start="1990Q1", elb=[("2009Q1", "2015Q4"), ("2020Q2", "2022Q1")], post_from=None, survey="sme",
+        rate="the fed funds rate",
+        tc_basis="Del Negro et al.-style: common trends in the fed funds target, PCE inflation and 10-year nominal and TIPS yields (Fed staff fitted curves)",
+        hlw_bound="excluded: IS slope at its bound, so r* is not identified",
+        survey_name="Survey of Market Expectations", forecast="SEP",
+        fwd_name="TIPS 5y5y real forward",
+        fwd_basis="Fed staff TIPS zero-coupon curve; includes term and liquidity premia",
+        ma_name="10-year average real fed funds rate",
+        ma_basis="Fed funds target minus households' 1-year expectations (Michigan, re-centred), trailing 40 quarters",
+        method="Suite of r* estimators, weighted (trend-cycle 0.40, HLW 0.25, Survey of Market Expectations 0.35) over "
+               "those that pass diagnostics; range spans the core estimates. Same method as the UK edition."),
+}
 MAPS_PAGE = "https://www.bankofengland.co.uk/markets/market-intelligence/survey-results/{y}market-participants-survey-results-{m}-{yy}"
 MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september",
           "october", "november", "december"]
@@ -82,7 +109,7 @@ def maps_history(start_year: int = 2022) -> pd.DataFrame:
     return df
 
 
-def load() -> dict:
+def load_uk() -> dict:
     m = lambda cdid, ds="mm23", topic="economy/inflationandpriceindices": ons.timeseries(f"/{topic}/timeseries/{cdid}/{ds}", "M")
     q = rstar.quarterly_mean
     d = {
@@ -97,20 +124,40 @@ def load() -> dict:
     return d
 
 
+def load_us() -> dict:
+    """GDP, core PCE, PCE inflation, the fed funds target, Fed staff nominal and TIPS yields, Michigan."""
+    q = rstar.quarterly_mean
+    nominal = fed.gsw_yields(["SVENY10"])
+    real = fed.gsw_yields(["TIPSY05", "TIPSY10"], real=True)
+    pce = fred.series("PCEPI", "M")
+    return {
+        "gdp": fred.series("GDPC1", "Q"), "core_idx": fred.series("PCEPILFE", "M"),
+        "cpi_yy": ((pce / pce.shift(12) - 1) * 100).dropna(),
+        "bank": fred.fed_funds_target(),
+        "yn10": nominal["SVENY10"], "yr10": real["TIPSY10"], "yr5": real["TIPSY05"],
+        "ias": q(fred.series("MICH", "M")),
+        "q": q,
+    }
+
+
+def survey_history(country: str) -> pd.DataFrame:
+    return maps_history() if country == "uk" else fed.sme_history()
+
+
 # ------------------------------------------------------------------ estimators
-def run_trend_cycle(d: dict, sd_r: float = 0.05, sd_pi: float = 0.0707) -> trend_cycle.Estimate:
+def run_trend_cycle(d: dict, c: dict, sd_r: float = 0.05, sd_pi: float = 0.0707) -> trend_cycle.Estimate:
     q = d["q"]
     cpi = d["cpi_yy"]
     df = pd.DataFrame({"R": q(d["bank"]), "pi": cpi.groupby(cpi.index.asfreq("Q")).mean(),
                        "yn": q(d["yn10"]), "yr": q(d["yr10"])})
-    df = df[df.index >= pd.Period("1993Q1", "Q")].dropna(how="all")
-    return trend_cycle.estimate(df, sd_r, sd_pi)
+    df = df[df.index >= pd.Period(c["start"], "Q")].dropna(how="all")
+    return trend_cycle.estimate(df, sd_r, sd_pi, elb=c["elb"], post_from=c["post_from"])
 
 
-def run_hlw(d: dict) -> rstar.Estimate:
-    spec = {"start": "1993Q1", "exclude": [], "deflator": "household"}
+def run_hlw(d: dict, c: dict) -> rstar.Estimate:
+    spec = {"start": c["start"], "exclude": [], "deflator": "household"}
     y, pi, r, idx = rstar.build_inputs(d["gdp"], d["core_idx"], d["bank"], spec, d["ias"])
-    est = rstar.estimate(y, pi, r, lam_g=0.05, lam_z=0.0, ar=None)
+    est = rstar.estimate(y, pi, r, lam_g=0.05, lam_z=0.0, ar=None, elb=c["elb"])
     return est
 
 
@@ -144,13 +191,13 @@ def potential_growth(d: dict, maps: pd.DataFrame | None) -> pd.Series:
     return trailing.dropna()
 
 
-def expected_inflation_at(dates: pd.PeriodIndex) -> pd.Series:
-    """Expected inflation at each date, as the Stance block measures it (config/uk/weights.yaml
-    stance.expected_inflation_fields: MPR projections in force, else the 2% target). The same
+def expected_inflation_at(dates: pd.PeriodIndex, country: str) -> pd.Series:
+    """Expected inflation at each date, as the Stance block measures it (config/<country>/weights.yaml
+    stance.expected_inflation_fields: projections in force, else the 2% target). The same
     measure deflates the policy rate, so real and nominal gaps agree."""
     import yaml
-    fields = yaml.safe_load((ROOT / "config" / "uk" / "weights.yaml").read_text())["stance"]["expected_inflation_fields"]
-    m = pd.read_csv(ROOT / "manual" / "uk" / "mpr.csv", comment="#").dropna(subset=fields)
+    fields = yaml.safe_load((ROOT / "config" / country / "weights.yaml").read_text())["stance"]["expected_inflation_fields"]
+    m = pd.read_csv(ROOT / "manual" / country / "mpr.csv", comment="#").dropna(subset=fields)
     m["mpr_date"] = pd.to_datetime(m["mpr_date"])
     path = m.set_index("mpr_date")[fields].mean(axis=1).sort_index()
     out = []
@@ -161,15 +208,18 @@ def expected_inflation_at(dates: pd.PeriodIndex) -> pd.Series:
 
 
 # ------------------------------------------------------------------ combine
-def main() -> None:
-    d = load()
-    tc = run_trend_cycle(d)
-    tc_loose = run_trend_cycle(d, 0.10, 0.1414)
-    hlw = run_hlw(d)
+def main(country: str = "uk") -> None:
+    c = COUNTRY[country]
+    key = c["survey"]
+    weights = {"trend_cycle": WEIGHTS["trend_cycle"], "hlw": WEIGHTS["hlw"], key: WEIGHTS["survey"]}
+    d = load_uk() if country == "uk" else load_us()
+    tc = run_trend_cycle(d, c)
+    tc_loose = run_trend_cycle(d, c, 0.10, 0.1414)
+    hlw = run_hlw(d, c)
     try:
-        maps = maps_history()
+        maps = survey_history(country)
     except Exception as e:  # noqa: BLE001
-        print("MaPS unavailable:", e)
+        print(f"{c['survey_name']} unavailable:", e)
         maps = None
     fwd = market_forward(d)
     ma = real_rate_ma(d)
@@ -177,40 +227,39 @@ def main() -> None:
     est = {
         "trend_cycle": {"name": "Trend-cycle model", "role": "long-run", "value": float(tc.r_bar.iloc[-1]),
                         "se": float(tc.se.iloc[-1]), "date": str(tc.r_bar.index[-1]),
-                        "basis": "Del Negro et al.-style: common trends in Bank Rate, CPI inflation and 10-year nominal and real gilt yields",
+                        "basis": c["tc_basis"],
                         "status": "ok"},
         "hlw": {"name": "HLW-style model (repaired)", "role": "policy horizon", "value": float(hlw.r_star.iloc[-1]),
                 "se": float(hlw.se.iloc[-1]), "date": str(hlw.r_star.index[-1]),
                 "basis": f"IS/Phillips curves; λz = 0 (Buncic 2022), COVID and lower-bound variance scaling; IS slope {hlw.params.ar:.3f}",
-                "status": "excluded: IS slope at its bound, so r* is not identified (as the NY Fed found for the UK)"
-                if hlw.ar_at_bound else "ok"},
-        "maps": None,
-        "market_5y5y": {"name": "Index-linked gilt 5y5y real forward", "role": "long-run", "value": float(fwd.iloc[-1]),
-                        "date": str(fwd.index[-1]), "basis": "Bank of England real spot curve; includes term and liquidity premia, CPIH basis after 2030",
+                "status": c["hlw_bound"] if hlw.ar_at_bound else "ok"},
+        key: None,
+        "market_5y5y": {"name": c["fwd_name"], "role": "long-run", "value": float(fwd.iloc[-1]),
+                        "date": str(fwd.index[-1]), "basis": c["fwd_basis"],
                         "status": "shown, not weighted (term premia)"},
-        "real_rate_ma": {"name": "10-year average real Bank Rate", "role": "benchmark", "value": float(ma.iloc[-1]),
-                         "date": str(ma.index[-1]), "basis": "Bank Rate minus households' 1-year expectations (re-centred), trailing 40 quarters",
+        "real_rate_ma": {"name": c["ma_name"], "role": "benchmark", "value": float(ma.iloc[-1]),
+                         "date": str(ma.index[-1]), "basis": c["ma_basis"],
                          "status": "shown, not weighted (benchmark)"},
     }
     if maps is not None and "neutral" in maps:
-        maps["expected_inflation"] = expected_inflation_at(maps.index)
+        maps["expected_inflation"] = expected_inflation_at(maps.index, country)
         maps["neutral_real"] = maps["neutral"] - maps["expected_inflation"]
         last = maps["neutral_real"].dropna()
         e_last = float(maps["expected_inflation"].iloc[-1])
-        est["maps"] = {"name": "Market Participants Survey", "role": "policy horizon", "value": float(last.iloc[-1]),
+        est[key] = {"name": c["survey_name"], "role": "policy horizon", "value": float(last.iloc[-1]),
                        "nominal": float(maps["neutral"].dropna().iloc[-1]),
                        "p25": float(maps["neutral_p25"].dropna().iloc[-1] - e_last), "p75": float(maps["neutral_p75"].dropna().iloc[-1] - e_last),
                        "date": str(last.index[-1]),
-                       "basis": f"median perceived neutral Bank Rate ({maps['neutral'].dropna().iloc[-1]:.2f}%) minus expected inflation "
-                                f"({e_last:.2f}%, MPR year-ahead projection): the same deflator as the policy rate",
+                       "basis": f"median perceived neutral {c['rate']} ({maps['neutral'].dropna().iloc[-1]:.2f}%) minus expected inflation "
+                                f"({e_last:.2f}%, {c['forecast']} year-ahead projection): the same deflator as the policy rate",
                        "status": "ok"}
-    core = {k: v for k, v in est.items() if k in WEIGHTS and v and v["status"] == "ok"}
+    core = {k: v for k, v in est.items() if k in weights and v and v["status"] == "ok"}
     med = float(np.median([v["value"] for v in core.values()]))
     for k, v in list(core.items()):
         if abs(v["value"] - med) > 1.5:
             est[k]["status"] = f"excluded: more than 1.5pp from the median of core estimates ({med:.2f}%)"
             core.pop(k)
-    w = {k: WEIGHTS[k] for k in core}
+    w = {k: weights[k] for k in core}
     tot = sum(w.values())
     headline = sum(w[k] / tot * core[k]["value"] for k in core)
     lo, hi = min(v["value"] for v in core.values()), max(v["value"] for v in core.values())
@@ -222,20 +271,19 @@ def main() -> None:
         if est[k]:
             est[k]["weight"] = round(w.get(k, 0) / tot, 3) if k in w else 0.0
 
-    # Headline history: trend-cycle r̄, blended with MaPS (real) where available, same weights.
+    # Headline history: trend-cycle r̄, blended with the survey (real) where available, same weights.
     hist = tc.r_bar.copy()
-    if est.get("maps") and est["maps"]["status"] == "ok":
+    if est.get(key) and est[key]["status"] == "ok":
         mq = maps["neutral_real"].dropna()
         mq = mq.groupby(mq.index.asfreq("Q")).last().reindex(hist.index).ffill()
-        wm = w.get("maps", 0) / (w.get("maps", 0) + w.get("trend_cycle", 0)) if "trend_cycle" in w else 1.0
+        wm = w.get(key, 0) / (w.get(key, 0) + w.get("trend_cycle", 0)) if "trend_cycle" in w else 1.0
         hist = hist.where(mq.isna(), (1 - wm) * hist + wm * mq)
 
     pg = potential_growth(d, maps)
     out = {
-        "method": "Suite of r* estimators, weighted (trend-cycle 0.40, HLW 0.25, MaPS 0.35) over those that pass "
-                  "diagnostics; range spans the core estimates. See reports/UK neutral rate estimation methods.md.",
+        "method": c["method"],
         "headline": round(headline, 3), "headline_rounded": head_r, "range": [lo, hi],
-        "expected_inflation": float(expected_inflation_at(pd.PeriodIndex([pd.Period(dt.date.today(), "M")]))[0]),
+        "expected_inflation": float(expected_inflation_at(pd.PeriodIndex([pd.Period(dt.date.today(), "M")]), country).iloc[0]),
         "estimators": est,
         "history": {
             "headline": {str(k): round(float(v), 3) for k, v in hist.items()},
@@ -244,14 +292,15 @@ def main() -> None:
             "hlw": {str(k): round(float(v), 3) for k, v in hlw.r_star.items()},
             "market_5y5y": {str(k): round(float(v), 3) for k, v in fwd[fwd.index >= pd.Period("2000Q1", "Q")].items()},
             "real_rate_ma": {str(k): round(float(v), 3) for k, v in ma.items()},
-            "maps": ({str(k): round(float(v), 3) for k, v in maps["neutral_real"].dropna().items()} if maps is not None and "neutral_real" in maps else {}),
+            key: ({str(k): round(float(v), 3) for k, v in maps["neutral_real"].dropna().items()} if maps is not None and "neutral_real" in maps else {}),
         },
         "potential_growth": {str(k): round(float(v), 3) for k, v in pg.items()},
         "trend_cycle_params": {k: (v if not isinstance(v, (np.floating, float)) else round(float(v), 3)) for k, v in tc.params.items()},
         "hlw_params": {k: round(float(v), 4) for k, v in hlw.params.__dict__.items()},
     }
-    OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "rstar_suite.json").write_text(json.dumps(out, indent=1, default=str))
+    out_dir = ROOT / "analysis" / "results" / country
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "rstar_suite.json").write_text(json.dumps(out, indent=1, default=str))
     e2 = out["expected_inflation"]
     print(f"Headline r* {headline:.2f}% → {head_r:.2f}% (range {lo:.2f}–{hi:.2f}); nominal at {e2:.2f}% expected inflation: {head_r + e2:.2f}%")
     for k, v in est.items():
@@ -266,4 +315,6 @@ if __name__ == "__main__":
             if "=" in line:
                 k, v = line.split("=", 1)
                 os.environ.setdefault(k.strip(), v.strip())
-    main()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--country", default="uk", choices=sorted(COUNTRY))
+    main(ap.parse_args().country)

@@ -1,0 +1,67 @@
+# Context charts (not scored): the economy at a glance. Series come from indicators.yaml.
+
+since: "2016-01"
+
+charts:
+  - id: pce
+    title: PCE inflation
+    subtitle: "PCE price index, % change on a year earlier"
+    series: PCE_YY
+    transform: level
+    unit: "%"
+    reference: {value: 2.0, label: "2% target"}
+
+  - id: gdp
+    title: GDP growth
+    subtitle: "Real GDP, % change on a year earlier"
+    series: GDPC1
+    transform: pct_change_12m
+    unit: "%"
+    reference: {value: 0}
+    ylim: [-5, 10]
+
+  - id: unemployment
+    title: Unemployment rate
+    subtitle: "% of the labor force, aged 16+"
+    series: UNRATE
+    transform: level
+    unit: "%"
+
+  - id: fed_funds
+    title: Fed funds rate
+    subtitle: "FOMC target (midpoint of the range from Dec 2008), %, end of month"
+    series: FEDFUNDS_TARGET
+    transform: monthly_last
+    unit: "%"
+    decimals: 2
+    step: true
+
+  - id: dollar
+    title: US dollar, broad index
+    subtitle: "Nominal broad dollar index, Jan 2006 = 100, monthly average"
+    series: DTWEXBGS
+    transform: monthly_mean
+    unit: ""
+    decimals: 0
+
+# Momentum and context table on the Inflation drivers tab (not scored).
+momentum:
+  - name: Core PCE inflation
+    series: [PCE_CORE_YY]
+    unit: "%"
+    note: Excluding food and energy; the FOMC's main gauge of underlying inflation
+  - name: CPI inflation
+    series: [CPI_YY]
+    unit: "%"
+    note: All items; runs above PCE on average (different weights and coverage)
+  - name: ECI wages and salaries
+    series: [ECIWAG]
+    transform: pct_change_12m
+    unit: "%"
+    note: Private industry, y/y; about 3½% is consistent with 2% inflation at 1½% trend productivity growth
+  - name: 5y5y breakeven inflation
+    series: [T5YIFR]
+    transform: monthly_mean
+    unit: "%"
+    decimals: 2
+    note: Market-implied, 5–10 years ahead; CPI basis, includes risk premia

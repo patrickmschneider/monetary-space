@@ -1,14 +1,19 @@
 name: build
 
 # Fetch, score and render the dashboard, save the day's data vintage to the
-# `data` branch, and deploy site/ to GitHub Pages. Cron is UTC: each UK slot is
-# scheduled for both GMT and BST, and scripts/gate.py lets the right one through.
+# `data` branch, and deploy site/ to GitHub Pages. Cron is UTC: each local slot is
+# scheduled for both of its country's UTC offsets, and scripts/gate.py lets the right one
+# through. Every run builds every edition.
 on:
   schedule:
     - cron: "10 6 * * *"    # 07:10 UK in summer (BST)
     - cron: "10 7 * * *"    # 07:10 UK in winter (GMT)
     - cron: "15 11 * * *"   # 12:15 UK in summer, MPC days only
     - cron: "15 12 * * *"   # 12:15 UK in winter, MPC days only
+    - cron: "45 12 * * *"   # 08:45 New York in summer (EDT)
+    - cron: "45 13 * * *"   # 08:45 New York in winter (EST)
+    - cron: "15 18 * * *"   # 14:15 New York in summer, FOMC days only
+    - cron: "15 19 * * *"   # 14:15 New York in winter, FOMC days only
   workflow_dispatch:
   push:
     branches: [main]

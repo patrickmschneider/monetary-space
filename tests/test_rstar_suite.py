@@ -34,7 +34,7 @@ def test_trend_cycle_recovers_a_trend_through_missing_short_rates():
     cyc = lambda s: np.array(pd.Series(rng.normal(0, s, n)).ewm(alpha=0.3).mean())
     df = pd.DataFrame({"R": rbar + pibar + cyc(1.0), "pi": pibar + cyc(1.0),
                        "yn": rbar + pibar + 0.5 + cyc(0.5), "yr": rbar - 0.5 + cyc(0.5)}, index=idx)
-    est = trend_cycle.estimate(df, 0.05, 0.07, elb=("2009Q1", "2016Q4"))
+    est = trend_cycle.estimate(df, 0.05, 0.07, elb=(("2009Q1", "2016Q4"),))
     err = est.r_bar.iloc[8:] - rbar[8:]
     assert err.abs().mean() < 0.4
     assert est.r_bar.iloc[-1] < est.r_bar.iloc[8] - 1.0     # captures the decline

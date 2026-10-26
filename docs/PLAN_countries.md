@@ -159,7 +159,7 @@ Each of the steps below is a separate commit, in this order:
 | Phase | Work | Done when |
 |---|---|---|
 | 0 ✓ | Restructure so the UK runs through the country layer: `country.yaml`, folders, store migration, `--country`, gate table, switch helper (hidden) | Done 2026-10-26. UK pages identical to the previous build from the same vintage apart from the build time, the switch CSS and three file paths in notes (`config/uk/…`, `manual/uk/…`); 92 tests pass |
-| 1 | US edition, steps 1–8 | US acceptance (section 6); switch shows UK · US |
+| 1 (in progress) | US edition, steps 1–8 | Built 2026-10-26, unpublished at `us/`: fetchers, indicators, SEP/FOMC scraper, r* suite, policy path, wording, tests (105 pass). US u*: the UK filter is not identified on US data, so the FOMC longer-run median is used (owner, 2026-10-26). Open: Bernanke–Blanchard weights, cost-push LPs, decompositions, review of `confirm` items. Then switch shows UK · US |
 | 2 | Australia edition, steps 1–8 | AU acceptance; switch shows UK · Australia · US |
 | 3 | Shared polish: dark-mode pill, scheduling check over a full week of releases, README and SPEC update, CLAUDE.md status | One week of scheduled builds with no edition falling back |
 

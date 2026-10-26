@@ -45,3 +45,29 @@ charts:
     transform: monthly_mean
     unit: "$"
     decimals: 2
+
+# Momentum and context table on the Inflation drivers tab (not scored). transform/weights as in indicators.yaml.
+momentum:
+  - name: Services CPI inflation
+    series: [D7NN]
+    unit: "%"
+    note: Mostly domestic costs; about 3¼% is consistent with 2% overall
+  - name: Core CPI inflation
+    series: [DKO8]
+    unit: "%"
+    note: Excluding energy, food, alcohol and tobacco
+  - name: Private-sector regular pay growth
+    series: [KAJ4]
+    unit: "%"
+    note: 3-month average, y/y; about 3¼% is target-consistent
+  - name: 5y5y implied inflation
+    series: [IUDMIZC, IUDSIZC]
+    transform: [forward_5y5y, monthly_mean]
+    unit: "%"
+    decimals: 2
+    note: "Market-implied, 5–10 years ahead. RPI basis until 2030, CPIH after: not comparable with history"
+  - name: Trading partners' leading indicator
+    series: ["OECD_CLI:DEU", "OECD_CLI:FRA", "OECD_CLI:ITA", "OECD_CLI:ESP", "OECD_CLI:USA"]
+    transform: weighted_mean
+    weights: [0.25, 0.18, 0.13, 0.09, 0.35]
+    note: OECD CLI, 100 = trend; euro area proxy and US weighted by UK exports
