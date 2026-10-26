@@ -100,7 +100,7 @@ def score_all(cfg: config.Config, data: dict[str, pd.Series], as_of: pd.Timestam
         except Exception as e:  # noqa: BLE001
             problems.append(f"{spec['id']}: {type(e).__name__}: {e}")
             log.warning("could not score %s: %s", spec["id"], e)
-    blocks = indicators.blocks(inds, cfg.weights["direction_threshold"])
+    blocks = indicators.blocks(inds, cfg.weights["direction_threshold"], cfg.weights.get("block_aggregation"))
     return inds, blocks, problems
 
 

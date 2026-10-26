@@ -216,6 +216,40 @@ def lead_sentence(blocks: dict[str, Block], threshold: float, stance=None, verdi
     return text
 
 
+def block_basis(b: Block) -> str:
+    """How a block score is formed, for the block's takeaway."""
+    if b.how == "standardised_sum":
+        total = sum(i.latest.z for i in b.indicators)
+        return (f"the sum of {len(b.indicators)} indicators' z ({fmt(total, 2)}), which are separate channels that add up, "
+                f"divided by the sum's pre-2020 standard deviation ({b.scale:.2f}) so it stays on the z scale")
+    return f"the equal-weighted mean of {len(b.indicators)} indicators"
+
+
+def borderline_note(cfg: Config, stance, verdict) -> str:
+    """A line under the verdict when a small change would flip it (weights.yaml verdict.borderline)."""
+    from .score import borderline
+    m = cfg.weights.get("verdict", {}).get("borderline")
+    if not m:
+        return ""
+    flags = borderline(verdict.pressure, cfg.weights["pressure"]["threshold"], stance.real_rate, stance.band,
+                       m["pressure"], m["stance_pp"])
+    parts = []
+    for f in flags:
+        side = "below" if f.value < f.line else "above"
+        other = "above" if side == "below" else "below"
+        if f.what == "pressure":
+            parts.append(f"inflation pressure ({fmt(f.value, 2)}) is {abs(f.value - f.line):.2f} {side} the {fmt(f.line)} line; "
+                         f"{other} it the verdict would be {f.alternative}")
+        else:
+            edge = "top" if f.line == stance.band[1] else "bottom"
+            parts.append(f"the real rate ({f.value:.2f}%) is {abs(f.value - f.line):.2f}pp {side} the {edge} of the neutral zone "
+                         f"({f.line:.2f}%); {other} it the verdict would be {f.alternative}")
+    if not parts:
+        return ""
+    text = "; ".join(parts)
+    return f'<p class="verdict-borderline"><strong>Borderline:</strong> {escape(text[0].upper() + text[1:])}.</p>'
+
+
 def verdict_strip(cfg: Config, blocks: dict[str, Block], stance, verdict, data: dict, now) -> str:
     if verdict is None or stance is None:
         return ""
@@ -252,7 +286,7 @@ def verdict_strip(cfg: Config, blocks: dict[str, Block], stance, verdict, data: 
     <p class="verdict-driver">driven by <a href="#block-{drv}">{BLOCK_NAMES[drv].lower()}</a></p>
   </div>
   <div class="dial">
-    <h2>Inflation pressure <span class="{pcls}">{fmt(verdict.pressure)} {ARROW[pcls]} {WORD[pcls]}</span></h2>
+    <h2>Inflation pressure <span class="{pcls}">{fmt(verdict.pressure, 2)} {ARROW[pcls]} {WORD[pcls]}</span></h2>
     <div class="dial-bar">{zbar(verdict.pressure, pcls, f"Pressure {fmt(verdict.pressure)} on a −3 to +3 scale")}<span class="sbar-ends" aria-hidden="true"><span>← Disinflationary</span><span>Inflationary →</span></span></div>
 
   </div>
@@ -261,6 +295,7 @@ def verdict_strip(cfg: Config, blocks: dict[str, Block], stance, verdict, data: 
     <div class="dial-bar">{stance_bar(stance.gap, half, f"Real-rate gap {fmt(stance.gap)} percentage points, {stance.cls}")}</div>
 
   </div>
+  {borderline_note(cfg, stance, verdict)}
   <p class="verdict-facts">{" · ".join(facts)}</p>
 </section>"""
 
@@ -364,7 +399,7 @@ def block_section(b: Block, cfg: Config, number: int, now) -> str:
     <div>
       <p class="eyebrow">{BLOCK_NAMES[b.id].upper()} · {BLOCK_ROLE[b.id]}</p>
       <h2 id="h-{b.id}">{escape(BLOCK_TITLES[b.id])}</h2>
-      <p class="takeaway">Block score <strong class="{d}">{fmt(b.score)} {ARROW[d]} {WORD[d]}</strong>, the equal-weighted mean of {len(b.indicators)} indicators. {diffusion_dots(b.diffusion)}.</p>
+      <p class="takeaway">Block score <strong class="{d}">{fmt(b.score)} {ARROW[d]} {WORD[d]}</strong>, {block_basis(b)}. {diffusion_dots(b.diffusion)}.</p>
     </div>
   </div>
   <div class="table-wrap"><table class="block-table">
@@ -798,6 +833,7 @@ h1,h2,h3,p{margin-top:0}
 .edition-switch a{font-size:11px;font-weight:600;letter-spacing:.2px;color:var(--muted);text-decoration:none;padding:3px 10px;border-radius:999px;line-height:1.4}
 .edition-switch a:hover{color:var(--ink)}
 .edition-switch a[aria-current=page]{background:var(--accent);color:var(--bg)}
+.verdict-borderline{grid-column:1/-1;grid-row:3;margin:14px 0 0;font-size:13px;color:var(--fg);border-left:2px solid var(--muted);padding-left:10px}
 .release-stamp{font-size:11px;color:var(--muted);border:1px solid var(--border);border-radius:30px;padding:10px 14px;display:flex;align-items:center;gap:7px;white-space:nowrap;margin:0}
 .release-stamp strong{color:var(--fg);font-weight:500}
 .status-dot{width:6px;height:6px;background:#4b9270;border-radius:50%}
@@ -841,7 +877,7 @@ h1,h2,h3,p{margin-top:0}
 .spark-line{fill:none;stroke:var(--ink);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .spark-dot{fill:var(--ink)}
 .spark figcaption{font-size:10px;color:var(--muted);margin-top:4px}
-.verdict{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto auto;column-gap:36px;row-gap:0;border-top:2px solid var(--ink);padding:20px 0 16px;margin:6px 0 18px}
+.verdict{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto auto auto;column-gap:36px;row-gap:0;border-top:2px solid var(--ink);padding:20px 0 16px;margin:6px 0 18px}
 .verdict-main{grid-row:1 / span 2;align-self:end}
 .dial{display:grid;grid-template-rows:subgrid;grid-row:1 / span 2;align-self:end}
 .dial-bar{align-self:start}
@@ -855,7 +891,7 @@ h1,h2,h3,p{margin-top:0}
 .dial h2 span{color:var(--fg);white-space:nowrap}
 .dial h2 span.up{color:var(--up)}.dial h2 span.down{color:var(--down)}
 .dial-note{font-size:11px;color:var(--muted);margin:8px 0 0;line-height:1.5}
-.verdict-facts{grid-column:1/-1;grid-row:3;margin-top:14px!important;font-size:12px;color:var(--muted);margin:4px 0 0;border-top:1px solid var(--border);padding-top:12px}
+.verdict-facts{grid-column:1/-1;grid-row:4;margin-top:14px!important;font-size:12px;color:var(--muted);margin:4px 0 0;border-top:1px solid var(--border);padding-top:12px}
 .verdict-facts strong{color:var(--fg);font-weight:600}
 .sbar{position:relative;display:block;height:8px;background:var(--track);min-width:90px}
 .sbar-band{position:absolute;top:0;bottom:0;background:var(--band)}
@@ -944,7 +980,7 @@ footer{display:flex;justify-content:space-between;gap:30px;margin-top:44px;paddi
 footer strong{font-family:Georgia,'Times New Roman',serif;color:var(--ink);font-size:16px;font-weight:600}
 footer p{margin:8px 0 0}
 footer>div:last-child{text-align:right;align-self:flex-end}
-@media(max-width:900px){.verdict{grid-template-columns:1fr;grid-template-rows:none;row-gap:18px}.verdict-main,.dial{grid-row:auto}.dial{display:block}.verdict-facts{grid-row:auto}}
+@media(max-width:900px){.verdict{grid-template-columns:1fr;grid-template-rows:none;row-gap:18px}.verdict-main,.dial{grid-row:auto}.dial{display:block}.verdict-facts{grid-row:auto}.verdict-borderline{grid-row:auto}}
 @media(max-width:1000px){.header-inner{padding:0 26px}.page-shell{padding:30px 26px 0}
 .headline-strip{grid-template-columns:1fr 1fr}.metric{border-bottom:1px solid var(--border)}.metric:nth-child(2n){border-right:0}.metric:nth-child(2n+1){padding-left:0}}
 @media(max-width:700px){.release-log>summary{flex-wrap:wrap;gap:4px 14px}.release-log>summary .source-chevron{display:none}

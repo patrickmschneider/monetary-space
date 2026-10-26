@@ -181,11 +181,11 @@ series:
     title: "Economic inactivity rate, 16–64, %, SA (LFS, rolling 3 months)"
     uri: /employmentandlabourmarket/peoplenotinwork/economicinactivity/timeseries/lf2s/lms
     freq: M
-  GD74:
+  GB8U:
     fetcher: ons_timeseries
     source: ons
-    title: "Import price index, total, 2015 = 100, NSA"
-    uri: /economy/inflationandpriceindices/timeseries/gd74/ppi
+    title: "Import price index, manufactured products, 2015 = 100, NSA (excludes crude oil, gas and coal)"
+    uri: /economy/inflationandpriceindices/timeseries/gb8u/ppi
     freq: M
   IUDSIZC:
     fetcher: boe_iadb
@@ -523,13 +523,13 @@ indicators:
     note: 'A rise is an appreciation, which lowers import prices: the sign is negative.'
 
   - id: import_prices
-    name: Import prices
+    name: Import prices, manufactured goods
     explain: >-
-      Prices of goods imported into the UK, change on a year earlier. They are the pipeline through which global and exchange-rate shocks reach UK shop prices, typically over four to eight quarters. Rising import prices signal cost pressure still to come through.
+      Prices of manufactured goods imported into the UK, change on a year earlier. They are the pipeline through which global and exchange-rate shocks reach UK shop prices, typically over four to eight quarters. Crude oil, gas and coal are left out because oil and gas are scored separately.
     phrase: import prices
     block: C
     series:
-    - GD74
+    - GB8U
     transform: pct_change_12m
     unit: '% y/y'
     freq: M
@@ -542,7 +542,7 @@ indicators:
       method: pre2020_sd
     sign: 1
     smoothing: 12-month % change of the NSA index
-    note: 'Pipeline pressure: import costs reach consumer prices over about 4–8 quarters. Series starts Dec 2008.'
+    note: 'Pipeline pressure: import costs reach consumer prices over about 4–8 quarters. Manufactured products only, so primary fuels are not counted twice with oil and gas; refined petroleum products are still included. Series starts Dec 2008.'
 
 # Not scored (momentum and context): services CPI (D7NN), private regular pay (KAJ4), inactivity (LF2S),
 # trading partners' leading indicator (OECD_CLI), 5y5y implied inflation (IUDSIZC/IUDMIZC).

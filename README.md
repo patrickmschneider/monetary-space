@@ -92,9 +92,13 @@ Inflation pressure is read as the terms of a hybrid New Keynesian Phillips curve
 | Expectations | Are inflation expectations anchored at 2%? | Firms' expected own-price growth (DMP), households' 1-year expectations (BoE IAS), market-implied inflation over 5 years (gilt breakeven, converted to a CPI basis) |
 | Demand | Is demand running ahead of capacity? | Unemployment vs estimated u\*, vacancies per unemployed, payrolls, GDP growth vs estimated potential, Agents' capacity utilisation |
 | Supply | Is capacity growing more slowly than normal? | Unit labour cost growth vs 2%, productivity growth vs its 5-year trend |
-| Cost-push | Are external costs pushing up prices? | Brent (US$), UK gas, sterling ERI, import prices |
+| Cost-push | Are external costs pushing up prices? | Brent (US$), UK gas, sterling ERI, import prices of manufactured goods |
 
 Not scored, shown as momentum and context: services CPI, core CPI, private pay, 5y5y implied inflation, trading partners' leading indicators.
+
+**Block scores** (owner's decision, 27 Oct 2026). Expectations, demand and supply hold several noisy readings of one thing, so each block is the mean of its z. Cost-push indicators are separate channels that add up, so that block is their sum, divided by the pre-2020 standard deviation of the sum (from pairwise covariances, since the series start at different dates) so it stays on the z scale and the ±0.5 line keeps its meaning. Import prices exclude fuels so oil and gas are not counted twice: manufactured goods (ONS GB8U) in the UK, consumption goods in Australia, all imports excluding fuels in the US. `block_aggregation` in `config/<country>/weights.yaml`.
+
+**Borderline verdicts.** When pressure is within 0.1 of ±0.5, or the real rate within 0.1pp of a neutral-zone edge, the verdict strip says so and names the verdict on the other side (`verdict.borderline` in `config/<country>/weights.yaml`).
 
 **Pressure weights.** Two weightings are computed; `pressure.method` in `config/uk/weights.yaml` picks the one that drives the verdict, and the page shows both.
 - *Config (literature-based):* Expectations 0.35, Demand 0.25, Supply 0.25, Cost-push 0.15. Look through first-round cost-push, respond fully to second-round channels ([reports/UK cost push pass through.md](reports/UK%20cost%20push%20pass%20through.md)).

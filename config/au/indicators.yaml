@@ -214,9 +214,9 @@ series:
   ITPI_IMP:
     fetcher: abs
     source: abs
-    title: "Import Price Index, all groups, index, quarterly (ABS 6457)"
+    title: "Import Price Index, consumption goods (excludes fuels and lubricants), index, quarterly (ABS 6457)"
     flow: "ABS,ITPI_IMP,1.0.0"
-    key: "1.6011001.Q"
+    key: "1.8094684.Q"
     code: ITPI_IMP
     freq: Q
 
@@ -477,9 +477,9 @@ indicators:
     note: 'A rise is an appreciation, which lowers import prices: the sign is negative.'
 
   - id: import_prices
-    name: Import prices
+    name: Import prices, consumption goods
     explain: >-
-      Prices of goods imported into Australia in Australian dollars, change on a year earlier. They are the pipeline through which global prices and the exchange rate reach shop prices, typically over several quarters. Rising import prices signal cost pressure still to come through.
+      Prices of imported consumption goods in Australian dollars, change on a year earlier. They are the most direct pipeline through which global prices and the exchange rate reach shop prices, typically over several quarters. Fuels are a separate import category, so oil is not counted twice.
     phrase: import prices
     block: C
     series: [ITPI_IMP]
@@ -494,7 +494,7 @@ indicators:
     sigma: {method: pre2020_sd, since: '1993-01'}
     sign: 1
     smoothing: 4-quarter % change
-    note: All groups, including fuels, so oil partly overlaps (as in the UK edition's import prices).
+    note: ABS consumption goods category (BEC), which excludes fuels and lubricants. Starts 1983.
 
 # Not scored (momentum and context): trimmed mean CPI, Wage Price Index, economists' 5–10-year
 # expectations, consumer expectations (charts.yaml momentum).

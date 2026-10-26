@@ -52,10 +52,13 @@ def direction(z: float, threshold: float = 0.5) -> str:
     return NEUTRAL
 
 
-def block_score(zs: list[float]) -> float:
-    """Step 5: equal-weighted mean of the block's z."""
+def block_score(zs: list[float], how: str = "mean", scale: float = 1.0) -> float:
+    """Step 5: the equal-weighted mean of the block's z, or for a block of separate channels that add
+    up (cost-push), their sum divided by `scale`, the pre-2020 SD of the sum, so it stays on the z scale."""
     if not zs:
         raise ValueError("block has no indicators")
+    if how == "standardised_sum":
+        return sum(zs) / scale
     return fmean(zs)
 
 
@@ -102,6 +105,35 @@ def verdict(pressure_class: str, stance_class: str) -> str:
     if d <= -1:
         return EASE
     return ON_TRACK
+
+
+@dataclass(frozen=True)
+class Borderline:
+    """A score within `margin` of a line, and the verdict on the other side of it."""
+
+    what: str          # "pressure" or "stance"
+    value: float
+    line: float
+    alternative: str
+
+
+def borderline(pressure: float, threshold: float, real_rate: float, band: tuple[float, float],
+               pressure_margin: float, stance_margin: float) -> list[Borderline]:
+    """Verdicts that a small change would flip: pressure within its margin of ±threshold, or the real
+    rate within its margin of either edge of the neutral zone."""
+    pc, sc = direction(pressure, threshold), stance(real_rate, band)
+    out = []
+    for line in (threshold, -threshold):
+        if abs(pressure - line) <= pressure_margin:
+            other = direction(line + (0.001 if pressure <= line else -0.001), threshold)
+            if (alt := verdict(other, sc)) != verdict(pc, sc):
+                out.append(Borderline("pressure", pressure, line, alt))
+    for line in band:
+        if abs(real_rate - line) <= stance_margin:
+            other = stance(line + (0.001 if real_rate <= line else -0.001), band)
+            if (alt := verdict(pc, other)) != verdict(pc, sc):
+                out.append(Borderline("stance", real_rate, line, alt))
+    return out
 
 
 def driver(block_scores: dict[str, float], weights: dict[str, float]) -> str:

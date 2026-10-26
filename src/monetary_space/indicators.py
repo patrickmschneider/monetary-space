@@ -158,15 +158,37 @@ class Block:
     score: float
     diffusion: dict[str, int]
     history: pd.Series           # monthly block score
+    how: str = "mean"            # mean | standardised_sum (weights.yaml block_aggregation)
+    scale: float = 1.0           # standardised_sum: pre-2020 SD of the sum of z
 
 
-def blocks(inds: list[Indicator], threshold: float) -> dict[str, Block]:
+def sum_scale(hists: list[pd.Series]) -> float:
+    """Pre-2020 SD of a sum of z histories, from pairwise covariances: each pair uses the months it
+    shares, so a short series (UK gas from 2018) does not cut every other series' sample. A pair
+    with no overlap counts as uncorrelated."""
+    z = pd.concat(hists, axis=1)
+    z = z[z.index <= transform.PRE2020_END]
+    cov = z.cov(min_periods=12).to_numpy(copy=True)
+    var = z.var().to_numpy()
+    for k in range(len(var)):
+        cov[k, k] = var[k]
+    cov = pd.DataFrame(cov).fillna(0.0).to_numpy()
+    return float(cov.sum()) ** 0.5
+
+
+def blocks(inds: list[Indicator], threshold: float, aggregation: dict[str, str] | None = None) -> dict[str, Block]:
     out = {}
     for b in BLOCKS:
         members = [i for i in inds if i.block == b]
         if not members:
             continue
         zs = [i.latest.z for i in members]
-        hist = pd.concat([i.z_hist for i in members], axis=1).dropna().mean(axis=1)
-        out[b] = Block(b, members, score.block_score(zs), score.diffusion(zs, threshold), hist)
+        how = (aggregation or {}).get(b, "mean")
+        frame = pd.concat([i.z_hist for i in members], axis=1)
+        if how == "standardised_sum":
+            scale = sum_scale([i.z_hist for i in members])
+            hist = frame.dropna().sum(axis=1) / scale
+        else:
+            scale, hist = 1.0, frame.dropna().mean(axis=1)
+        out[b] = Block(b, members, score.block_score(zs, how, scale), score.diffusion(zs, threshold), hist, how, scale)
     return out

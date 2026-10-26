@@ -68,3 +68,27 @@ def test_driver_is_largest_weighted_contribution():
     w = {"B": 0.5, "A": 0.3, "C": 0.2}
     assert score.driver({"A": 2.0, "B": 1.0, "C": 0.0}, w) == "A"   # 0.6 > 0.5
     assert score.driver({"A": -0.5, "B": 0.4, "C": -2.0}, w) == "C"  # |−0.4| is largest
+
+
+def test_standardised_sum_block():
+    assert score.block_score([2.0, -1.0, 1.0], "standardised_sum", 2.0) == 1.0
+    assert score.block_score([2.0, -1.0, 1.0]) == pytest.approx(2 / 3)
+
+
+def test_sum_scale_uses_pairwise_covariances():
+    import pandas as pd
+    from monetary_space import indicators
+    idx = pd.period_range("2010-01", "2019-12", freq="M")
+    a = pd.Series([1.0, -1.0] * 60, index=idx)
+    b = a.copy()                                              # perfectly correlated: SD of sum = 2·SD
+    short = pd.Series([1.0, -1.0] * 6, index=idx[-12:])       # starts late; only its overlap is used
+    assert indicators.sum_scale([a, b]) == pytest.approx(2 * a.std())
+    assert indicators.sum_scale([a, -a]) == pytest.approx(0.0, abs=1e-9)
+    assert indicators.sum_scale([a, short]) == pytest.approx((a.var() + short.var() + 2 * a[-12:].cov(short)) ** 0.5)
+
+
+def test_borderline_names_the_verdict_across_each_nearby_line():
+    flags = score.borderline(0.52, 0.5, 1.90, (0.875, 1.875), 0.1, 0.1)
+    assert [(f.what, f.alternative) for f in flags] == [("pressure", score.EASE), ("stance", score.HAWKISH)]
+    assert score.borderline(1.3, 0.5, 1.15, (0.375, 1.375), 0.1, 0.1) == []
+    assert [f.alternative for f in score.borderline(1.02, 0.5, 1.225, (0.25, 1.25), 0.1, 0.1)] == [score.ON_TRACK]

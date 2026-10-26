@@ -3,6 +3,17 @@
 z_clip: 3.0                # step 3: z clipped at ±z_clip
 direction_threshold: 0.5   # step 4: |z| above this points up/down
 
+# Step 5. Expectations, demand and supply blocks hold several noisy readings of one thing (anchoring,
+# slack), so their z-scores are averaged. Cost-push indicators are separate channels that add up
+# (owner's decision, 2026-10-27), so they are summed, and the sum is divided by its pre-2020 SD so
+# the block stays on the z scale and the ±0.5 pressure line keeps its meaning.
+block_aggregation: {C: standardised_sum}
+
+verdict:
+  # A verdict is flagged as borderline when a small change would flip it: pressure within this
+  # distance of ±threshold (z units), or the real rate within this distance of a neutral-zone edge (pp).
+  borderline: {pressure: 0.1, stance_pp: 0.1}
+
 pressure:                  # step 6, restructured around the Phillips curve
   # Two weightings are computed and shown; `method` picks the one that drives the verdict.
   method: config
