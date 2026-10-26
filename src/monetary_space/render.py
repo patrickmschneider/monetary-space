@@ -36,12 +36,12 @@ def period_label(p: pd.Period) -> str:
 
 
 def seen_label(i: Indicator) -> str:
-    """When the latest inputs first reached the page: 'first seen 21 Oct', or 'by 24 Sep' before the log began."""
+    """When the latest inputs were released: 'released 21 Oct', or 'released by 24 Sep' if out before the log began."""
     if i.seen is None:
         return ""
     if i.seen.daily:
         return f"daily, to {pd.Timestamp(i.seen.period):%-d %b}"
-    return f"{'by' if i.seen.at_log_start else 'first seen'} {i.seen.first_seen:%-d %b}"
+    return f"released {'by ' if i.seen.at_log_start else ''}{i.seen.first_seen:%-d %b}"
 
 
 def new_days(cfg: Config) -> int:
@@ -320,7 +320,7 @@ def _flags(i: Indicator, saturation_share: float) -> str:
 
 def date_cell(i: Indicator, now, days: int) -> str:
     new = releases.is_new(i.seen, now.tz_localize(None).normalize(), days)
-    badge = f'<span class="new-badge" title="First seen in the last {days} days">New</span>' if new else ""
+    badge = f'<span class="new-badge" title="Released in the last {days} days">New</span>' if new else ""
     seen = f'<span class="seen">{escape(seen_label(i))}</span>' if i.seen is not None else ""
     return f"<td>{period_label(i.period)}{badge}{seen}</td>"
 
@@ -579,11 +579,11 @@ def release_log(inds: list[Indicator], cfg: Config, now) -> str:
   <details class="release-log" id="releases">
     <summary><span class="release-log-title">Release log</span><span class="release-log-head">{head}</span><svg class="source-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></summary>
     <div class="table-wrap"><table class="release-table">
-      <thead><tr><th scope="col">Indicator</th><th scope="col">Period</th><th scope="col">Reached the page</th><th scope="col" class="num">Latest x</th>
+      <thead><tr><th scope="col">Indicator</th><th scope="col">Period</th><th scope="col">Released</th><th scope="col" class="num">Latest x</th>
         <th scope="col" class="num">Previous</th><th scope="col" class="num">Change in z</th><th scope="col">Next expected</th></tr></thead>
       <tbody>{"".join(rows)}</tbody>
     </table></div>
-    <p class="basis-note">“First seen” is the first daily build that fetched the period, normally the release day. “By” means the period was already out when the log began. Previous is the prior period as now revised; change in z is from that period to the latest. Next expected is the usual publication lag, not the official calendar.</p>
+    <p class="basis-note">Release dates are the day the 07:10 daily build first picked the data up: the release day itself for 07:00 ONS releases, and usually no more than a day late otherwise. “Released by” means the data was already out when records began. Previous is the prior period as now revised; change in z is from that period to the latest. Next expected is the usual publication lag, not the official calendar.</p>
   </details>"""
 
 
