@@ -56,7 +56,9 @@ def parse_dmp_price_growth(xlsx: bytes, measure: str = "3 month average") -> pd.
                   if isinstance(v, str) and v.strip().lower().startswith("mean expected price growth"))
     hdr = r0 + 1
     col = next(j for j in range(c0, c0 + 3) if str(raw.iat[hdr, j]).strip().lower() == measure.lower())
-    datecol = next(j for j in range(raw.shape[1]) if str(raw.iat[hdr, j]).lower().startswith("survey date"))
+    # Found by its values, not its label: the September 2026 file dropped the "Survey date" header.
+    datecol = next(j for j in range(raw.shape[1])
+                   if raw.iloc[hdr + 1:hdr + 4, j].astype(str).str.strip().str.match(r"^[A-Z][a-z]{2}-\d{2}$").all())
     body = raw.iloc[hdr + 1:, [datecol, col]].dropna()
     idx = pd.PeriodIndex(pd.to_datetime(body.iloc[:, 0].astype(str).str.strip(), format="%b-%y"), freq="M")
     s = pd.Series(pd.to_numeric(body.iloc[:, 1], errors="coerce").to_numpy(dtype=float), index=idx)
