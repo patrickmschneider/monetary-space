@@ -131,7 +131,7 @@ Still manual: the Känzig oil-shock vintage in `analysis/passthrough_lp.py` (abo
 
 ## US edition
 
-Built 2026-10-26 at `us/`; not yet in the country switch (`published: false` in `config/us/country.yaml`) until the team has reviewed it. Same method as the UK, with US data:
+Built 2026-10-26 at `us/`, in the UK · US country switch under the wordmark. Same method as the UK, with US data:
 
 - **Target and stance.** Scored against what the Fed targets: 2% headline PCE. The policy rate is the midpoint of the FOMC's target range; expected inflation is the SEP median PCE projection for the quarter a year ahead, interpolated between the Q4/Q4 calendar-year medians (`src/monetary_space/fetch/fed.py`).
 - **Indicators** (`config/us/indicators.yaml`). Firms' expected unit-cost growth (Atlanta Fed), Michigan year-ahead expectations, the 5-year TIPS breakeven; unemployment, job openings per unemployed, payrolls, GDP, capacity utilization; unit labor costs and productivity; Brent, Henry Hub natural gas, the broad dollar and non-fuel import prices. Series that start before 1990 are measured from 1990.

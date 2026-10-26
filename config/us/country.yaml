@@ -3,7 +3,7 @@
 id: us
 name: US
 order: 3
-published: false                 # appears in the edition switch once it passes acceptance (docs/PLAN_countries.md §6)
+published: true                  # shown in the edition switch (owner, 2026-10-26)
 path: us/
 lang: en-US
 time_zone: America/New_York
