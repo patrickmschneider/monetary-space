@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import charts, config, indicators, nairu, render, rstar_suite, stance, store
+from . import charts, config, indicators, nairu, releases, render, rstar_suite, stance, store
 from .fetch import fetch, mpc
 
 log = logging.getLogger("monetary_space")
@@ -86,7 +86,7 @@ def assess(cfg: config.Config, data: dict[str, pd.Series], blocks: dict, estimat
 
 
 def score_all(cfg: config.Config, data: dict[str, pd.Series], as_of: pd.Timestamp, failed: set[str],
-              estimates: dict | None = None):
+              estimates: dict | None = None, seen: dict | None = None):
     inds, problems = [], []
     for spec in cfg.indicators:
         missing = [s for s in spec["series"] if s not in data]
@@ -94,7 +94,9 @@ def score_all(cfg: config.Config, data: dict[str, pd.Series], as_of: pd.Timestam
             problems.append(f"{spec['id']}: no data for {', '.join(missing)}")
             continue
         try:
-            inds.append(indicators.compute(spec, data, cfg, as_of, failed, estimates))
+            ind = indicators.compute(spec, data, cfg, as_of, failed, estimates)
+            ind.seen = releases.indicator_seen(ind.series, seen or {})
+            inds.append(ind)
         except Exception as e:  # noqa: BLE001
             problems.append(f"{spec['id']}: {type(e).__name__}: {e}")
             log.warning("could not score %s: %s", spec["id"], e)
@@ -134,8 +136,9 @@ def run(root: Path, store_dir: Path, out_dir: Path, fetch_data: bool = True) -> 
             raise SystemExit("no stored vintage to build from; run with fetching enabled")
         res = FetchResult(previous, set(), [])
 
+    seen = releases.first_seen(releases.read_log(store_dir))
     estimates, est_problems = estimate_all(cfg, res.data)
-    inds, blocks, problems = score_all(cfg, res.data, as_of, res.failed, estimates)
+    inds, blocks, problems = score_all(cfg, res.data, as_of, res.failed, estimates, seen)
     st, vd, v_problems = assess(cfg, res.data, blocks, estimates, as_of)
     problems = est_problems + problems + v_problems
     try:

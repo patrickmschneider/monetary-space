@@ -9,7 +9,7 @@ from html import escape
 
 import pandas as pd
 
-from . import charts, decomposition, policy_path
+from . import charts, decomposition, policy_path, releases
 from .config import BLOCK_EXPLAIN, BLOCK_NAMES, BLOCK_TITLES, Config
 from .indicators import Block, Indicator
 from .score import DOWN, EASE, HAWKISH, UP
@@ -35,6 +35,19 @@ def period_label(p: pd.Period) -> str:
     return f"{p.year} Q{p.quarter}" if p.freqstr.startswith("Q") else p.strftime("%b %Y")
 
 
+def seen_label(i: Indicator) -> str:
+    """When the latest inputs first reached the page: 'first seen 21 Oct', or 'by 24 Sep' before the log began."""
+    if i.seen is None:
+        return ""
+    if i.seen.daily:
+        return f"daily, to {pd.Timestamp(i.seen.period):%-d %b}"
+    return f"{'by' if i.seen.at_log_start else 'first seen'} {i.seen.first_seen:%-d %b}"
+
+
+def new_days(cfg: Config) -> int:
+    return cfg.weights["freshness"]["new_days"]
+
+
 def direction_of(score: float, threshold: float) -> str:
     return UP if score > threshold else DOWN if score < -threshold else "neutral"
 
@@ -51,6 +64,9 @@ def tooltip(i: Indicator) -> str:
         f"Smoothing: {i.smoothing}",
         f"Source: {i.source}",
     ]
+    if i.seen is not None:
+        lines.append(f"Data: {seen_label(i)}" if i.seen.daily else
+                     f"Data: {seen_label(i)} {i.seen.first_seen:%Y}; next release expected {i.next_due:%-d %b %Y}")
     if i.note:
         lines.append(f"Note: {i.note}")
     return "\n".join(lines)
@@ -83,6 +99,8 @@ def summary(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], proble
                 "direction": i.direction, "stale": i.stale, "next_due": str(i.next_due.date()),
                 "clip_share": round(i.clip_share, 3), "clip_share_since_2021": round(i.clip_share_recent, 3),
                 "failed_series": i.failed_series,
+                "first_seen": None if i.seen is None else str(i.seen.first_seen.date()),
+                "first_seen_at_log_start": None if i.seen is None else i.seen.at_log_start,
             }
             for i in inds
         ],
@@ -292,15 +310,22 @@ def headline_strip(blocks: dict[str, Block], cfg: Config, stance=None) -> str:
 def _flags(i: Indicator, saturation_share: float) -> str:
     flags = []
     if i.stale:
-        flags.append(f"Stale: the next release was due {i.next_due:%-d %b %Y}")
+        flags.append(f"Overdue: the next release was expected by {i.next_due:%-d %b %Y}")
     if i.failed_series:
-        flags.append("Source failed this run; last good value shown")
+        flags.append("Fetch failed this run; showing the last value fetched" + ("" if i.stale else ", still the latest release"))
     if i.clip_share_recent > saturation_share:
         flags.append(f"z clipped in {i.clip_share_recent:.0%} of periods since 2021")
     return "".join(f'<span class="flag">{escape(f)}</span>' for f in flags)
 
 
-def block_section(b: Block, cfg: Config, number: int) -> str:
+def date_cell(i: Indicator, now, days: int) -> str:
+    new = releases.is_new(i.seen, now.tz_localize(None).normalize(), days)
+    badge = f'<span class="new-badge" title="First seen in the last {days} days">New</span>' if new else ""
+    seen = f'<span class="seen">{escape(seen_label(i))}</span>' if i.seen is not None else ""
+    return f"<td>{period_label(i.period)}{badge}{seen}</td>"
+
+
+def block_section(b: Block, cfg: Config, number: int, now) -> str:
     thr = cfg.weights["direction_threshold"]
     sat = cfg.weights["history"]["saturation_note_share"]
     d = direction_of(b.score, thr)
@@ -310,7 +335,7 @@ def block_section(b: Block, cfg: Config, number: int) -> str:
             f'<tr class="{"stale" if i.stale else ""}">'
             f'<th scope="row">{term(i.name, i.explain)}{_flags(i, sat)}</th>'
             f'<td class="num">{num(i.latest.x)}<span class="unit"> {escape(i.unit)}</span></td>'
-            f"<td>{period_label(i.period)}</td>"
+            f"{date_cell(i, now, new_days(cfg))}"
             f'<td class="num">{num(i.b, 2)}</td>'
             f'<td class="num">{num(i.sigma, 2)}</td>'
             f'<td class="num">{"+1" if i.sign > 0 else "−1"}</td>'
@@ -516,6 +541,70 @@ def rstar_chart(suite, cfg: Config) -> str:
             f'<div class="chart-frame">{markup}<div class="chart-tip" id="tip-rstar" aria-live="polite"></div></div>{charts.fig_note(note)}</figure>')
 
 
+def release_log(inds: list[Indicator], cfg: Config, now) -> str:
+    """Latest release per scored indicator, newest first: the spec's release log, as a drawer on the overview."""
+    days, as_of = new_days(cfg), now.tz_localize(None).normalize()
+    order = sorted(inds, key=lambda i: (i.seen is not None and not i.seen.daily,   # daily market data last
+                                        i.seen.first_seen if i.seen else pd.Timestamp.min, i.name), reverse=True)
+    new = [i for i in order if releases.is_new(i.seen, as_of, days)]
+    rows = []
+    for i in order:
+        is_new = releases.is_new(i.seen, as_of, days)
+        badge = '<span class="new-badge">New</span>' if is_new else ""
+        if i.prev is not None:
+            pp, px, pz = i.prev
+            prev = f'{num(px)}<span class="unit"> ({period_label(pp)})</span>'
+            dz = fmt(i.latest.z - pz)
+        else:
+            prev, dz = "–", "–"
+        status = " · ".join(s for s, on in (("Overdue", i.stale), ("fetch failed", bool(i.failed_series))) if on)
+        status = f' <span class="flag-inline">{status}</span>' if status else ""
+        rows.append(
+            f'<tr class="{"stale" if i.stale else ""}">'
+            f'<th scope="row">{escape(i.name)}{badge}</th>'
+            f"<td>{period_label(i.period)}</td>"
+            f"<td>{escape(seen_label(i)) or '–'}</td>"
+            f'<td class="num">{num(i.latest.x)}<span class="unit"> {escape(i.unit)}</span></td>'
+            f'<td class="num">{prev}</td>'
+            f'<td class="num">{dz}</td>'
+            f"<td>{'daily' if i.seen and i.seen.daily else f'{i.next_due:%-d %b}'}{status}</td>"
+            "</tr>"
+        )
+    if new:
+        names = ", ".join(f"{escape(i.name)} ({period_label(i.period)})" for i in new)
+        head = f"<strong>{len(new)} new in the last {days} days:</strong> {names}"
+    else:
+        head = f"<strong>No new releases in the last {days} days.</strong> Latest: {escape(order[0].name)}, {escape(seen_label(order[0]))}" if order else "No releases logged yet"
+    return f"""
+  <details class="release-log" id="releases">
+    <summary><span class="release-log-title">Release log</span><span class="release-log-head">{head}</span><svg class="source-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></summary>
+    <div class="table-wrap"><table class="release-table">
+      <thead><tr><th scope="col">Indicator</th><th scope="col">Period</th><th scope="col">Reached the page</th><th scope="col" class="num">Latest x</th>
+        <th scope="col" class="num">Previous</th><th scope="col" class="num">Change in z</th><th scope="col">Next expected</th></tr></thead>
+      <tbody>{"".join(rows)}</tbody>
+    </table></div>
+    <p class="basis-note">“First seen” is the first daily build that fetched the period, normally the release day. “By” means the period was already out when the log began. Previous is the prior period as now revised; change in z is from that period to the latest. Next expected is the usual publication lag, not the official calendar.</p>
+  </details>"""
+
+
+def failure_notice(inds: list[Indicator], failed: list[str], problems: list[str]) -> str:
+    """Separate a broken fetch from missing data: a failed fetch often still shows the latest release."""
+    items = []
+    for s in failed:
+        users = [i for i in inds if s in {f.split(":")[0] for f in i.failed_series}]
+        if not users:
+            items.append(f"The {escape(s)} fetch failed this run; the last value fetched is kept.")
+            continue
+        i = users[0]
+        names = ", ".join(escape(u.name) for u in users)
+        when = f", {escape(seen_label(i))}" if i.seen else ""
+        tail = (f"That release is overdue: the next was expected by {i.next_due:%-d %b %Y}." if i.stale else
+                f"No newer release was expected yet (next around {i.next_due:%-d %b}), so this is still the latest data.")
+        items.append(f"{names}: the {escape(i.source)} fetch failed this run. Showing {period_label(i.period)}{when}. {tail}")
+    items += [f"Not scored: {escape(p)}." for p in problems]
+    return '<div class="notice" role="status">' + "<br>".join(items) + "</div>" if items else ""
+
+
 def part(number: int, title: str, intro: str) -> str:
     return (f'<header class="part-heading" id="part-{number}"><p class="part-number">Part {number}</p>'
             f'<h2>{escape(title)}</h2><p>{escape(intro)}</p></header>')
@@ -532,13 +621,20 @@ const hide=()=>{if(cur)cur.removeAttribute('aria-describedby');cur=null;tip.hidd
 for(const el of document.querySelectorAll('.term')){el.addEventListener('mouseenter',()=>show(el));el.addEventListener('mouseleave',hide);
 el.addEventListener('focus',()=>show(el));el.addEventListener('blur',hide);}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')hide();});window.addEventListener('scroll',hide,{passive:true});})();
+(()=>{const open=()=>{if(location.hash==='#releases'){const d=document.getElementById('releases');if(d)d.open=true;}};
+open();window.addEventListener('hashchange',open);})();
 """
 
 
 TABS = [("index.html", "Overview"), ("drivers.html", "Inflation drivers"), ("stance.html", "Stance working")]
 
 
-def shell(title: str, active: str, body: str, now, script: bool = True) -> str:
+def shell(title: str, active: str, body: str, now, script: bool = True, new: tuple[int, int] | None = None) -> str:
+    fresh = ""
+    if new is not None:
+        count, days = new
+        fresh = (f'<a class="fresh-link" href="index.html#releases">{count} new release{"s" if count != 1 else ""} in {days} days</a>'
+                 if count else f'<a class="fresh-link" href="index.html#releases">Release log</a>')
     nav = "".join(f'<a href="{f}"{" aria-current=\"page\" class=\"active\"" if f == active else ""}>{escape(n)}</a>' for f, n in TABS)
     return f"""<!doctype html>
 <html lang="en-GB">
@@ -564,7 +660,7 @@ def shell(title: str, active: str, body: str, now, script: bool = True) -> str:
   <div class="header-inner">
     <a class="brand" href="index.html"><span><strong>Monetary Space</strong><small>A GUIDE TO UK MONETARY POLICY</small></span></a>
     <nav class="tabs" aria-label="Pages">{nav}</nav>
-    <p class="release-stamp"><span class="status-dot" aria-hidden="true"></span>Data as of <strong>{now:%-d %B %Y}</strong></p>
+    <p class="release-stamp"><span class="status-dot" aria-hidden="true"></span>Data as of <strong>{now:%-d %B %Y}</strong>{fresh}</p>
   </div>
 </header>
 <main id="main" class="page-shell editorial">
@@ -587,11 +683,8 @@ def pages(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems
     """Overview (index.html), Inflation drivers (drivers.html) and Stance working (stance.html)."""
     thr = cfg.weights["direction_threshold"]
     estimates, data = estimates or {}, data or {}
-    notice = ""
-    if problems or failed:
-        items = [f"Source failed this run, last good value kept: {escape(s)}." for s in failed]
-        items += [f"Not scored: {escape(p)}." for p in problems]
-        notice = '<div class="notice" role="status">' + " ".join(items) + "</div>"
+    notice = failure_notice(inds, failed, problems)
+    new = (sum(releases.is_new(i.seen, now.tz_localize(None).normalize(), new_days(cfg)) for i in inds), new_days(cfg))
 
     # Overview: the answer; where the economy is; the pressure ahead; policy and where markets expect it to go.
     n = 1
@@ -599,7 +692,7 @@ def pages(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems
     n += bool(context_html)
     blocks_html = ""
     for b in blocks.values():
-        blocks_html += block_section(b, cfg, n)
+        blocks_html += block_section(b, cfg, n, now)
         n += 1
     stance_html = stance_section(stance, estimates, cfg, n)
     n += bool(stance_html)
@@ -615,6 +708,7 @@ def pages(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems
       <a href="#part-3">3. Monetary policy</a></nav>
   </section>
   {notice}
+  {release_log(inds, cfg, now)}
   {part(1, "Where the economy is", "Headline data, for orientation.")}
   {context_html}
   {part(2, "Inflation pressure ahead", "The terms of the Phillips curve: expectations, slack on the demand and supply sides, and external cost-push. Together they give the inflation-pressure score.")}
@@ -645,9 +739,9 @@ def pages(cfg: Config, inds: list[Indicator], blocks: dict[str, Block], problems
   {stance_workings_section(stance, estimates, cfg, 1)}"""
 
     return {
-        "index.html": shell("Monetary Space", "index.html", overview, now),
-        "drivers.html": shell("Inflation drivers · Monetary Space", "drivers.html", drivers, now),
-        "stance.html": shell("Stance working · Monetary Space", "stance.html", workings, now),
+        "index.html": shell("Monetary Space", "index.html", overview, now, new=new),
+        "drivers.html": shell("Inflation drivers · Monetary Space", "drivers.html", drivers, now, new=new),
+        "stance.html": shell("Stance working · Monetary Space", "stance.html", workings, now, new=new),
     }
 
 
@@ -798,6 +892,20 @@ tr:last-child th,tr:last-child td{border-bottom:0}
 .znum{display:block;font-weight:600;margin-bottom:5px;white-space:nowrap}
 .flag{display:block;font-size:10px;color:var(--muted);margin-top:3px}
 .stale td,.stale th{color:var(--muted)}
+.seen{display:block;font-size:10px;color:var(--muted);margin-top:2px;white-space:nowrap}
+.new-badge{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:9px;background:var(--accent);color:var(--bg);font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;vertical-align:1px}
+.flag-inline{font-size:10px;color:var(--muted)}
+.fresh-link{color:var(--accent);font-weight:600;text-decoration:none;margin-left:6px;padding-left:9px;border-left:1px solid var(--border)}
+.fresh-link:hover{text-decoration:underline}
+.release-log{margin:14px 0 6px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);scroll-margin-top:20px}
+.release-log>summary{display:flex;align-items:center;gap:14px;padding:11px 0;cursor:pointer;list-style:none;font-size:12px;color:var(--muted)}
+.release-log>summary::-webkit-details-marker{display:none}
+.release-log-title{font-size:10px;font-weight:700;letter-spacing:1.65px;text-transform:uppercase;color:var(--accent);white-space:nowrap}
+.release-log-head{flex:1;min-width:0;line-height:1.5}
+.release-log-head strong{color:var(--fg);font-weight:600}
+.release-log[open]>summary .source-chevron{transform:rotate(180deg)}
+.release-table{min-width:720px}
+.release-table tbody th{min-width:0}
 .source-line{font-size:10px;color:var(--muted);line-height:1.7;border-top:1px solid var(--border);padding-top:8px;margin-top:8px}
 .source-line>summary{display:flex;align-items:center;gap:10px;min-height:28px;cursor:pointer;list-style:none}
 .source-line>summary::-webkit-details-marker{display:none}
@@ -812,7 +920,8 @@ footer>div:last-child{text-align:right;align-self:flex-end}
 @media(max-width:900px){.verdict{grid-template-columns:1fr;grid-template-rows:none;row-gap:18px}.verdict-main,.dial{grid-row:auto}.dial{display:block}.verdict-facts{grid-row:auto}}
 @media(max-width:1000px){.header-inner{padding:0 26px}.page-shell{padding:30px 26px 0}
 .headline-strip{grid-template-columns:1fr 1fr}.metric{border-bottom:1px solid var(--border)}.metric:nth-child(2n){border-right:0}.metric:nth-child(2n+1){padding-left:0}}
-@media(max-width:700px){.tabs{order:3;width:100%;height:44px;margin:0;gap:18px;overflow-x:auto}.header-inner{height:auto;padding:20px 18px 0;flex-wrap:wrap;gap:12px}.brand{font-size:25px}
+@media(max-width:700px){.release-log>summary{flex-wrap:wrap;gap:4px 14px}.release-log>summary .source-chevron{display:none}
+.release-stamp{white-space:normal}.tabs{order:3;width:100%;height:44px;margin:0;gap:18px;overflow-x:auto}.header-inner{height:auto;padding:20px 18px 0;flex-wrap:wrap;gap:12px}.brand{font-size:25px}
 .page-shell{padding:24px 18px 0}.lead-sentence{font-size:18px}
 .headline-strip{grid-template-columns:1fr}.metric{padding:18px 0;border-right:0}
 .story-heading{gap:12px}.story-heading h2{font-size:21px}.takeaway{font-size:14px}

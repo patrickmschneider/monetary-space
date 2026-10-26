@@ -35,6 +35,7 @@ stance:                    # step 7
 
 freshness:
   stale_grace_days: 14     # stale if the next release is more than this overdue
+  new_days: 7              # a period first seen this recently is marked New
 
 history:
   sparkline_months: 24

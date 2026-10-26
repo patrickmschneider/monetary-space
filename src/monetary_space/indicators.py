@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
-from . import score, transform
+from . import releases, score, transform
 from .config import BLOCKS, Config, manual_value
 
 
@@ -36,6 +36,9 @@ class Indicator:
     failed_series: list[str] = field(default_factory=list)
     phrase: str = ""             # how the lead sentence names it, if not the lower-cased name
     explain: str = ""            # plain-language description, shown on hover
+    series: list[str] = field(default_factory=list)
+    prev: tuple[pd.Period, float, float] | None = None   # previous period, its x and clipped z
+    seen: releases.Seen | None = None                    # when the latest inputs first reached the page
 
 
 def _benchmark(spec: dict, x: pd.Series, cfg: Config, as_of: pd.Timestamp,
@@ -140,6 +143,8 @@ def compute(spec: dict, data: dict[str, pd.Series], cfg: Config, as_of: pd.Times
         failed_series=[s for s in spec["series"] if s.split(":")[0] in failed],
         phrase=spec.get("phrase", ""),
         explain=" ".join(str(spec.get("explain", "")).split()),
+        series=list(spec["series"]),
+        prev=(x.index[-2], float(x.iloc[-2]), float(clipped.iloc[-2])) if len(clipped) > 1 else None,
     )
 
 
