@@ -34,6 +34,24 @@ class Stance:
     rate_noun: str = ""                       # mid-sentence, after "a real …" ("fed funds rate"; "Bank Rate")
 
 
+def add_announced_decision(cfg: Config, data: dict[str, pd.Series], as_of_day: pd.Timestamp) -> pd.Series | None:
+    """A decision announced after the policy-rate series' last observation (the RBA's table F1, for
+    one, catches up the next business day) is appended to the series in `data` on its announcement
+    date. Returns the decision's mpc_dates row, or None if the series is up to date."""
+    name = cfg.weights["stance"].get("policy_rate_series")
+    if name not in data:
+        return None
+    s = data[name].dropna()
+    m = cfg.manual["mpc_dates"].dropna(subset=["bank_rate"]).copy()
+    m["date"] = pd.to_datetime(m["date"])
+    m = m[(m["date"] <= as_of_day) & (m["date"] > s.index[-1].to_timestamp())]
+    if m.empty or float(m.iloc[-1]["bank_rate"]) == float(s.iloc[-1]):
+        return None
+    row = m.iloc[-1]
+    data[name] = pd.concat([s, pd.Series({pd.Period(row["date"], "D"): float(row["bank_rate"])})])
+    return row
+
+
 def mpr_path(cfg: Config, field: str) -> pd.Series:
     """Manual MPR values as a daily-effective step function, keyed by publication date."""
     m = cfg.manual["mpr"].dropna(subset=[field]).copy()
@@ -55,7 +73,8 @@ def as_of(path: pd.Series, when: pd.Timestamp) -> tuple[float, pd.Timestamp]:
     return float(p.iloc[-1]), p.index[-1]
 
 
-def compute(cfg: Config, data: dict[str, pd.Series], rstar_est, as_of_day: pd.Timestamp) -> Stance:
+def compute(cfg: Config, data: dict[str, pd.Series], rstar_est, as_of_day: pd.Timestamp,
+            announced: pd.Series | None = None) -> Stance:
     st = cfg.weights["stance"]
     ois = data[st.get("policy_rate_series") or st["ois_series"]].dropna()
     ois = ois[ois.index.to_timestamp() <= as_of_day]
@@ -87,7 +106,9 @@ def compute(cfg: Config, data: dict[str, pd.Series], rstar_est, as_of_day: pd.Ti
         real_rate=real, r_star=rs, r_star_se=se, r_star_quarter=rstar_est.r_star.index[-1],
         band=band, gap=real - rs, cls=score.stance(real, band), history=hist, nominal_neutral=rs + e,
         rate_source=cfg.country["central_bank"] + (
-            f": midpoint of the {rate_range(float(ois.iloc[-1]), st)} target range" if st.get("policy_rate_half_range") else ""),
+            f": midpoint of the {rate_range(float(ois.iloc[-1]), st)} target range" if st.get("policy_rate_half_range") else "")
+            + (f"; decided {pd.Timestamp(announced['date']):%-d %b %Y}, from the announcement ({announced['source_url']}), "
+               "before the published series caught up" if announced is not None else ""),
         rate_noun=st.get("policy_rate_noun", st.get("policy_rate_name", "policy rate")),
     )
 

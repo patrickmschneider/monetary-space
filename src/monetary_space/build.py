@@ -67,12 +67,13 @@ def estimate_all(cfg: config.Config, data: dict[str, pd.Series]) -> tuple[dict, 
     return estimates, problems
 
 
-def assess(cfg: config.Config, data: dict[str, pd.Series], blocks: dict, estimates: dict, as_of: pd.Timestamp):
+def assess(cfg: config.Config, data: dict[str, pd.Series], blocks: dict, estimates: dict, as_of: pd.Timestamp,
+           announced: pd.Series | None = None):
     """Stance and verdict. Either may be unavailable; the page says why."""
     problems, st, vd = [], None, None
     if "rstar" in estimates:
         try:
-            st = stance.compute(cfg, data, estimates["rstar"], as_of)
+            st = stance.compute(cfg, data, estimates["rstar"], as_of, announced)
         except Exception as e:  # noqa: BLE001
             problems.append(f"stance: {type(e).__name__}: {e}")
     needed = set(cfg.weights["pressure"]["weights"])
@@ -146,10 +147,13 @@ def run(root: Path, store_root: Path, out_root: Path, fetch_data: bool = True,
             raise SystemExit("no stored vintage to build from; run with fetching enabled")
         res = FetchResult(previous, set(), [])
 
+    # The stored vintage keeps the source data; the page shows a decision announced since.
+    res.data = dict(res.data)
+    announced = stance.add_announced_decision(cfg, res.data, as_of)
     seen = releases.first_seen(releases.read_log(store_dir), cfg.country["time_zone"])
     estimates, est_problems = estimate_all(cfg, res.data)
     inds, blocks, problems = score_all(cfg, res.data, as_of, res.failed, estimates, seen)
-    st, vd, v_problems = assess(cfg, res.data, blocks, estimates, as_of)
+    st, vd, v_problems = assess(cfg, res.data, blocks, estimates, as_of, announced)
     problems = est_problems + problems + v_problems
     try:
         context = charts.prepare(cfg, res.data, as_of, estimates)

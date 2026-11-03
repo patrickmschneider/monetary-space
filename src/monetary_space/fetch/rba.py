@@ -152,10 +152,10 @@ def parse_decision(page: str) -> dict | None:
     vote = ""
     if re.search(r"decision was unanimous", t):
         vote = f"unanimous: {act}"
-    elif count := re.search(r"made by majority: (\d+) in favour, (\d+) against", t):
+    elif count := re.search(r"(?:made|was) by majority: (\d+) in favour, (\d+) against", t):
         a, b = int(count.group(1)), int(count.group(2))
         vote = f"{a}-{b}: {a} {act}; {b} against"
-    elif maj := re.search(r"made by majority: (.*?)\.(?= [A-Z]|$)", t):
+    elif maj := re.search(r"(?:made|was) by majority: (.*?)\.(?= [A-Z]|$)", t):
         parts = []
         for n, what in re.findall(r"(\w+) members? voted to (increase|lower|reduce|leave|maintain|hold)", maj.group(1)):
             k = int(n) if n.isdigit() else WORDS.get(n.lower(), 0)

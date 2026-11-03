@@ -39,6 +39,9 @@ MAJORITY_WORDS = """<p>At its meeting today, the Board decided to increase the c
 points to 4.35&nbsp;per&nbsp;cent; one member voted to leave the cash rate target unchanged at 4.10&nbsp;per&nbsp;cent.</p>"""
 MAJORITY_COUNT = """<p>At its meeting today, the Board decided to leave the cash rate target unchanged at 3.85 per cent.</p>
 <p>Today’s policy decision was made by majority: 6 in favour, 3 against.</p>"""
+MAJORITY_WAS = """<p>At its meeting today, the Board decided to increase the cash rate target by 25 basis points to 4.85 per cent.</p>
+<p>Today’s policy decision was by majority: six members voted to increase the cash rate target by 25 basis points to
+4.85 per cent; three members voted to leave the cash rate target unchanged at 4.60 per cent. More on the decision.</p>"""
 NO_TARGET_NO_VOTE = "<p>At its meeting today, the Board decided to leave the cash rate unchanged at 3.60 per cent.</p>"
 
 SMP = """<table><caption>Table 3.1: Detailed Forecast Table</caption><tr><th></th><th>Jun 2026</th><th>Dec 2026</th>
@@ -72,6 +75,7 @@ def test_decision_links():
     (UNANIMOUS, 4.60, "unanimous: raise"),
     (MAJORITY_WORDS, 4.35, "8-1: 8 raise; 1 hold"),
     (MAJORITY_COUNT, 3.85, "6-3: 6 hold; 3 against"),
+    (MAJORITY_WAS, 4.85, "6-3: 6 raise; 3 hold"),               # wording from November 2026
     (NO_TARGET_NO_VOTE, 3.60, ""),
 ])
 def test_decisions(page, rate, vote):

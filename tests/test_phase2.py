@@ -33,6 +33,22 @@ def test_stance_classes_against_band(ois_level, expected):
     assert st.cls == expected and st.gap == pytest.approx(st.real_rate - 1.0)
 
 
+def test_announced_decision_extends_a_lagging_rate_series():
+    cfg = config.load(ROOT, "au")                    # 29 Sep 2026: cash rate raised to 4.60%
+    cfg.manual["mpc_dates"] = pd.DataFrame({"date": ["2026-09-29", "2026-11-03"], "bank_rate": [4.6, 4.85],
+                                            "source_url": ["", "https://www.rba.gov.au/mr-26-30.html"]})
+    rate = pd.Series(4.6, index=pd.period_range("2026-10-01", "2026-11-02", freq="D"))
+    data = {"AU_CASH_RATE": rate}
+    assert stance.add_announced_decision(cfg, data, pd.Timestamp("2026-11-02")) is None   # not yet decided
+    row = stance.add_announced_decision(cfg, data, pd.Timestamp("2026-11-03"))
+    assert row["bank_rate"] == 4.85 and str(data["AU_CASH_RATE"].index[-1]) == "2026-11-03"
+    assert data["AU_CASH_RATE"].iloc[-1] == 4.85
+    assert stance.add_announced_decision(cfg, data, pd.Timestamp("2026-11-04")) is None   # already in
+    held = {"AU_CASH_RATE": rate}
+    cfg.manual["mpc_dates"].loc[1, "bank_rate"] = 4.6                                      # a hold changes nothing
+    assert stance.add_announced_decision(cfg, held, pd.Timestamp("2026-11-03")) is None and held["AU_CASH_RATE"] is rate
+
+
 def test_band_uses_standard_error_when_wider():
     cfg = config.load(ROOT)
     st = stance.compute(cfg, {"IUDBEDR": ois(4.6)}, fake_rstar(1.0, 1.2), pd.Timestamp("2026-09-24"))
