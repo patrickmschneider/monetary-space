@@ -696,6 +696,7 @@ def shell(title: str, active: str, body: str, now, country: dict, editions: list
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://www.patrickmschneider.com/site-header.js" defer></script>
 <meta name="theme-color" content="#153f46">
 <meta name="description" content="{escape(c['description'])}">
 <meta property="og:type" content="website">
