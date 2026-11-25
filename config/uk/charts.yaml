@@ -46,6 +46,17 @@ charts:
     unit: "$"
     decimals: 2
 
+  - id: deficit
+    title: Government deficit
+    subtitle: "Public sector net borrowing, % of GDP, fiscal years; dashed: cyclically adjusted primary deficit (scored)"
+    series: FISCAL:PSNB
+    secondary: {series: "FISCAL:CAPD", label: "Structural primary"}
+    transform: level
+    unit: "%"
+    since: "2000"          # fiscal years from 2000-01
+    forecast: true         # years not yet ended are the OBR forecast, shaded
+    reference: {value: 0}
+
 # Momentum and context table on the Inflation drivers tab (not scored). transform/weights as in indicators.yaml.
 momentum:
   - name: Services CPI inflation

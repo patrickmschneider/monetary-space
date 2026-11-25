@@ -40,7 +40,7 @@ Local runs store vintages in `store/` (ignored by git). FRED series use the API 
 | `src/monetary_space/transform.py`, `score.py` | Pure functions for transforms, benchmarks and the scoring rules |
 | `src/monetary_space/store.py` | Dated vintages, one Parquet file per build day, on the `data` branch under `<country>/` |
 | `src/monetary_space/render.py` | The static page |
-| `scripts/gate.py` | Lets the right UTC cron run through for each country's local build slots (07:10 and 12:15 UK time) |
+| `scripts/gate.py` | Lets the right UTC cron run through for each country's local build slots (07:10 and 12:15 UK time), and runs the 15-minute release poll for editions in their release window |
 
 Changing a benchmark, weight or threshold in `config/` changes the page with no code edits.
 
@@ -90,7 +90,7 @@ Inflation pressure is read as the terms of a hybrid New Keynesian Phillips curve
 | Block | Question | Scored indicators |
 | --- | --- | --- |
 | Expectations | Are inflation expectations anchored at 2%? | Firms' expected own-price growth (DMP), households' 1-year expectations (BoE IAS), market-implied inflation over 5 years (gilt breakeven, converted to a CPI basis) |
-| Demand | Is demand running ahead of capacity? | Unemployment vs estimated u\*, vacancies per unemployed, payrolls, GDP growth vs estimated potential, Agents' capacity utilisation |
+| Demand | Is demand running ahead of capacity? | Unemployment vs estimated u\*, vacancies per unemployed, payrolls, GDP growth vs estimated potential, Agents' capacity utilisation, fiscal stance (OBR cyclically adjusted primary deficit) |
 | Supply | Is capacity growing more slowly than normal? | Unit labour cost growth vs 2%, productivity growth vs its 5-year trend |
 | Cost-push | Are external costs pushing up prices? | Brent (US$), UK gas, sterling ERI, import prices of manufactured goods |
 
@@ -179,9 +179,11 @@ Each build logs every series' latest period in `fetch_log.csv` on the `data` bra
 
 ## Scheduled builds
 
-`.github/workflows/build.yml` runs at 07:10 UK time every day (after the 07:00 ONS releases) and at 12:15 UK on MPC announcement days listed in `manual/uk/mpc_dates.csv`. It also runs on every push to `main` and from **Actions → build → Run workflow**. Each run saves the day's raw data to the `data` branch, then deploys the page.
+`.github/workflows/build.yml` polls for releases every 15 minutes. A poll fetches only the editions inside their weekday release window (UK 06:45–19:30, US 08:15–17:00, AU 11:15–16:45, local time), rebuilds the others from their stored vintage, and deploys only if a fetched series changed, so a release reaches the page within about 15 minutes plus GitHub's start-up delay. The daily slots (07:10 UK and each edition's own), policy-decision slots, every push to `main` and **Actions → build → Run workflow** fetch everything and always deploy. Deploying runs save the raw data to the `data` branch; the fetch log there records the time each observation was first seen, shown in each indicator's tooltip.
 
-- **Late starts.** GitHub can start scheduled runs late when busy. On release days, use the manual trigger.
+Australian data that the RBA republishes from the ABS (monthly CPI, labour force, GDP, wages) is read from the ABS Data API instead, because the RBA tables appear a day after the ABS release; the RBA table supplies older history and is the fallback (`abs:` in config/au/indicators.yaml).
+
+- **Late starts.** GitHub can start scheduled runs late when busy (by up to a couple of hours); the 15-minute poll limits the damage. Use the manual trigger if a release is urgent.
 - **Failed sources.** If a source fails, the last good value is kept, marked on the page, and logged in `uk/fetch_log.csv` on the `data` branch. The page still builds. GitHub emails the repository owner if a whole run fails.
 - **Schedules switched off.** GitHub disables scheduled workflows in public repositories after 60 days without activity. To re-enable: **Actions → build → Enable workflow**. Whether the daily data commits count as activity is still to be confirmed.
 - **Secret.** `FRED_API_KEY` is a repository secret (Settings → Secrets and variables → Actions).

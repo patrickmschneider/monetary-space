@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-MAX_SCORED = 14
+MAX_SCORED = 15
 DEFAULT_COUNTRY = "uk"
 COUNTRY_FIELDS = ("id", "name", "order", "published", "path", "lang", "time_zone", "time_label", "tagline",
                   "description", "eyebrow", "central_bank", "committee_short", "forecast_short", "target",

@@ -61,3 +61,22 @@ def test_au_slots_follow_sydney_time():
     board = dt.datetime(2026, 11, 3, 3, 50, tzinfo=UTC)               # 14:50 AEDT on a Board day
     assert gate.should_run("schedule", "45 3 * * *", board, {"au": {"2026-11-03"}})[0]
     assert not gate.should_run("schedule", "45 3 * * *", board, {})[0]
+
+
+@pytest.mark.parametrize("now,fetch", [
+    (dt.datetime(2026, 11, 25, 0, 32, tzinfo=UTC), "au"),        # Wed 11:32 Sydney: just after the ABS release
+    (dt.datetime(2026, 11, 25, 7, 2, tzinfo=UTC), "uk"),         # Wed 07:02 London
+    (dt.datetime(2026, 7, 1, 6, 2, tzinfo=UTC), "uk,au"),        # 07:02 BST is 16:02 in Sydney
+    (dt.datetime(2026, 11, 25, 13, 32, tzinfo=UTC), "uk,us"),    # 13:32 London, 08:32 New York
+    (dt.datetime(2026, 11, 25, 22, 2, tzinfo=UTC), ""),          # 22:02 London, 17:02 NY, 09:02 Sydney
+    (dt.datetime(2026, 11, 28, 9, 2, tzinfo=UTC), ""),           # Saturday
+])
+def test_release_poll_fetches_editions_in_their_window(now, fetch):
+    d = gate.decide("schedule", gate.POLL, now, {})
+    assert d["fetch"] == fetch and d["run"] is bool(fetch) and d["always_deploy"] is False
+
+
+def test_scheduled_and_manual_builds_fetch_everything_and_always_deploy():
+    d = gate.decide("workflow_dispatch", "", SUMMER, {})
+    assert d == dict(run=True, always_deploy=True, fetch="all", why="workflow_dispatch trigger")
+    assert gate.decide("schedule", "10 6 * * *", SUMMER, {})["always_deploy"]

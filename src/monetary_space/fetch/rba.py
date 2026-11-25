@@ -86,11 +86,31 @@ def index_from_growth(table: str, series_id: str, freq: str = "Q") -> pd.Series:
     return ((1 + g / 100).cumprod() * 100).rename(series_id)
 
 
+ABS_MONTHLY_CPI = ("CPI", "3.10001.10.50.M")   # year-ended %, all groups, original, 8 capitals
+
+
+def monthly_cpi() -> pd.Series:
+    """Monthly year-ended CPI, from April 2025. Read from the ABS Data API, which updates at the
+    11:30 release; the RBA's copy (G4) can lag by days, so it only fills in if the ABS fails."""
+    from . import abs as abs_
+    try:
+        g4 = series("g4-data", "GCPIAGYPM", "M")
+    except Exception:  # noqa: BLE001
+        g4 = None
+    try:
+        m = abs_.series(*ABS_MONTHLY_CPI, "M", "AU_CPI_ABS")
+    except Exception:  # noqa: BLE001
+        if g4 is None:
+            raise
+        return g4
+    return m if g4 is None else m.combine_first(g4)
+
+
 def headline_cpi() -> pd.Series:
-    """Year-ended headline CPI inflation, monthly: the monthly CPI (G4, from April 2025) spliced onto
-    the quarterly CPI (G1), each quarter's value carried across its three months."""
+    """Year-ended headline CPI inflation, monthly: the monthly CPI (ABS, from April 2025) spliced
+    onto the quarterly CPI (G1), each quarter's value carried across its three months."""
     q = series("g1-data", "GCPIAGYP", "Q")
-    m = series("g4-data", "GCPIAGYPM", "M")
+    m = monthly_cpi()
     months = pd.period_range(q.index[0].asfreq("M", "start"), q.index[-1].asfreq("M", "end"), freq="M")
     qm = pd.Series([q[p.asfreq("Q")] for p in months], index=months)
     return pd.concat([qm[qm.index < m.index[0]], m]).rename("AU_CPI_YY")

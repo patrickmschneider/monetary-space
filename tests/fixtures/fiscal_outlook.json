@@ -1,0 +1,8 @@
+{"latestVintage": "2026-10",
+ "deficitHistoryMetadata": {"outturnAsOf": "2026-08-21"},
+ "deficitHistory": [
+  {"year": "2024-25", "status": "outturn", "borrowingPct": 5.17, "structuralPrimaryBalancePct": -2.17},
+  {"year": "2025-26", "status": "outturn", "borrowingPct": 4.23, "structuralPrimaryBalancePct": -0.88}],
+ "vintages": [{"id": "2026-10", "publicationDate": "2026-10-28", "rows": [
+  {"year": "2025-26", "status": "outturn", "borrowingPct": 4.4, "structuralPrimaryBalancePct": -1.0},
+  {"year": "2026-27", "status": "forecast", "borrowingPct": 4.2, "structuralPrimaryBalancePct": -0.3}]}]}

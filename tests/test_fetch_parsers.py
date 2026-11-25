@@ -45,3 +45,17 @@ def test_dmp_price_growth_with_and_without_date_header():
         s = boe.parse_dmp_price_growth(_dmp_xlsx(label))
         assert s.index[-1] == pd.Period("2026-10", "M")
         assert s[pd.Period("2026-09", "M")] == 3.708
+
+
+def test_fiscal_outlook_merges_history_and_latest_vintage():
+    import json
+    from pathlib import Path
+    import pandas as pd
+    from monetary_space.fetch import fiscal
+    payload = json.loads((Path(__file__).parent / "fixtures" / "fiscal_outlook.json").read_text())
+    out = fiscal.parse_outlook(payload)
+    capd, psnb = out["CAPD"], out["PSNB"]
+    assert capd.index.freqstr == "Y-MAR" and fiscal.fy_label(capd.index[-1]) == "2026-27"
+    assert capd[pd.Period("2025", "Y-MAR")] == 2.17               # history: deficit = −balance
+    assert capd[pd.Period("2026", "Y-MAR")] == 1.0                # the latest vintage overrides history
+    assert psnb[pd.Period("2027", "Y-MAR")] == 4.2

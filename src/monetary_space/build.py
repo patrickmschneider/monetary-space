@@ -7,6 +7,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from . import charts, config, indicators, nairu, releases, render, rstar_suite, stance, store
@@ -124,6 +125,18 @@ def write_csv_keeping_header(path: Path, df: pd.DataFrame) -> None:
     path.write_text(header + df.to_csv(index=False))
 
 
+def changed_series(previous: dict[str, pd.Series], data: dict[str, pd.Series]) -> list[str]:
+    """Series that are new, gone, or differ in any period or value since the previous vintage.
+    Values are compared as floats: some sources return integers, which the store keeps as floats."""
+    out = []
+    for sid in sorted(set(previous) | set(data)):
+        a, b = previous.get(sid), data.get(sid)
+        if a is None or b is None or not a.index.equals(b.index) or not np.array_equal(
+                a.to_numpy(dtype=float), b.to_numpy(dtype=float), equal_nan=True):
+            out.append(sid)
+    return out
+
+
 def run(root: Path, store_root: Path, out_root: Path, fetch_data: bool = True,
         country: str = config.DEFAULT_COUNTRY) -> dict:
     """Build one edition: data in <store_root>/<country>/, pages in <out_root>/<path>/ (the UK at the root)."""
@@ -138,10 +151,15 @@ def run(root: Path, store_root: Path, out_root: Path, fetch_data: bool = True,
     as_of = now.tz_localize(None).normalize()
 
     prev_day, previous = store.load_vintage(store_dir)
+    changed: list[str] = []
     if fetch_data:
         res = fetch_all(cfg, previous, now.isoformat(timespec="seconds"))
-        store.save_vintage(store_dir, as_of, res.data)
-        store.append_log(store_dir, res.log_rows)
+        changed = changed_series(previous, res.data)
+        # A release poll that finds nothing new leaves the store untouched, so nothing is committed.
+        if changed or prev_day != as_of or res.failed:
+            store.save_vintage(store_dir, as_of, res.data)
+            store.append_log(store_dir, res.log_rows)
+        log.info("%s changed since the last vintage: %s", country, ", ".join(changed) or "nothing")
     else:
         if not previous:
             raise SystemExit("no stored vintage to build from; run with fetching enabled")
@@ -162,6 +180,7 @@ def run(root: Path, store_root: Path, out_root: Path, fetch_data: bool = True,
         problems.append(f"context charts: {type(e).__name__}: {e}")
     out_dir.mkdir(parents=True, exist_ok=True)
     summary = render.summary(cfg, inds, blocks, problems, now, st, vd)
+    summary["changed"] = changed
     (out_dir / "scores.json").write_text(json.dumps(summary, indent=2, default=str))
     for name, html in render.pages(cfg, inds, blocks, problems, now, sorted(res.failed), context, st, vd,
                                    estimates, res.data, editions).items():
@@ -172,19 +191,20 @@ def run(root: Path, store_root: Path, out_root: Path, fetch_data: bool = True,
 
 
 def run_all(root: Path, store_root: Path, out_root: Path, fetch_data: bool = True,
-            countries: list[str] | None = None) -> dict[str, dict]:
+            countries: list[str] | None = None, fetch_only: list[str] | None = None) -> dict[str, dict]:
     """Build every edition. An edition whose build raises is rebuilt from its last stored vintage;
     if that fails too, the other editions still build, then this raises so nothing is deployed and
     the live site keeps its last good pages."""
     ids = countries or [c["id"] for c in config.countries(root)]
     done, failed = {}, {}
     for c in ids:
+        fetch_c = fetch_data and (fetch_only is None or c in fetch_only)   # others rebuild from their vintage
         try:
-            done[c] = run(root, store_root, out_root, fetch_data, c)
+            done[c] = run(root, store_root, out_root, fetch_c, c)
         except Exception as e:  # noqa: BLE001 — one edition must not stop the others
             log.exception("build %s failed", c)
             failed[c] = f"{type(e).__name__}: {e}"
-            if fetch_data:
+            if fetch_c:
                 try:
                     done[c] = run(root, store_root, out_root, False, c)
                     log.warning("built %s from its last stored vintage instead", c)

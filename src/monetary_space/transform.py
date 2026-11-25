@@ -147,9 +147,20 @@ def pre2020(x: pd.Series, since: str | None = None) -> pd.Series:
     return x
 
 
+def per_year(x: pd.Series) -> int:
+    f = x.index.freqstr
+    return 12 if f == "M" else 4 if f.startswith("Q") else 1 if f[0] in "YA" else 365
+
+
+def span_label(sample: pd.Series) -> str:
+    """'1993-01–2019-12', or for fiscal years '1993-94–2018-19'."""
+    def one(p: pd.Period) -> str:
+        return f"{p.year - 1}-{p.year % 100:02d}" if p.freqstr == "Y-MAR" else str(p)
+    return f"{one(sample.index[0])}–{one(sample.index[-1])}"
+
+
 def sample_years(x: pd.Series) -> float:
-    per_year = 12 if x.index.freqstr == "M" else 4
-    return len(x) / per_year
+    return len(x) / per_year(x)
 
 
 def pre2020_mean(x: pd.Series, since: str | None = None) -> float:
@@ -171,11 +182,13 @@ def pre2020_sd(x: pd.Series, since: str | None = None) -> float:
 
 
 def to_monthly(x: pd.Series) -> pd.Series:
-    """Quarterly → monthly, each quarter's value stamped on its last month."""
+    """Quarterly → monthly, each quarter's value stamped on its last month. Annual (fiscal-year)
+    values are stamped on the year's first month: a year's figure is the current estimate
+    from the start of that year, and carry_forward fills the rest."""
     if x.index.freqstr == "M":
         return x
     out = x.copy()
-    out.index = x.index.asfreq("M", how="end")
+    out.index = x.index.asfreq("M", how="start" if x.index.freqstr[0] in "YA" else "end")
     return out
 
 

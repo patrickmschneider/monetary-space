@@ -112,3 +112,20 @@ def test_asx_futures_curve_by_maturity_from_settlement():
     c = rba.parse_asx_curve(text)
     assert list(c) == ["0.0548", "1.3854"]                       # October is half over: skipped; mid-November = 20 days
     assert str(c["0.0548"].index[0]) == "2026-10-26" and c["1.3854"].iloc[0] == 4.725
+
+
+def test_rba_series_prefers_abs_at_release_and_keeps_rba_history(monkeypatch):
+    import pandas as pd
+    from monetary_space import fetch as F
+    rba_s = pd.Series([4.0, 4.1, 4.2], index=pd.period_range("2026-07", periods=3, freq="M"))
+    abs_s = pd.Series([4.1, 4.2, 4.3], index=pd.period_range("2026-08", periods=3, freq="M"))
+    monkeypatch.setattr(F.rba, "series", lambda *a: rba_s)
+    monkeypatch.setattr(F.abs_, "series", lambda *a: abs_s)
+    spec = {"fetcher": "rba", "table": "h5-data", "code": "X", "freq": "M", "abs": {"flow": "LF", "key": "k"}}
+    out = F.fetch(spec)
+    assert str(out.index[0]) == "2026-07" and str(out.index[-1]) == "2026-10" and out.iloc[-1] == 4.3
+
+    def boom(*a):
+        raise RuntimeError("ABS down")
+    monkeypatch.setattr(F.abs_, "series", boom)
+    assert str(F.fetch(spec).index[-1]) == "2026-09"            # falls back to the RBA table

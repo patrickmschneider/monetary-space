@@ -34,7 +34,13 @@ def num(v: float, dp: int = 1) -> str:
 
 
 def period_label(p: pd.Period) -> str:
-    return f"{p.year} Q{p.quarter}" if p.freqstr.startswith("Q") else p.strftime("%b %Y")
+    if p.freqstr.startswith("Q"):
+        return f"{p.year} Q{p.quarter}"
+    if p.freqstr == "Y-MAR":                       # UK fiscal year
+        return f"{p.year - 1}-{p.year % 100:02d}"
+    if p.freqstr[0] in "YA":
+        return str(p.year)
+    return p.strftime("%b %Y")
 
 
 def seen_label(i: Indicator) -> str:
@@ -68,7 +74,9 @@ def tooltip(i: Indicator) -> str:
     ]
     if i.seen is not None:
         lines.append(f"Data: {seen_label(i)}" if i.seen.daily else
-                     f"Data: {seen_label(i)} {i.seen.first_seen:%Y}; next release expected {i.next_due:%-d %b %Y}")
+                     f"Data: {seen_label(i)} {i.seen.first_seen:%Y}"
+                     + ("" if i.seen.at_log_start else f", first on this page at {i.seen.first_seen:%H:%M}")
+                     + f"; next release expected {i.next_due:%-d %b %Y}")
     if i.note:
         lines.append(f"Note: {i.note}")
     return "\n".join(lines)

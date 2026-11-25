@@ -28,6 +28,8 @@ def main() -> None:
     b.add_argument("--out", type=Path, default=Path("site"))
     b.add_argument("--no-fetch", action="store_true", help="rebuild from the latest stored vintage")
     b.add_argument("--country", default="all", help="one edition (uk, au, us) or all")
+    b.add_argument("--fetch", default="all",
+                   help="editions to fetch, comma-separated, or all; the others rebuild from their last vintage")
     r = sub.add_parser("refresh-calendar", help="update manual/<country>/mpc_dates.csv and mpr.csv from the central bank's website")
     r.add_argument("--root", type=Path, default=Path("."))
     r.add_argument("--country", default=config.DEFAULT_COUNTRY)
@@ -36,8 +38,14 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     load_dotenv(args.root / ".env")
     if args.cmd == "build":
-        build.run_all(args.root, args.store, args.out, fetch_data=not args.no_fetch,
-                      countries=None if args.country == "all" else [args.country])
+        done = build.run_all(args.root, args.store, args.out, fetch_data=not args.no_fetch,
+                             countries=None if args.country == "all" else [args.country],
+                             fetch_only=None if args.fetch == "all" else [c for c in args.fetch.split(",") if c])
+        changed = sorted(c for c, s in done.items() if s.get("changed"))
+        logging.info("editions with new data: %s", ", ".join(changed) or "none")
+        if out := os.environ.get("GITHUB_OUTPUT"):   # lets a release poll skip deploying an unchanged site
+            with open(out, "a") as f:
+                f.write(f"changed={'true' if changed else 'false'}\n")
     elif args.cmd == "refresh-calendar":
         import pandas as pd
         cfg = config.load(args.root, args.country)

@@ -15,9 +15,14 @@ import pandas as pd
 LOG_FIELDS = ["run_at", "series_id", "status", "last_period", "detail"]
 
 
+def _freq_code(freqstr: str) -> str:
+    """D, M, Q; annual keeps its year end (fiscal years are Y-MAR)."""
+    return freqstr if freqstr[0] in "YA" else freqstr[0]
+
+
 def _to_long(series: dict[str, pd.Series]) -> pd.DataFrame:
     frames = [
-        pd.DataFrame({"series_id": sid, "freq": s.index.freqstr[0], "period": s.index.astype(str), "value": s.to_numpy()})
+        pd.DataFrame({"series_id": sid, "freq": _freq_code(s.index.freqstr), "period": s.index.astype(str), "value": s.to_numpy()})
         for sid, s in series.items()
     ]
     return pd.concat(frames, ignore_index=True)

@@ -39,7 +39,7 @@ series:
   AU_CPI_YY:
     fetcher: rba_headline_cpi
     source: rba_abs
-    title: "CPI, all groups, year-ended %, monthly from April 2025 (G4), quarterly before (G1, carried across the quarter)"
+    title: "CPI, all groups, year-ended %, monthly from April 2025 (ABS Data API, at release), quarterly before (RBA G1, carried across the quarter)"
     freq: M
   GCPIAGYP:
     fetcher: rba
@@ -130,6 +130,7 @@ series:
     table: h5-data
     code: GLFSURSA
     freq: M
+    abs: {flow: LF, key: M13.3.1599.20.AUS.M}   # at release; H5 lags a day
   GLFSEPTSA:
     fetcher: rba
     source: rba_abs
@@ -137,6 +138,7 @@ series:
     table: h5-data
     code: GLFSEPTSA
     freq: M
+    abs: {flow: LF, key: M3.3.1599.20.AUS.M}
   GLFOSVTLF:
     fetcher: rba
     source: rba_abs
@@ -151,6 +153,7 @@ series:
     table: h1-data
     code: GGDPCVGDP
     freq: Q
+    abs: {flow: ANA_AGG, key: M1.GPM.20.AUS.Q}
   GICNBC:
     fetcher: rba
     source: rba_nab
@@ -186,6 +189,7 @@ series:
     table: h4-data
     code: GWPIQP
     freq: Q
+    abs: {flow: WPI, key: 2.THRPEB.7.TOT.20.AUS.Q, growth_to_index: true}
   GWPIYP:
     fetcher: rba
     source: rba_abs
@@ -193,6 +197,7 @@ series:
     table: h4-data
     code: GWPIYP
     freq: Q
+    abs: {flow: WPI, key: 3.THRPEB.7.TOT.20.AUS.Q}
   DCOILBRENTEU:
     fetcher: fred
     source: eia

@@ -19,7 +19,7 @@ TZ = "Europe/London"   # default; each edition passes its own country.yaml time_
 @dataclass(frozen=True)
 class Seen:
     period: str                  # latest period of the series, as logged
-    first_seen: pd.Timestamp     # date of the first successful run that logged it
+    first_seen: pd.Timestamp     # time of the first successful run that logged it (local)
     at_log_start: bool           # already there on the first logged run: released on or before first_seen
 
     @property
@@ -40,14 +40,14 @@ def first_seen(log: pd.DataFrame, tz: str = TZ) -> dict[str, Seen]:
     ok = log[(log["status"] == "ok") & (log["last_period"] != "")].copy()
     if ok.empty:
         return {}
-    ok["day"] = pd.to_datetime(ok["run_at"], utc=True).dt.tz_convert(tz).dt.tz_localize(None).dt.normalize()
-    start = ok["day"].min()
+    ok["at"] = pd.to_datetime(ok["run_at"], utc=True).dt.tz_convert(tz).dt.tz_localize(None)
+    start = ok["at"].min().normalize()
     out = {}
     for sid, g in ok.groupby("series_id", sort=False):
-        g = g.sort_values("day")
+        g = g.sort_values("at")
         latest = g["last_period"].iloc[-1]
-        day = g.loc[g["last_period"] == latest, "day"].min()
-        out[sid] = Seen(latest, day, day == start)
+        at = g.loc[g["last_period"] == latest, "at"].min()
+        out[sid] = Seen(latest, at, at.normalize() == start)
     return out
 
 
@@ -58,4 +58,4 @@ def indicator_seen(series: list[str], seen: dict[str, Seen]) -> Seen | None:
 
 
 def is_new(s: Seen | None, as_of: pd.Timestamp, days: int) -> bool:
-    return s is not None and not s.daily and not s.at_log_start and (as_of - s.first_seen).days < days
+    return s is not None and not s.daily and not s.at_log_start and (as_of - s.first_seen.normalize()).days < days

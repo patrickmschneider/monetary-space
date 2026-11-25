@@ -52,8 +52,7 @@ def _benchmark(spec: dict, x: pd.Series, cfg: Config, as_of: pd.Timestamp,
         g = est.growth.dropna()
         return g, f"{spec.get('label', 'potential growth')}; {g.index[-1]} {g.iloc[-1]:.2f}%"
     if m == "trailing_mean":
-        per_year = 12 if x.index.freqstr == "M" else 4
-        path = x.rolling(spec["years"] * per_year).mean().shift(1).dropna()
+        path = x.rolling(spec["years"] * transform.per_year(x)).mean().shift(1).dropna()
         return path, spec.get("label", f"{spec['years']}-year trailing mean")
     if m == "nairu":
         est = estimates.get("nairu")
@@ -76,7 +75,7 @@ def _benchmark(spec: dict, x: pd.Series, cfg: Config, as_of: pd.Timestamp,
         return float(spec["value"]), spec.get("label", "config value")
     if m == "pre2020_mean":
         sample = transform.pre2020(x, spec.get("since"))
-        return transform.pre2020_mean(x, spec.get("since")), f"mean {sample.index[0]}–{sample.index[-1]}"
+        return transform.pre2020_mean(x, spec.get("since")), f"mean {transform.span_label(sample)}"
     if m == "manual":
         v, cite = manual_value(cfg, spec["field"], as_of)
         return v, f"{spec.get('label', spec['field'])} ({cite})"
@@ -89,7 +88,7 @@ def _sigma(spec: dict, x: pd.Series) -> tuple[float, str]:
     if spec["method"] == "pre2020_sd":
         since = spec.get("since")
         sample = transform.pre2020(x, since)
-        return transform.pre2020_sd(x, since), f"SD {sample.index[0]}–{sample.index[-1]}"
+        return transform.pre2020_sd(x, since), f"SD {transform.span_label(sample)}"
     raise ValueError(f"unknown sigma method {spec['method']!r}")
 
 

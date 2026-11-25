@@ -30,6 +30,15 @@ class ChartData:
     ylim: tuple[float, float] | None
     source: str
     attribution: str
+    secondary: tuple[pd.Series, str] | None = None   # a second, dashed line on the same axis
+    forecast_from: pd.Period | None = None           # first forecast period, shaded
+
+
+def plabel(p: pd.Period, long: bool = False) -> str:
+    """Point label: 'Oct 2026', or a fiscal year '2026-27'."""
+    if p.freqstr == "Y-MAR":
+        return f"{p.year - 1}-{p.year % 100:02d}"
+    return p.strftime("%B %Y" if long else "%b %Y")
 
 
 def _monthly_path(q: pd.Series, since: pd.Period, until: pd.Period) -> pd.Series:
@@ -39,15 +48,26 @@ def _monthly_path(q: pd.Series, since: pd.Period, until: pd.Period) -> pd.Series
 
 def prepare(cfg: Config, data: dict[str, pd.Series], as_of: pd.Timestamp,
             estimates: dict | None = None) -> list[ChartData]:
-    since = pd.Period(cfg.charts.get("since", "2016-01"), "M")
     out = []
     for c in cfg.charts.get("charts", []):
         sid = c["series"]
         if sid not in data:
             continue
         x = transform.apply(c.get("transform", "level"), [data[sid]])
-        x = transform.to_monthly(x) if not x.index.freqstr.startswith("D") else x
-        x = x[x.index >= since]
+        annual = x.index.freqstr[0] in "YA"
+        if not annual and not x.index.freqstr.startswith("D"):
+            x = transform.to_monthly(x)
+        start = pd.Timestamp(c.get("since", cfg.charts.get("since", "2016-01")))
+        since = pd.Period(cfg.charts.get("since", "2016-01"), "M")
+        x = x[x.index.start_time >= start]
+        secondary = None
+        if (sec := c.get("secondary")) and sec["series"] in data:
+            s2 = data[sec["series"]]
+            secondary = (s2[s2.index.start_time >= start], sec.get("label", ""))
+        forecast_from = None
+        if c.get("forecast"):
+            ahead = x.index[x.index.end_time > as_of]
+            forecast_from = ahead[0] if len(ahead) else None
         ref, ref_path = None, None
         if (r := c.get("reference")) and r.get("nairu"):
             est = (estimates or {}).get("nairu")
@@ -62,12 +82,13 @@ def prepare(cfg: Config, data: dict[str, pd.Series], as_of: pd.Timestamp,
                 ref = (v, f"{r.get('label', r['manual'])} {num(v, 2)}")
             else:
                 ref = (float(r["value"]), r.get("label", ""))
-        src = cfg.series[sid]["source"]
+        src = cfg.series[sid.split(":")[0]]["source"]
         out.append(ChartData(
             id=c["id"], title=c["title"], subtitle=c["subtitle"], unit=c.get("unit", ""),
             decimals=c.get("decimals", 1), step=c.get("step", False), x=x, reference=ref, ref_path=ref_path,
             ylim=tuple(c["ylim"]) if c.get("ylim") else None,
             source=cfg.sources[src]["name"], attribution=cfg.sources[src]["attribution"],
+            secondary=secondary, forecast_from=forecast_from,
         ))
     return out
 
@@ -123,6 +144,8 @@ def svg(c: ChartData, width: int = W) -> tuple[str, str]:
         lo, hi = min(lo, c.reference[0]), max(hi, c.reference[0])
     if c.ref_path:
         lo, hi = min(lo, c.ref_path[1].min()), max(hi, c.ref_path[2].max())
+    if c.secondary is not None:
+        lo, hi = min(lo, c.secondary[0].min()), max(hi, c.secondary[0].max())
     if c.ylim:
         lo, hi = c.ylim
     if hi - lo < 1e-9:  # flat series: give the axis some height
@@ -152,7 +175,7 @@ def svg(c: ChartData, width: int = W) -> tuple[str, str]:
         f'<text x="{ML - 6}" y="{py(t) + 3:.1f}" class="ytick">{tick_label(t, ticks, c.decimals)}</text>'
         for t in ticks
     )
-    years = range(x.index[0].year + (x.index[0].month > 1), x.index[-1].year + 1)
+    years = range(x.index[0].start_time.year + (x.index[0].start_time.month > 1), x.index[-1].end_time.year + 1)
     step_years = next(s for s in (1, 2, 5, 10) if len(years) / s <= 8)
     xt = "".join(
         f'<text x="{px(pd.Period(f"{y}-01", "M")):.1f}" y="{H - 6}" class="xtick">{y}</text>'
@@ -174,19 +197,36 @@ def svg(c: ChartData, width: int = W) -> tuple[str, str]:
         mid = "M" + "L".join(f"{px(p):.1f},{py(v):.1f}" for p, v in centre.items())
         ref += (f'<polygon points="{band}" class="ref-band"/><path d="{mid}" class="ref-path"/>'
                 f'<text x="{width - MR + 4}" y="{py(centre.iloc[-1]) + 3:.1f}" class="ref-label">{escape(label)}</text>')
+    second = ""
+    if c.secondary is not None:
+        s2, label = c.secondary
+        s2 = s2[(s2.index >= x.index[0]) & (s2.index <= x.index[-1])].dropna()
+        if len(s2):
+            path = "M" + "L".join(f"{px(p):.1f},{py(v):.1f}" for p, v in s2.items())
+            second = f'<path d="{path}" class="ref-path secondary"/>'
+            if label:
+                ref += f'<text x="{width - MR + 4}" y="{py(s2.iloc[-1]) + 3:.1f}" class="ref-label">{escape(label)}</text>'
+    shade = ""
+    if c.forecast_from is not None:
+        fx = px(c.forecast_from) - (px(c.forecast_from) - px(c.forecast_from - 1)) / 2
+        shade = (f'<rect x="{fx:.1f}" y="{MT}" width="{width - MR - fx:.1f}" height="{H - MT - MB}" class="forecast-band"/>'
+                 f'<text x="{fx + 3:.1f}" y="{MT + 9}" class="forecast-label">OBR forecast</text>')
     lx, ly = pts[-1]
     data = json.dumps({
         "x": [round(a, 1) for a, _ in pts], "y": [round(b, 1) if MT <= b <= H - MB else None for _, b in pts],
-        "d": [p.strftime("%b %Y") for p in x.index], "v": [value_label(v, c.unit, c.decimals) for v in vals],
+        "d": [plabel(p) + (" (forecast)" if c.forecast_from is not None and p >= c.forecast_from else "") for p in x.index],
+        "v": [value_label(v, c.unit, c.decimals)
+              + (f"; {c.secondary[1].lower()} {value_label(c.secondary[0][p], c.unit, c.decimals)}"
+                 if c.secondary is not None and p in c.secondary[0].index else "") for p, v in x.items()],
     }, separators=(",", ":"))
-    latest = f"{value_label(vals[-1], c.unit, c.decimals)} in {x.index[-1].strftime('%B %Y')}"
-    label = (f"{c.title}, {x.index[0].strftime('%B %Y')} to {x.index[-1].strftime('%B %Y')}. "
+    latest = f"{value_label(vals[-1], c.unit, c.decimals)} in {plabel(x.index[-1], True)}"
+    label = (f"{c.title}, {plabel(x.index[0], True)} to {plabel(x.index[-1], True)}. "
              f"Latest {latest}. Range {value_label(min(vals), c.unit, c.decimals)} to {value_label(max(vals), c.unit, c.decimals)}.")
     markup = (
         f'<svg viewBox="0 0 {width} {H}" class="line-chart" role="img" aria-label="{escape(label)}" data-points=\'{escape(data)}\'>'
-        f'{grid}{ref}<line x1="{ML}" x2="{width - MR}" y1="{H - MB}" y2="{H - MB}" class="axis"/>{xt}'
+        f'{shade}{grid}{ref}<line x1="{ML}" x2="{width - MR}" y1="{H - MB}" y2="{H - MB}" class="axis"/>{xt}'
         f'<clipPath id="clip-{c.id}"><rect x="{ML}" y="{MT}" width="{width - ML - MR}" height="{H - MT - MB}"/></clipPath>'
-        f'<g clip-path="url(#clip-{c.id})"><path d="{d}" class="series"/><circle cx="{lx:.1f}" cy="{ly:.1f}" r="2.6" class="last"/></g>'
+        f'<g clip-path="url(#clip-{c.id})">{second}<path d="{d}" class="series"/><circle cx="{lx:.1f}" cy="{ly:.1f}" r="2.6" class="last"/></g>'
         f'<g class="hover" visibility="hidden"><line y1="{MT}" y2="{H - MB}" class="hover-rule"/><circle r="3.2" class="hover-dot"/></g>'
         "</svg>"
     )
@@ -212,6 +252,8 @@ def fig_note(text: str = "", source: str = "") -> str:
 def panel(c: ChartData) -> str:
     markup, note = svg(c)
     x = c.x.dropna()
+    if c.forecast_from is not None and (x.index >= c.forecast_from).any():
+        x = x[x.index <= c.forecast_from]   # headline figure: the current year, not the last forecast year
     latest = value_label(x.iloc[-1], c.unit, c.decimals)
     return f"""
 <figure class="chart-panel" tabindex="0" aria-describedby="tip-{c.id}">
@@ -219,7 +261,7 @@ def panel(c: ChartData) -> str:
     <h3>{escape(c.title)}</h3>
     <p>{escape(c.subtitle)}</p>
   </figcaption>
-  <p class="chart-latest"><strong>{escape(latest)}</strong> <span>{x.index[-1].strftime('%B %Y')}</span></p>
+  <p class="chart-latest"><strong>{escape(latest)}</strong> <span>{plabel(x.index[-1], True)}{" (OBR forecast)" if c.forecast_from is not None and x.index[-1] >= c.forecast_from else ""}</span></p>
   <div class="chart-frame">{markup}<div class="chart-tip" id="tip-{c.id}" aria-live="polite"></div></div>
   <div class="fig-foot" title="{escape(c.attribution)}">{fig_note(note, c.source)}</div>
 </figure>"""
@@ -290,6 +332,9 @@ CSS = """
 .line-chart .zero{stroke:var(--muted);stroke-width:1}
 .line-chart .ref-path{fill:none;stroke:var(--muted);stroke-width:1.2;stroke-dasharray:4 3}
 .line-chart .ref-band{fill:var(--band);opacity:.7}
+.line-chart .secondary{stroke:var(--ink);opacity:.75}
+.line-chart .forecast-band{fill:var(--rule-soft);opacity:.8}
+.line-chart .forecast-label{font-size:9px;fill:var(--muted)}
 .line-chart .ref-label{font-size:9.5px;fill:var(--muted);text-anchor:start}
 .line-chart .hover-rule{stroke:var(--muted);stroke-width:1}
 .line-chart .hover-dot{fill:var(--bg);stroke:var(--ink);stroke-width:1.6}

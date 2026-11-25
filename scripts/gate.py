@@ -1,4 +1,5 @@
-"""Decide whether this workflow run should build. Writes run=true|false to $GITHUB_OUTPUT.
+"""Decide whether this workflow run should build. Writes run=true|false, always_deploy=true|false
+and fetch=<countries> (comma-separated, or "all") to $GITHUB_OUTPUT.
 
 Cron runs in UTC, so each local slot is scheduled for every UTC offset its country uses
 (GMT and BST for the UK). A scheduled run proceeds only if its cron time equals a slot
@@ -11,6 +12,10 @@ run that starts late still counts. Every run builds every edition.
   us  14:15 on FOMC days    cron "15 18 * * *" (EDT) and "15 19 * * *" (EST)   after the 14:00 statement
   au  11:45 daily           cron "45 0 * * *" (AEDT) and "45 1 * * *" (AEST)    after the 11:30 ABS releases
   au  14:45 on Board days   cron "45 3 * * *" (AEDT) and "45 4 * * *" (AEST)    after the 14:30 decision
+
+Release poll: cron POLL fires every 15 minutes. It fetches only the editions inside their
+release window (local weekdays, RELEASE_WINDOWS) and deploys only if a fetched series changed,
+so a release reaches the page within about 15 minutes rather than at the next daily build.
 
 Usage: python scripts/gate.py <event_name> [<cron>]
 """
@@ -43,6 +48,24 @@ SLOTS = [
     Slot("au", "Australia/Sydney", (11, 45), False, "11:45 Sydney daily build"),
     Slot("au", "Australia/Sydney", (14, 45), True, "14:45 Sydney Board-day build"),
 ]
+
+
+POLL = "2,17,32,47 * * * *"
+RELEASE_WINDOWS = {   # local weekday hours in which statistics are released
+    "uk": ("Europe/London", dt.time(6, 45), dt.time(19, 30)),       # ONS 07:00 and 09:30; BoE data in the day
+    "us": ("America/New_York", dt.time(8, 15), dt.time(17, 0)),     # BLS/BEA 08:30, FOMC 14:00
+    "au": ("Australia/Sydney", dt.time(11, 15), dt.time(16, 45)),   # ABS 11:30, RBA 14:30
+}
+
+
+def polling(now_utc: dt.datetime) -> list[str]:
+    """Editions inside their release window now."""
+    out = []
+    for country, (tz, start, end) in RELEASE_WINDOWS.items():
+        local = now_utc.astimezone(ZoneInfo(tz))
+        if local.weekday() < 5 and start <= local.time() <= end:
+            out.append(country)
+    return out
 
 
 def calendar_dates() -> set[str]:
@@ -94,13 +117,25 @@ def should_run(event: str, cron: str, now_utc: dt.datetime, decisions: dict[str,
     return False, "; ".join(skipped) or f"cron {cron!r} matches no build slot today"
 
 
+def decide(event: str, cron: str, now_utc: dt.datetime, decisions: dict[str, set[str]]) -> dict:
+    """run, always_deploy, fetch (editions to fetch: 'all' or a comma list) and why."""
+    if event == "schedule" and cron == POLL:
+        live = polling(now_utc)
+        why = f"release poll: {', '.join(c.upper() for c in live)} in release window" if live else \
+            "release poll: no edition in its release window"
+        return dict(run=bool(live), always_deploy=False, fetch=",".join(live), why=why)
+    run, why = should_run(event, cron, now_utc, decisions)
+    return dict(run=run, always_deploy=run, fetch="all", why=why)
+
+
 def main() -> None:
     event, cron = sys.argv[1], (sys.argv[2] if len(sys.argv) > 2 else "")
-    run, why = should_run(event, cron, dt.datetime.now(dt.timezone.utc), decision_dates())
-    print(f"run={str(run).lower()}: {why}")
+    d = decide(event, cron, dt.datetime.now(dt.timezone.utc), decision_dates())
+    flags = {k: (str(v).lower() if isinstance(v, bool) else v) for k, v in d.items() if k != "why"}
+    print(" ".join(f"{k}={v}" for k, v in flags.items()) + f": {d['why']}")
     if out := os.environ.get("GITHUB_OUTPUT"):
         with open(out, "a") as f:
-            f.write(f"run={str(run).lower()}\n")
+            f.writelines(f"{k}={v}\n" for k, v in flags.items())
 
 
 if __name__ == "__main__":

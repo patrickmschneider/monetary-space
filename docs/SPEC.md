@@ -19,7 +19,7 @@ Build a single-screen UK monetary policy dashboard. In 5 seconds a user can stat
 
 **Delivery.** Code and data live in a public GitHub repository. GitHub Actions rebuilds the page on a schedule and publishes it to GitHub Pages. The owner's website embeds it with an iframe (Sections 5 and 7).
 
-**Parsimony rule.** Fourteen scored indicators is the cap; adding one means removing one. An element that cannot change the verdict or a block score is context, or it is cut.
+**Parsimony rule.** Fifteen scored indicators is the cap (raised from fourteen in November 2026 to add fiscal stance to Demand); adding one means removing one. An element that cannot change the verdict or a block score is context, or it is cut.
 
 ## 2. Analytical framework
 
@@ -76,7 +76,7 @@ The verdict says which way the data argue policy should move. It does not say wh
 | Oil, gas or sterling moves | C | Brent, gas, ERI |
 | Fed or ECB decision | C, D | ERI; 2y OIS via spillover |
 | MPC decision, minutes, MPR | D | 2y OIS, Bank Rate; MPR projection, r\* inputs |
-| Budget or fiscal event | Not scored | Logged in release drawer; affects A with a lag |
+| Budget or fiscal event, OBR forecast | A | Fiscal stance (structural primary deficit); deficit chart |
 
 ## 3. Scoring method
 
@@ -107,7 +107,7 @@ Stance is in pp, not z: a z-score of the real rate over a sample half spent at t
 
 ## 4. Indicators
 
-Fourteen scored indicators. Benchmarks marked *config* are defaults for the team to review. The agent resolves series codes, records them in config and checks each against the publisher's page.
+Fifteen scored indicators (the fifteenth, fiscal stance, is in config/uk/indicators.yaml). Benchmarks marked *config* are defaults for the team to review. The agent resolves series codes, records them in config and checks each against the publisher's page.
 
 ### A. Demand
 
@@ -118,6 +118,7 @@ Fourteen scored indicators. Benchmarks marked *config* are defaults for the team
 | PAYE payrolled employees | 3m/3m annualised %, flash month dropped | pre-2020 mean; config σ | + | ONS / HMRC RTI |
 | Real GDP | 3m/3m annualised % | potential growth, 1.0% (config; confirm vs MPR) | + | ONS |
 | Capacity utilisation | Agents' score | 0 | + | BoE Agents' scores (confirm file) |
+| Fiscal stance | cyclically adjusted primary deficit, % of GDP, current fiscal year (OBR forecast) | mean 1993-94–2018-19; σ same sample | + | OBR, via Fiscal Space |
 
 LFS response rates are poor; payrolls are the cross-check. GDP growth measures the change in the output gap, not its level.
 
@@ -244,7 +245,7 @@ flowchart LR
 | Compare-to | Uses the stored vintage for the date. Before the first vintage, uses current data labelled “revised”. |
 | Score | Pure functions, unit-tested on fixtures, with a golden test for all nine verdict cells |
 | Render | One self-contained HTML file; Observable Plot bundled inline; no network calls when viewed |
-| Refresh | 07:10 UK daily (after 07:00 ONS releases); 12:15 UK on MPC days; manual trigger; one-command local run. Details below. |
+| Refresh | Release poll every 15 minutes in each edition's weekday release window, deploying only when a series changed; 07:10 UK daily; 12:15 UK on MPC days; manual trigger; one-command local run. Details below. |
 | Failure | Keep the last good value, mark it stale, log it, still build |
 
 - Confirm the publication lag of the BoE OIS curve. If it lags, show its date on card D.
@@ -257,7 +258,7 @@ This is feasible and free for a public repository.
 | --- | --- |
 | Repository | Public. Code on `main`; data vintages on a `data` branch, so code history stays readable. |
 | Workflow | `build.yml`: set up Python, fetch, score, render, commit the vintage to `data`, deploy `site/` to Pages. Triggers: schedule, manual run from the Actions tab, and push to `main`. |
-| Schedule | Cron runs in UTC. Schedule both 06:10 and 07:10 UTC; the script exits unless it is 07:10 UK time. Use the same pattern for 12:15 UK, running only on dates in `manual/mpc_dates.csv`. |
+| Schedule | Cron runs in UTC. Schedule both 06:10 and 07:10 UTC; the script exits unless it is 07:10 UK time. Use the same pattern for 12:15 UK, running only on dates in `manual/mpc_dates.csv`. A release poll (`2,17,32,47 * * * *`) fetches the editions inside their release window (UK 06:45–19:30, US 08:15–17:00, AU 11:15–16:45, local weekdays), rebuilds the rest from their vintage, and deploys only if a fetched series changed. |
 | Secrets | FRED API key as a repository secret. No other credentials. |
 | Address | `https://<user>.github.io/<repo>/` by default. A custom subdomain on the owner's domain is optional, via a CNAME record. |
 | Embed snippet | The README gives the iframe tag (`?view=embed`, `loading="lazy"`, a descriptive `title`, width 100%, no border) and a short host-page script that sets the iframe height from the posted message. |
