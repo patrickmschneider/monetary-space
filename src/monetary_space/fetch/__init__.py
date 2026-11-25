@@ -60,8 +60,8 @@ FETCHERS = {
     "gsw_yield": lambda s: fed.gsw_yields([s["column"]], real=s.get("real", False))[s["column"]],
     "boe_ois_spot": lambda s: boe.ois_spot(s["maturity"]),
     "boe_ois_forwards": lambda s: boe.ois_forwards(s["maturities"], s.get("since", "2024-01-01")),
-    "fiscal_outlook": lambda s: fiscal.outlook(s["url"]),
     "us_deficit": lambda s: fiscal.us(),
+    "uk_deficit": lambda s: fiscal.uk(),
     "au_deficit": lambda s: fiscal.au(),
 }
 

@@ -90,7 +90,7 @@ Inflation pressure is read as the terms of a hybrid New Keynesian Phillips curve
 | Block | Question | Scored indicators |
 | --- | --- | --- |
 | Expectations | Are inflation expectations anchored at 2%? | Firms' expected own-price growth (DMP), households' 1-year expectations (BoE IAS), market-implied inflation over 5 years (gilt breakeven, converted to a CPI basis) |
-| Demand | Is demand running ahead of capacity? | Unemployment vs estimated u\*, vacancies per unemployed, payrolls, GDP growth vs estimated potential, Agents' capacity utilisation, fiscal stance (UK: OBR cyclically adjusted primary deficit; AU: general government primary deficit from the national accounts; US: federal deficit from the Monthly Treasury Statement) |
+| Demand | Is demand running ahead of capacity? | Unemployment vs estimated u\*, vacancies per unemployed, payrolls, GDP growth vs estimated potential, Agents' capacity utilisation, fiscal stance (UK: primary deficit from the monthly public sector finances; AU: general government primary deficit from the national accounts; US: federal deficit from the Monthly Treasury Statement) |
 | Supply | Is capacity growing more slowly than normal? | Unit labour cost growth vs 2%, productivity growth vs its 5-year trend |
 | Cost-push | Are external costs pushing up prices? | Brent (US$), UK gas, sterling ERI, import prices of manufactured goods |
 

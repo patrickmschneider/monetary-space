@@ -76,7 +76,7 @@ The verdict says which way the data argue policy should move. It does not say wh
 | Oil, gas or sterling moves | C | Brent, gas, ERI |
 | Fed or ECB decision | C, D | ERI; 2y OIS via spillover |
 | MPC decision, minutes, MPR | D | 2y OIS, Bank Rate; MPR projection, r\* inputs |
-| Budget or fiscal event, OBR forecast | A | Fiscal stance (structural primary deficit); deficit chart |
+| Public sector finances (ONS, about the 20th) | M | Fiscal stance (primary deficit); deficit chart |
 
 ## 3. Scoring method
 
@@ -118,7 +118,7 @@ Fifteen scored indicators (the fifteenth, fiscal stance, is in config/uk/indicat
 | PAYE payrolled employees | 3m/3m annualised %, flash month dropped | pre-2020 mean; config σ | + | ONS / HMRC RTI |
 | Real GDP | 3m/3m annualised % | potential growth, 1.0% (config; confirm vs MPR) | + | ONS |
 | Capacity utilisation | Agents' score | 0 | + | BoE Agents' scores (confirm file) |
-| Fiscal stance | cyclically adjusted primary deficit, % of GDP, current fiscal year (OBR forecast) | mean 1993-94–2018-19; σ same sample | + | OBR, via Fiscal Space (UK). AU: general government primary deficit, 4-quarter sum, ABS 5206.0, mean 1993–2019. US: federal deficit incl. interest, 12-month sum, Monthly Treasury Statement, mean 1990–2019 |
+| Fiscal stance | UK: primary deficit (PSNB ex less central government net interest), 12-month sum, % of GDP | mean 1998–2019; σ same sample | + | ONS public sector finances (UK). AU: general government primary deficit, 4-quarter sum, ABS 5206.0, mean 1993–2019. US: federal deficit incl. interest, 12-month sum, Monthly Treasury Statement, mean 1990–2019 |
 
 LFS response rates are poor; payrolls are the cross-check. GDP growth measures the change in the output gap, not its level.
 

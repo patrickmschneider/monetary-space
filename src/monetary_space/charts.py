@@ -264,7 +264,7 @@ def panel(c: ChartData) -> str:
     <h3>{escape(c.title)}</h3>
     <p>{escape(c.subtitle)}</p>
   </figcaption>
-  <p class="chart-latest"><strong>{escape(latest)}</strong> <span>{plabel(x.index[-1], True)}{" (OBR forecast)" if c.forecast_from is not None and x.index[-1] >= c.forecast_from else ""}</span></p>
+  <p class="chart-latest"><strong>{escape(latest)}</strong> <span>{plabel(x.index[-1], True)}{f" ({escape(c.forecast_label)})" if c.forecast_from is not None and x.index[-1] >= c.forecast_from else ""}</span></p>
   <div class="chart-frame">{markup}<div class="chart-tip" id="tip-{c.id}" aria-live="polite"></div></div>
   <div class="fig-foot" title="{escape(c.attribution)}">{fig_note(note, c.source)}</div>
 </figure>"""

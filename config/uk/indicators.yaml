@@ -34,10 +34,6 @@ sources:
   boe_ias:
     name: Bank of England Inflation Attitudes Survey
     attribution: "Source: Bank of England Inflation Attitudes Survey."
-  obr:
-    name: Office for Budget Responsibility (via Fiscal Space)
-    attribution: "Source: Office for Budget Responsibility, Public finances databank and Economic and fiscal outlook, compiled by the Fiscal Space dashboard. Contains public sector information licensed under the Open Government Licence v3.0."
-
 series:
   MGSX:
     fetcher: ons_timeseries
@@ -215,11 +211,10 @@ series:
     url: https://decisionmakerpanel.co.uk/data/
     freq: M
   FISCAL:
-    fetcher: fiscal_outlook
-    source: obr
-    title: "Public sector borrowing, % of GDP, by fiscal year: headline and cyclically adjusted primary (OBR outturn and forecast)"
-    url: https://www.patrickmschneider.com/fiscal-space/data/outlook.json
-    freq: A
+    fetcher: uk_deficit
+    source: ons
+    title: "Public sector net borrowing (ex public sector banks), 12-month sum, % of GDP: headline and primary (less central government net interest, from 1998)"
+    freq: M
   IAS_MEDIAN_1Y:
     fetcher: ias_median_1y
     source: boe_ias
@@ -410,26 +405,22 @@ indicators:
     note: Scores are whole numbers from about 2022, fractional before.
 
   - id: fiscal
-    name: Fiscal stance (structural primary deficit)
+    name: Fiscal stance (primary deficit)
     explain: >-
-      Government borrowing after stripping out the effect of the economic cycle and debt interest, as a share of GDP, for the current fiscal year (OBR's latest estimate). A larger structural deficit means the government is adding more to spending in the economy, which adds to demand; a smaller one, or a surplus, takes demand out. The headline deficit is not used because it rises automatically in downturns, which would make a weak economy look inflationary.
+      Public sector borrowing over the last 12 months, excluding debt interest, as a share of GDP, from the monthly public sector finances. A larger deficit means the government is putting more spending power into the economy than it takes out in taxes, which adds to demand. It is not adjusted for the economic cycle, so it also rises automatically when the economy weakens, which can make a weak economy look inflationary.
     phrase: fiscal policy
     block: D
     series:
-    - FISCAL:CAPD
+    - FISCAL:PRIMARY
     transform: level
     unit: '% of GDP'
-    freq: A
-    lag_days: -380     # next figure: the OBR spring forecast, about mid-March before the next year starts
-    benchmark:
-      method: pre2020_mean
-      since: '1993-04'   # inflation targeting, as for unit labour costs
-    sigma:
-      method: pre2020_sd
-      since: '1993-04'
+    freq: M
+    lag_days: 21       # public sector finances: about the 20th of the next month
+    benchmark: {method: pre2020_mean}     # from March 1998 (central government net interest starts April 1997)
+    sigma: {method: pre2020_sd}
     sign: 1
-    smoothing: Fiscal-year total (April–March); the current year is the OBR forecast
-    note: "Cyclically adjusted primary deficit: positive is a deficit. It is not a pure measure of discretionary policy: it also moves with OBR estimates of the output gap. Updated at each fiscal event."
+    smoothing: 12-month sum
+    note: "Public sector net borrowing excluding public sector banks, less central government net interest payable. Monthly first estimates are revised, sometimes by several £bn. The OBR's cyclically adjusted measure is better at separating policy from the cycle but changes only at fiscal events."
 
   # ------------------------------------------------------------------------
   # S. Supply: is the economy's capacity growing more slowly than normal?
@@ -575,5 +566,5 @@ indicators:
     smoothing: 12-month % change of the NSA index
     note: 'Pipeline pressure: import costs reach consumer prices over about 4–8 quarters. Manufactured products only, so primary fuels are not counted twice with oil and gas; refined petroleum products are still included. Series starts Dec 2008.'
 
-# Not scored (momentum and context): headline borrowing (FISCAL:PSNB, chart); services CPI (D7NN), private regular pay (KAJ4), inactivity (LF2S),
+# Not scored (momentum and context): headline borrowing (FISCAL:DEFICIT, chart); services CPI (D7NN), private regular pay (KAJ4), inactivity (LF2S),
 # trading partners' leading indicator (OECD_CLI), 5y5y implied inflation (IUDSIZC/IUDMIZC).
