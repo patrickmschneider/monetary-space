@@ -61,6 +61,7 @@ FETCHERS = {
     "boe_ois_spot": lambda s: boe.ois_spot(s["maturity"]),
     "boe_ois_forwards": lambda s: boe.ois_forwards(s["maturities"], s.get("since", "2024-01-01")),
     "fiscal_outlook": lambda s: fiscal.outlook(s["url"]),
+    "imf_fiscal": lambda s: fiscal.imf(s["country"]),
 }
 
 

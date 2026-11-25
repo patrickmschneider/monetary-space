@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from monetary_space.fetch import ons
 
@@ -59,3 +60,17 @@ def test_fiscal_outlook_merges_history_and_latest_vintage():
     assert capd[pd.Period("2025", "Y-MAR")] == 2.17               # history: deficit = −balance
     assert capd[pd.Period("2026", "Y-MAR")] == 1.0                # the latest vintage overrides history
     assert psnb[pd.Period("2027", "Y-MAR")] == 4.2
+
+
+def test_imf_fiscal_flips_balances_to_deficits():
+    from monetary_space.fetch import fiscal
+    payloads = {
+        "DEFICIT": {"values": {"GGXCNL_G01_GDP_PT": {"USA": {"2025": -7.1, "2026": -8.5}, "AUS": {"2026": -3.2}}}},
+        "CAPD": {"values": {"GGCBP_G01_PGDP_PT": {"USA": {"2025": -4.4, "2026": -4.9}}}},
+    }
+    out = fiscal.parse_imf(payloads, "USA")
+    assert out["CAPD"].index.freqstr.startswith("Y")
+    assert out["CAPD"][pd.Period("2026", "Y")] == 4.9
+    assert out["DEFICIT"].tolist() == [7.1, 8.5]
+    with pytest.raises(ValueError):
+        fiscal.parse_imf(payloads, "AUS")   # no CAPD for Australia in this payload

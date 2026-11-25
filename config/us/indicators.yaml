@@ -1,4 +1,4 @@
-# Scored indicators for the US edition (see config/uk/indicators.yaml for the schema). Cap: 14.
+# Scored indicators for the US edition (see config/uk/indicators.yaml for the schema). Cap: 15.
 #
 # Chosen for what drives US inflation, not to mirror the UK list: PCE is the target measure,
 # oil and natural gas are the energy channels, and the dollar replaces sterling.
@@ -31,8 +31,17 @@ sources:
   eia:
     name: U.S. Energy Information Administration, via FRED
     attribution: "Source: U.S. Energy Information Administration via FRED, Federal Reserve Bank of St. Louis."
+  imf:
+    name: IMF Fiscal Monitor
+    attribution: "Source: International Monetary Fund, Fiscal Monitor (DataMapper), general government; outturn and IMF forecast."
 
 series:
+  FISCAL:
+    fetcher: imf_fiscal
+    source: imf
+    title: "General government deficit, % of GDP: headline and cyclically adjusted primary (IMF Fiscal Monitor, outturn and forecast)"
+    country: USA
+    freq: A
   PCE_YY:
     fetcher: fred
     source: bea
@@ -322,6 +331,24 @@ indicators:
     sign: 1
     smoothing: none
     note: Total industry; utilization has trended down since the 1990s, so the 1990–2019 mean may overstate normal (confirm).
+
+  - id: fiscal
+    name: Fiscal stance (structural primary deficit)
+    explain: >-
+      Government borrowing (all levels of government) after stripping out the effect of the economic cycle and debt interest, as a share of potential GDP, for the current year (the IMF's latest estimate). A larger structural deficit means government is adding more to spending in the economy, which adds to demand; a smaller one, or a surplus, takes demand out. The headline deficit is not used because it rises automatically in downturns, which would make a weak economy look inflationary.
+    phrase: fiscal policy
+    block: D
+    series:
+    - FISCAL:CAPD
+    transform: level
+    unit: '% of GDP'
+    freq: A
+    lag_days: -270     # next figure: the IMF's April Fiscal Monitor
+    benchmark: {method: pre2020_mean, since: '2001-01'}
+    sigma: {method: pre2020_sd, since: '2001-01'}
+    sign: 1
+    smoothing: Annual; the current year is the IMF forecast
+    note: "Cyclically adjusted primary deficit (IMF): positive is a deficit. It also moves with IMF estimates of the output gap. The IMF updates it in April and October, so it lags budgets in between. IMF data start in 2001, so the benchmark is the 2001–2019 average."
 
   # ------------------------------------------------------------------------
   # S. Supply: is the economy's capacity growing more slowly than normal?

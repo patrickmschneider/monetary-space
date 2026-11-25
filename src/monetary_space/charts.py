@@ -32,6 +32,7 @@ class ChartData:
     attribution: str
     secondary: tuple[pd.Series, str] | None = None   # a second, dashed line on the same axis
     forecast_from: pd.Period | None = None           # first forecast period, shaded
+    forecast_label: str = "Forecast"
 
 
 def plabel(p: pd.Period, long: bool = False) -> str:
@@ -88,7 +89,7 @@ def prepare(cfg: Config, data: dict[str, pd.Series], as_of: pd.Timestamp,
             decimals=c.get("decimals", 1), step=c.get("step", False), x=x, reference=ref, ref_path=ref_path,
             ylim=tuple(c["ylim"]) if c.get("ylim") else None,
             source=cfg.sources[src]["name"], attribution=cfg.sources[src]["attribution"],
-            secondary=secondary, forecast_from=forecast_from,
+            secondary=secondary, forecast_from=forecast_from, forecast_label=c.get("forecast_label", "Forecast"),
         ))
     return out
 
@@ -210,7 +211,7 @@ def svg(c: ChartData, width: int = W) -> tuple[str, str]:
     if c.forecast_from is not None:
         fx = px(c.forecast_from) - (px(c.forecast_from) - px(c.forecast_from - 1)) / 2
         shade = (f'<rect x="{fx:.1f}" y="{MT}" width="{width - MR - fx:.1f}" height="{H - MT - MB}" class="forecast-band"/>'
-                 f'<text x="{fx + 3:.1f}" y="{MT + 9}" class="forecast-label">OBR forecast</text>')
+                 f'<text x="{fx + 3:.1f}" y="{MT + 9}" class="forecast-label">{escape(c.forecast_label)}</text>')
     lx, ly = pts[-1]
     data = json.dumps({
         "x": [round(a, 1) for a, _ in pts], "y": [round(b, 1) if MT <= b <= H - MB else None for _, b in pts],

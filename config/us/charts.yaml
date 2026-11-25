@@ -44,6 +44,18 @@ charts:
     unit: ""
     decimals: 0
 
+  - id: deficit
+    title: Government deficit
+    subtitle: "General government net borrowing, % of GDP; dashed: cyclically adjusted primary deficit (scored)"
+    series: FISCAL:DEFICIT
+    secondary: {series: "FISCAL:CAPD", label: "Structural primary"}
+    transform: level
+    unit: "%"
+    since: "2000"
+    forecast: true         # years not yet ended are the IMF forecast, shaded
+    forecast_label: IMF forecast
+    reference: {value: 0}
+
 # Momentum and context table on the Inflation drivers tab (not scored).
 momentum:
   - name: Core PCE inflation

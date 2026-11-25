@@ -55,6 +55,7 @@ charts:
     unit: "%"
     since: "2000"          # fiscal years from 2000-01
     forecast: true         # years not yet ended are the OBR forecast, shaded
+    forecast_label: OBR forecast
     reference: {value: 0}
 
 # Momentum and context table on the Inflation drivers tab (not scored). transform/weights as in indicators.yaml.

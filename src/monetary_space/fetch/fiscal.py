@@ -51,3 +51,30 @@ def parse_outlook(payload: dict) -> dict[str, pd.Series]:
 
 def outlook(url: str) -> dict[str, pd.Series]:
     return parse_outlook(get(url).json())
+
+
+# --- IMF Fiscal Monitor (Australia, United States) -------------------------------------------
+# General government, calendar years as the IMF publishes them, outturn and IMF forecast.
+# The DataMapper API ignores a country filter, so each indicator comes back for every country.
+IMF_API = "https://www.imf.org/external/datamapper/api/v1/"
+IMF_INDICATORS = {
+    "DEFICIT": "GGXCNL_G01_GDP_PT",   # net lending/borrowing, % of GDP
+    "CAPD": "GGCBP_G01_PGDP_PT",      # cyclically adjusted primary balance, % of potential GDP
+}
+
+
+def parse_imf(payloads: dict[str, dict], country: str) -> dict[str, pd.Series]:
+    """Balances as deficits (sign flipped: positive = deficit), on annual periods."""
+    out = {}
+    for name, code in IMF_INDICATORS.items():
+        values = payloads[name]["values"][code].get(country)
+        if not values:
+            raise ValueError(f"IMF {code} has no values for {country}")
+        s = pd.Series({pd.Period(y, "Y"): -float(v) for y, v in values.items() if v is not None}, name=name).sort_index()
+        s.index = pd.PeriodIndex(s.index, freq="Y")
+        out[name] = s
+    return out
+
+
+def imf(country: str) -> dict[str, pd.Series]:
+    return parse_imf({name: get(IMF_API + code).json() for name, code in IMF_INDICATORS.items()}, country)
