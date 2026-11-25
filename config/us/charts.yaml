@@ -51,7 +51,6 @@ charts:
     secondary: {series: "FISCAL:PRIMARY", label: "Primary"}
     transform: level
     unit: "%"
-    since: "2000"
     reference: {value: 0}
 
 # Momentum and context table on the Inflation drivers tab (not scored).
