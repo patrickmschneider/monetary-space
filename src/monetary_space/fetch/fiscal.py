@@ -53,28 +53,86 @@ def outlook(url: str) -> dict[str, pd.Series]:
     return parse_outlook(get(url).json())
 
 
-# --- IMF Fiscal Monitor (Australia, United States) -------------------------------------------
-# General government, calendar years as the IMF publishes them, outturn and IMF forecast.
-# The DataMapper API ignores a country filter, so each indicator comes back for every country.
-IMF_API = "https://www.imf.org/external/datamapper/api/v1/"
-IMF_INDICATORS = {
-    "DEFICIT": "GGXCNL_G01_GDP_PT",   # net lending/borrowing, % of GDP
-    "CAPD": "GGCBP_G01_PGDP_PT",      # cyclically adjusted primary balance, % of potential GDP
-}
+
+# --- Headline and primary deficits, United States and Australia --------------------------------
+# Rolling one-year sums, % of GDP, positive = deficit. Primary = excluding net interest.
+
+def rolling_pct(flow: pd.Series, gdp: pd.Series, n: int) -> pd.Series:
+    """Sum of the last n periods of a flow as % of GDP over the same periods (GDP at the flow's frequency)."""
+    return (flow.rolling(n).sum() / gdp.reindex(flow.index).rolling(n).sum() * 100).dropna()
 
 
-def parse_imf(payloads: dict[str, dict], country: str) -> dict[str, pd.Series]:
-    """Balances as deficits (sign flipped: positive = deficit), on annual periods."""
-    out = {}
-    for name, code in IMF_INDICATORS.items():
-        values = payloads[name]["values"][code].get(country)
-        if not values:
-            raise ValueError(f"IMF {code} has no values for {country}")
-        s = pd.Series({pd.Period(y, "Y"): -float(v) for y, v in values.items() if v is not None}, name=name).sort_index()
-        s.index = pd.PeriodIndex(s.index, freq="Y")
-        out[name] = s
-    return out
+# United States: Monthly Treasury Statement, federal government (released about the 8th business
+# day of the next month). Net interest (MTS Table 9) starts in March 2015, so the primary deficit
+# starts in February 2016.
+MTS_DEFICIT = "MTSDS133FMS"            # FRED: federal surplus or deficit (−), $ millions, monthly
+MTS_TABLE9 = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/mts/mts_table_9"
 
 
-def imf(country: str) -> dict[str, pd.Series]:
-    return parse_imf({name: get(IMF_API + code).json() for name, code in IMF_INDICATORS.items()}, country)
+def monthly_gdp(gdp_saar: pd.Series, until: pd.Period) -> pd.Series:
+    """Quarterly nominal GDP at an annual rate ($ billions) → $ millions a month, each quarter's value
+    on its three months, the latest quarter carried forward to `until`."""
+    m = pd.Series({p: v for q, v in gdp_saar.items() for p in pd.period_range(q.asfreq("M", "start"), q.asfreq("M", "end"))})
+    m.index = pd.PeriodIndex(m.index, freq="M")
+    return m.reindex(pd.period_range(m.index[0], max(until, m.index[-1]), freq="M")).ffill() * 1000 / 12
+
+
+def parse_net_interest(rows: list[dict]) -> pd.Series:
+    s = pd.Series({pd.Period(r["record_date"][:7], "M"): float(r["current_month_rcpt_outly_amt"]) / 1e6
+                   for r in rows if r.get("current_month_rcpt_outly_amt") not in (None, "null")})
+    s.index = pd.PeriodIndex(s.index, freq="M")
+    return s.sort_index()
+
+
+def us_deficits(balance: pd.Series, gdp_saar: pd.Series, net_interest: pd.Series) -> dict[str, pd.Series]:
+    gdp = monthly_gdp(gdp_saar, balance.index[-1])
+    deficit = rolling_pct(-balance, gdp, 12)
+    common = net_interest.index.intersection(balance.index)
+    primary = rolling_pct(-balance.reindex(common) - net_interest.reindex(common), gdp, 12)
+    return {"DEFICIT": deficit.rename("DEFICIT"), "PRIMARY": primary.rename("PRIMARY")}
+
+
+def us() -> dict[str, pd.Series]:
+    from . import fred
+    rows = get(MTS_TABLE9, params={"filter": "classification_desc:eq:Net Interest", "sort": "record_date",
+                                   "fields": "record_date,current_month_rcpt_outly_amt", "page[size]": 10000}).json()["data"]
+    return us_deficits(fred.series(MTS_DEFICIT, "M"), fred.series("GDP", "Q"), parse_net_interest(rows))
+
+
+# Australia: ABS national accounts (5206.0), general government (all levels), original series,
+# released with GDP about nine weeks after the quarter. Net lending is approximated by net saving
+# less net investment (gross fixed capital formation less depreciation); capital transfers and
+# land purchases are not in these tables.
+ABS_5206 = "https://www.abs.gov.au/statistics/economy/national-accounts/australian-national-accounts-national-income-expenditure-and-product/latest-release"
+ABS_TABLES = {"5206017": ["A2302280A", "A2302109A", "A2302089C", "A2302407X"],   # net saving, interest payable, receivable, depreciation
+              "5206003": ["A2302555A", "A2302467A"]}                            # government GFCF, GDP (current prices)
+
+
+def parse_abs_timeseries(content: bytes) -> dict[str, pd.Series]:
+    """An ABS time-series spreadsheet (sheet Data1, series IDs on row 10) → series by ID."""
+    import io
+    d = pd.read_excel(io.BytesIO(content), sheet_name="Data1", header=None)
+    body = d.iloc[10:]
+    idx = pd.PeriodIndex(pd.to_datetime(body[0]), freq="Q")
+    return {d.iloc[9, j]: pd.Series(pd.to_numeric(body[j], errors="coerce").to_numpy(), index=idx).dropna()
+            for j in range(1, d.shape[1])}
+
+
+def au_deficits(s: dict[str, pd.Series]) -> dict[str, pd.Series]:
+    gdp = s["A2302467A"]
+    deficit = rolling_pct(s["A2302555A"] - s["A2302407X"] - s["A2302280A"], gdp, 4)
+    primary = rolling_pct(s["A2302555A"] - s["A2302407X"] - s["A2302280A"] - s["A2302109A"] + s["A2302089C"], gdp, 4)
+    return {"DEFICIT": deficit.rename("DEFICIT"), "PRIMARY": primary.rename("PRIMARY")}
+
+
+def au() -> dict[str, pd.Series]:
+    import re
+    page = get(ABS_5206).text
+    s: dict[str, pd.Series] = {}
+    for table, ids in ABS_TABLES.items():
+        href = re.search(rf'href="([^"]*/{table}_[^"]*\.xlsx)"', page)
+        if not href:
+            raise ValueError(f"ABS 5206.0 latest release has no table {table}")
+        got = parse_abs_timeseries(get("https://www.abs.gov.au" + href.group(1)).content)
+        s.update({i: got[i] for i in ids})
+    return au_deficits(s)

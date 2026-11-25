@@ -118,7 +118,7 @@ Fifteen scored indicators (the fifteenth, fiscal stance, is in config/uk/indicat
 | PAYE payrolled employees | 3m/3m annualised %, flash month dropped | pre-2020 mean; config σ | + | ONS / HMRC RTI |
 | Real GDP | 3m/3m annualised % | potential growth, 1.0% (config; confirm vs MPR) | + | ONS |
 | Capacity utilisation | Agents' score | 0 | + | BoE Agents' scores (confirm file) |
-| Fiscal stance | cyclically adjusted primary deficit, % of GDP, current fiscal year (OBR forecast) | mean 1993-94–2018-19; σ same sample | + | OBR, via Fiscal Space (UK); IMF Fiscal Monitor, general government, calendar years, means 1993–2019 (AU) and 2001–2019 (US) |
+| Fiscal stance | cyclically adjusted primary deficit, % of GDP, current fiscal year (OBR forecast) | mean 1993-94–2018-19; σ same sample | + | OBR, via Fiscal Space (UK). AU: general government primary deficit, 4-quarter sum, ABS 5206.0, mean 1993–2019. US: federal deficit incl. interest, 12-month sum, Monthly Treasury Statement, mean 1990–2019 |
 
 LFS response rates are poor; payrolls are the cross-check. GDP growth measures the change in the output gap, not its level.
 

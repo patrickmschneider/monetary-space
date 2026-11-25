@@ -64,6 +64,8 @@ def prepare(cfg: Config, data: dict[str, pd.Series], as_of: pd.Timestamp,
         secondary = None
         if (sec := c.get("secondary")) and sec["series"] in data:
             s2 = data[sec["series"]]
+            if not annual and not s2.index.freqstr.startswith("D"):
+                s2 = transform.to_monthly(s2)        # on the same periods as the main line
             secondary = (s2[s2.index.start_time >= start], sec.get("label", ""))
         forecast_from = None
         if c.get("forecast"):

@@ -31,17 +31,16 @@ sources:
   eia:
     name: U.S. Energy Information Administration, via FRED
     attribution: "Source: U.S. Energy Information Administration via FRED, Federal Reserve Bank of St. Louis."
-  imf:
-    name: IMF Fiscal Monitor
-    attribution: "Source: International Monetary Fund, Fiscal Monitor (DataMapper), general government; outturn and IMF forecast."
+  treasury:
+    name: U.S. Department of the Treasury, Monthly Treasury Statement
+    attribution: "Source: U.S. Department of the Treasury, Monthly Treasury Statement (deficit via FRED; net interest from Fiscal Data); BEA nominal GDP via FRED."
 
 series:
   FISCAL:
-    fetcher: imf_fiscal
-    source: imf
-    title: "General government deficit, % of GDP: headline and cyclically adjusted primary (IMF Fiscal Monitor, outturn and forecast)"
-    country: USA
-    freq: A
+    fetcher: us_deficit
+    source: treasury
+    title: "Federal deficit, 12-month sum, % of GDP: headline and primary (excluding net interest, from Feb 2016)"
+    freq: M
   PCE_YY:
     fetcher: fred
     source: bea
@@ -333,22 +332,22 @@ indicators:
     note: Total industry; utilization has trended down since the 1990s, so the 1990–2019 mean may overstate normal (confirm).
 
   - id: fiscal
-    name: Fiscal stance (structural primary deficit)
+    name: Fiscal stance (federal deficit)
     explain: >-
-      Government borrowing (all levels of government) after stripping out the effect of the economic cycle and debt interest, as a share of potential GDP, for the current year (the IMF's latest estimate). A larger structural deficit means government is adding more to spending in the economy, which adds to demand; a smaller one, or a surplus, takes demand out. The headline deficit is not used because it rises automatically in downturns, which would make a weak economy look inflationary.
+      The federal government's deficit over the last 12 months, as a share of GDP, from the monthly Treasury statement. A larger deficit means the government is putting more spending power into the economy than it takes out in taxes, which adds to demand. It is the headline deficit, so it also rises automatically when the economy weakens (lower tax receipts, more support payments), which can make a weak economy look inflationary.
     phrase: fiscal policy
     block: D
     series:
-    - FISCAL:CAPD
+    - FISCAL:DEFICIT
     transform: level
     unit: '% of GDP'
-    freq: A
-    lag_days: -270     # next figure: the IMF's April Fiscal Monitor
-    benchmark: {method: pre2020_mean, since: '2001-01'}
-    sigma: {method: pre2020_sd, since: '2001-01'}
+    freq: M
+    lag_days: 12       # Monthly Treasury Statement: about the 8th business day of the next month
+    benchmark: {method: pre2020_mean, since: '1990-01'}
+    sigma: {method: pre2020_sd, since: '1990-01'}
     sign: 1
-    smoothing: Annual; the current year is the IMF forecast
-    note: "Cyclically adjusted primary deficit (IMF): positive is a deficit. It also moves with IMF estimates of the output gap. The IMF updates it in April and October, so it lags budgets in between. IMF data start in 2001, so the benchmark is the 2001–2019 average."
+    smoothing: 12-month sum
+    note: "Federal only (states mostly run balanced budgets). Headline, including interest: net interest from the Treasury starts only in 2015, too late for a pre-2020 benchmark, so the primary deficit is shown on the chart, not scored. Payment-timing shifts between months can move the 12-month sum by around half a point."
 
   # ------------------------------------------------------------------------
   # S. Supply: is the economy's capacity growing more slowly than normal?

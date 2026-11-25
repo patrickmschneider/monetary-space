@@ -62,15 +62,26 @@ def test_fiscal_outlook_merges_history_and_latest_vintage():
     assert psnb[pd.Period("2027", "Y-MAR")] == 4.2
 
 
-def test_imf_fiscal_flips_balances_to_deficits():
+
+def test_us_deficits_rolling_twelve_months_of_gdp():
     from monetary_space.fetch import fiscal
-    payloads = {
-        "DEFICIT": {"values": {"GGXCNL_G01_GDP_PT": {"USA": {"2025": -7.1, "2026": -8.5}, "AUS": {"2026": -3.2}}}},
-        "CAPD": {"values": {"GGCBP_G01_PGDP_PT": {"USA": {"2025": -4.4, "2026": -4.9}}}},
-    }
-    out = fiscal.parse_imf(payloads, "USA")
-    assert out["CAPD"].index.freqstr.startswith("Y")
-    assert out["CAPD"][pd.Period("2026", "Y")] == 4.9
-    assert out["DEFICIT"].tolist() == [7.1, 8.5]
-    with pytest.raises(ValueError):
-        fiscal.parse_imf(payloads, "AUS")   # no CAPD for Australia in this payload
+    months = pd.period_range("2015-01", "2016-12", freq="M")
+    balance = pd.Series(-100.0, index=months)                       # $100m deficit a month
+    gdp = pd.Series(12.0, index=pd.period_range("2015Q1", "2016Q3", freq="Q"))   # $12bn a year → $1,000m a month
+    interest = pd.Series(25.0, index=pd.period_range("2015-03", "2016-12", freq="M"))
+    out = fiscal.us_deficits(balance, gdp, interest)
+    assert out["DEFICIT"].index[0] == pd.Period("2015-12", "M")
+    assert out["DEFICIT"].iloc[-1] == pytest.approx(10.0)             # latest GDP quarter carried forward
+    assert out["PRIMARY"].index[0] == pd.Period("2016-02", "M")
+    assert out["PRIMARY"].iloc[-1] == pytest.approx(7.5)
+
+
+def test_au_deficits_net_lending_and_primary():
+    from monetary_space.fetch import fiscal
+    q = pd.period_range("2025Q1", "2025Q4", freq="Q")
+    one = lambda v: pd.Series(float(v), index=q)
+    s = {"A2302467A": one(1000), "A2302555A": one(40), "A2302407X": one(20), "A2302280A": one(-10),
+         "A2302109A": one(15), "A2302089C": one(5)}
+    out = fiscal.au_deficits(s)
+    assert out["DEFICIT"].tolist() == [pytest.approx(3.0)]          # (40 − 20 + 10) / 1000
+    assert out["PRIMARY"].tolist() == [pytest.approx(2.0)]          # less net interest of 10

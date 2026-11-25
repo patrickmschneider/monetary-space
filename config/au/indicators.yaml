@@ -34,17 +34,13 @@ sources:
   oecd_fred:
     name: OECD, via FRED
     attribution: "Source: OECD Main Economic Indicators via FRED, Federal Reserve Bank of St. Louis."
-  imf:
-    name: IMF Fiscal Monitor
-    attribution: "Source: International Monetary Fund, Fiscal Monitor (DataMapper), general government; outturn and IMF forecast."
 
 series:
   FISCAL:
-    fetcher: imf_fiscal
-    source: imf
-    title: "General government deficit, % of GDP: headline and cyclically adjusted primary (IMF Fiscal Monitor, outturn and forecast)"
-    country: AUS
-    freq: A
+    fetcher: au_deficit
+    source: abs
+    title: "General government deficit, 4-quarter sum, % of GDP: headline and primary (excluding net interest), from the national accounts (5206.0 tables 3 and 17)"
+    freq: Q
   AU_CPI_YY:
     fetcher: rba_headline_cpi
     source: rba_abs
@@ -383,22 +379,22 @@ indicators:
     note: Net balance of firms; starts 1997.
 
   - id: fiscal
-    name: Fiscal stance (structural primary deficit)
+    name: Fiscal stance (primary deficit)
     explain: >-
-      Government borrowing (all levels of government) after stripping out the effect of the economic cycle and debt interest, as a share of potential GDP, for the current year (the IMF's latest estimate). A larger structural deficit means government is adding more to spending in the economy, which adds to demand; a smaller one, or a surplus, takes demand out. The headline deficit is not used because it rises automatically in downturns, which would make a weak economy look inflationary.
+      The deficit of all levels of government (Commonwealth, states and local) over the last four quarters, excluding interest, as a share of GDP. A larger deficit means government is putting more spending power into the economy than it takes out in taxes, which adds to demand. It is not adjusted for the economic cycle, so it also rises automatically when the economy weakens, which can make a weak economy look inflationary.
     phrase: fiscal policy
     block: D
     series:
-    - FISCAL:CAPD
+    - FISCAL:PRIMARY
     transform: level
     unit: '% of GDP'
-    freq: A
-    lag_days: -270     # next figure: the IMF's April Fiscal Monitor
+    freq: Q
+    lag_days: 65       # released with GDP
     benchmark: {method: pre2020_mean, since: '1993-01'}
     sigma: {method: pre2020_sd, since: '1993-01'}
     sign: 1
-    smoothing: Annual; the current year is the IMF forecast
-    note: "Cyclically adjusted primary deficit (IMF): positive is a deficit. It also moves with IMF estimates of the output gap. The IMF updates it in April and October, so it lags budgets in between. IMF years for Australia may be July–June fiscal years (confirm)."
+    smoothing: 4-quarter sum
+    note: "From the national accounts: net saving less net investment, excluding interest paid and received. Capital transfers are not in these tables, so this approximates net lending. The Commonwealth's monthly statements are more timely but cover only the Commonwealth."
 
   # ------------------------------------------------------------------------
   # S. Supply: is the economy's capacity growing more slowly than normal?
